@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import http from 'node:http';
 import { createApp } from '../server.js';
 import { hashPassword } from '../lib/auth.js';
 
@@ -209,6 +210,70 @@ test('login is rate limited after 5 failures per IP', async () => {
     }
     const res = await call(other, 'POST', '/api/login', { body: { password: PASSWORD } });
     assert.equal(res.status, 429);
+  } finally {
+    app.close();
+  }
+});
+
+// fetch cannot set Host, so this goes through node:http.
+function rawLogin(base, headers, password) {
+  const { port } = new URL(base);
+  const body = JSON.stringify({ password });
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port, path: '/api/login', method: 'POST', headers: { 'content-type': 'application/json', ...headers } }, (res) => {
+      res.resume();
+      res.on('end', () => resolve(res));
+    });
+    req.on('error', reject);
+    req.end(body);
+  });
+}
+
+test('origin check passes when Origin matches the Host sent by the proxy', async () => {
+  const ok = await rawLogin(base, { host: 'masellas.info', origin: 'https://masellas.info' }, 'wrong');
+  assert.equal(ok.statusCode, 401, 'reaches the password check');
+  const bad = await rawLogin(base, { host: 'masellas.info', origin: 'https://evil.example.com' }, 'wrong');
+  assert.equal(bad.statusCode, 403);
+});
+
+test('COOKIE_PATH scopes the session cookie', async () => {
+  const { app, base: other } = await boot({ cookiePath: '/admin/' });
+  try {
+    const login = await call(other, 'POST', '/api/login', { body: { password: PASSWORD } });
+    assert.match(login.headers.get('set-cookie'), /Path=\/admin\/(;|$)/);
+    const logout = await call(other, 'POST', '/api/logout');
+    assert.match(logout.headers.get('set-cookie'), /Path=\/admin\/(;|$)/);
+  } finally {
+    app.close();
+  }
+});
+
+const failLogins = async (target, headers, times = 5) => {
+  for (let i = 0; i < times; i += 1) {
+    assert.equal((await call(target, 'POST', '/api/login', { body: { password: 'bad' }, headers })).status, 401);
+  }
+};
+
+test('TRUST_PROXY=true rate-limits per X-Real-IP / first X-Forwarded-For entry', async () => {
+  const { app, base: other } = await boot({ trustProxy: true });
+  try {
+    await failLogins(other, { 'x-real-ip': '203.0.113.1' });
+    assert.equal((await call(other, 'POST', '/api/login', { body: { password: PASSWORD }, headers: { 'x-real-ip': '203.0.113.1' } })).status, 429, 'attacker blocked');
+    assert.equal((await call(other, 'POST', '/api/login', { body: { password: PASSWORD }, headers: { 'x-real-ip': '203.0.113.2' } })).status, 200, 'other client unaffected');
+
+    await failLogins(other, { 'x-forwarded-for': '198.51.100.7, 10.0.0.1' });
+    assert.equal((await call(other, 'POST', '/api/login', { body: { password: PASSWORD }, headers: { 'x-forwarded-for': '198.51.100.7' } })).status, 429, 'falls back to X-Forwarded-For');
+  } finally {
+    app.close();
+  }
+});
+
+test('TRUST_PROXY=false ignores forwarding headers (they are spoofable)', async () => {
+  const { app, base: other } = await boot({ trustProxy: false });
+  try {
+    for (let i = 0; i < 5; i += 1) await failLogins(other, { 'x-real-ip': `203.0.113.${i}` }, 1);
+    const res = await call(other, 'POST', '/api/login', { body: { password: PASSWORD }, headers: { 'x-real-ip': '203.0.113.99' } });
+    assert.equal(res.status, 429, 'rotating X-Real-IP does not escape the limit');
   } finally {
     app.close();
   }

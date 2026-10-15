@@ -105,10 +105,12 @@ async function serveStatic(res, pathname) {
   return res.end('not found');
 }
 
-export function createApp({ dataFile, publicFile, passwordHash, sessionSecret, cookieSecure, publicUrl, log = console.log }) {
+export function createApp({
+  dataFile, publicFile, passwordHash, sessionSecret, cookieSecure, publicUrl, cookiePath = '/', trustProxy = false, log = console.log,
+}) {
   const store = createStore(dataFile);
   const limiter = createRateLimiter({ max: 5, windowMs: 15 * 60 * 1000 });
-  const cookieAttrs = `HttpOnly; SameSite=Strict; Path=/${cookieSecure ? '; Secure' : ''}`;
+  const cookieAttrs = `HttpOnly; SameSite=Strict; Path=${cookiePath}${cookieSecure ? '; Secure' : ''}`;
   let publishQueue = Promise.resolve();
 
   // Public writes run one at a time, in mutation order, so an older list can never land last.
@@ -140,6 +142,15 @@ export function createApp({ dataFile, publicFile, passwordHash, sessionSecret, c
     sendJson(res, status, { projects: data.projects, version });
   }
 
+  // Behind the proxy every socket is 127.0.0.1; only then trust its headers (otherwise they are spoofable).
+  function clientIp(req) {
+    if (trustProxy) {
+      const forwarded = req.headers['x-real-ip'] || (req.headers['x-forwarded-for'] || '').split(',')[0];
+      if (forwarded && forwarded.trim()) return forwarded.trim();
+    }
+    return req.socket.remoteAddress;
+  }
+
   const findIndex = (projects, id) => {
     const index = projects.findIndex((p) => p.id === id);
     if (index === -1) throw new HttpError(404, { error: 'project not found' });
@@ -152,7 +163,7 @@ export function createApp({ dataFile, publicFile, passwordHash, sessionSecret, c
     const body = method === 'GET' ? null : (checkCsrf(req), await readJson(req));
 
     if (method === 'POST' && pathname === '/api/login') {
-      const ip = req.socket.remoteAddress;
+      const ip = clientIp(req);
       if (limiter.isBlocked(ip)) throw new HttpError(429, { error: 'too many attempts, try again later' });
       // Always run scrypt so a wrong password costs the same as a right one.
       const ok = verifyPassword(typeof body.password === 'string' ? body.password : '', passwordHash);

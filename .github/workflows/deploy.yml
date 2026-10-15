@@ -1,0 +1,109 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Commit, tag or branch to deploy (empty = the selected branch). Use for rollbacks.'
+        required: false
+        default: ''
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  SITE_DIR: /home/rogermasellas/htdocs/masellas.info/
+  APP_DIR: /home/rogermasellas/masellas-admin/app/
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Admin tests
+        working-directory: admin
+        run: npm test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Configure SSH (pinned host key)
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host deploy-target
+            HostName $DEPLOY_HOST
+            User $DEPLOY_USER
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            UserKnownHostsFile ~/.ssh/known_hosts
+            BatchMode yes
+          EOF
+          chmod 600 ~/.ssh/config
+
+      - name: Sync site (no perms, no delete)
+        run: |
+          rsync -rltz \
+            --exclude='.git/' --exclude='.github/' --exclude='.gitignore' --exclude='.claude/' \
+            --exclude='/admin/' --exclude='/scripts/' --exclude='.playwright-mcp/' --exclude='.DS_Store' \
+            --exclude='/projects/data/projects.json' --exclude='*.md' \
+            ./ "deploy-target:$SITE_DIR"
+
+      - name: Seed public projects.json (first deploy only)
+        run: |
+          rsync -rltz --ignore-existing projects/data/projects.json \
+            "deploy-target:${SITE_DIR}projects/data/projects.json"
+
+      - name: Sync admin app (.env and data protected)
+        run: |
+          rsync -rltz --delete \
+            --filter='P /.env' --filter='P /data/' \
+            --exclude='/.env' --exclude='/data/' --exclude='/test/' --exclude='node_modules/' --exclude='.DS_Store' \
+            admin/ "deploy-target:$APP_DIR"
+
+      - name: Restart admin (pm2)
+        run: |
+          ssh deploy-target 'bash -s' <<'EOF'
+          set -euo pipefail
+          mkdir -p ~/masellas-admin/data
+          cd ~/masellas-admin/app
+          if [ ! -f .env ]; then
+            echo "::error::~/masellas-admin/app/.env is missing. Run the one-time setup in DEPLOY.md."
+            exit 1
+          fi
+          pm2 startOrReload ecosystem.config.cjs --update-env
+          pm2 save
+          EOF
+
+      - name: Smoke check
+        run: |
+          curl -fsS --retry 5 --retry-delay 2 --retry-all-errors https://masellas.info/projects/data/projects.json > /dev/null
+          code=$(curl -sS --retry 5 --retry-delay 2 --retry-all-errors -o /dev/null -w '%{http_code}' https://masellas.info/admin/)
+          echo "admin: HTTP $code"
+          test "$code" = 200

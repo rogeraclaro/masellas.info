@@ -22,6 +22,8 @@ export function loadConfig(env) {
   if (!/^[0-9a-f]{64,}$/i.test(env.SESSION_SECRET)) {
     throw new Error('SESSION_SECRET must be at least 32 random bytes as hex (64+ hex chars)');
   }
+  const cookiePath = env.COOKIE_PATH || '/';
+  if (!/^\/[A-Za-z0-9/_-]*$/.test(cookiePath)) throw new Error('COOKIE_PATH must be a plain path starting with /');
   return {
     port: Number(env.PORT || 8787),
     host: env.HOST || '127.0.0.1',
@@ -30,6 +32,8 @@ export function loadConfig(env) {
     passwordHash: env.ADMIN_PASSWORD_HASH,
     sessionSecret: env.SESSION_SECRET,
     cookieSecure: env.COOKIE_SECURE !== 'false',
+    cookiePath,
+    trustProxy: env.TRUST_PROXY === 'true',
     publicUrl: env.PUBLIC_URL || 'https://masellas.info/projects/',
   };
 }

@@ -20,6 +20,8 @@ test('loadConfig applies defaults', () => {
   assert.equal(config.host, '127.0.0.1');
   assert.equal(config.cookieSecure, true);
   assert.equal(config.publicUrl, 'https://masellas.info/projects/');
+  assert.equal(config.cookiePath, '/');
+  assert.equal(config.trustProxy, false);
 });
 
 test('loadConfig reads overrides', () => {
@@ -27,6 +29,15 @@ test('loadConfig reads overrides', () => {
   assert.equal(config.port, 9000);
   assert.equal(config.cookieSecure, false);
   assert.equal(config.publicUrl, 'http://localhost:8765/projects/');
+});
+
+test('loadConfig reads COOKIE_PATH and TRUST_PROXY', () => {
+  const config = loadConfig({ ...good, COOKIE_PATH: '/admin/', TRUST_PROXY: 'true' });
+  assert.equal(config.cookiePath, '/admin/');
+  assert.equal(config.trustProxy, true);
+  assert.equal(loadConfig({ ...good, TRUST_PROXY: 'yes' }).trustProxy, false, 'only the literal true enables it');
+  assert.throws(() => loadConfig({ ...good, COOKIE_PATH: 'admin' }), /COOKIE_PATH/);
+  assert.throws(() => loadConfig({ ...good, COOKIE_PATH: '/admin/; Domain=evil' }), /COOKIE_PATH/);
 });
 
 test('loadConfig fails fast listing every missing variable', () => {

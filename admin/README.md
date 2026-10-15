@@ -14,13 +14,16 @@ Node 22, zero npm dependencies.
 ```sh
 cd admin
 cp .env.example .env
-npm run hash-password          # paste the output into ADMIN_PASSWORD_HASH
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"   # SESSION_SECRET
+node hash-password.js --env .env   # asks twice; writes ADMIN_PASSWORD_HASH (+ SESSION_SECRET if missing), mode 0600
 # edit .env: DATA_FILE, PUBLIC_FILE, and COOKIE_SECURE=false if you use plain http locally
 npm start
 ```
 
-Open `http://127.0.0.1:8787/`.
+Open `http://127.0.0.1:8787/`. In production it runs under pm2 behind nginx at `https://masellas.info/admin/`; see `../DEPLOY.md`.
+
+The UI uses relative URLs only (`api/...`, `admin.css`), so it works at `/` and under a stripped prefix like `/admin/`. Fonts load from `/tipos/` (the main site in production, the admin's own `/tipos/` route locally).
+
+`npm run hash-password` without `--env` just prints a hash.
 
 For local work, put `DATA_FILE` in `admin/data/` (gitignored) and point `PUBLIC_FILE` at a scratch copy outside the repo, so the committed `projects/data/projects.json` never changes.
 
@@ -42,6 +45,8 @@ Environment variables only. `admin/.env` is read at boot if it exists; real envi
 | `HOST` | no | `127.0.0.1` | |
 | `COOKIE_SECURE` | no | `true` | `false` only for local http |
 | `PUBLIC_URL` | no | `https://masellas.info/projects/` | target of the "view site" link |
+| `COOKIE_PATH` | no | `/` | session cookie path; `/admin/` in production |
+| `TRUST_PROXY` | no | `false` | `true` only behind nginx: the login rate limit then keys on `X-Real-IP` (fallback: first `X-Forwarded-For` entry). When `false` those headers are ignored, because clients can forge them |
 
 ## Test
 
@@ -58,6 +63,8 @@ Uses `node:test`. Covers validation, slugs, reorder checks, the file store (atom
 - `lib/auth.js` — scrypt password check, HMAC-signed 12 h session cookie, in-memory login rate limit (5 failures per IP per 15 min).
 - `lib/publish.js` — public projection (`toPublic`), atomic public write (no backup), boot sync and migration.
 - `lib/validation.js` — field rules, slug ids, reorder permutation check.
+- `lib/envfile.js` — the `.env` update behind `hash-password --env`.
+- `ecosystem.config.cjs` — pm2 process file (`masellas-admin`, one instance).
 
 API (JSON, all under `/api`, session required except login, logout and session):
 

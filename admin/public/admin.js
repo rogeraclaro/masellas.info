@@ -35,7 +35,7 @@
     if (method !== 'GET' && version) headers['If-Match'] = version;
     const res = await fetch(path, { method, headers, credentials: 'same-origin', body: body === undefined ? undefined : JSON.stringify(body) });
     const data = await res.json().catch(() => ({}));
-    if (res.status === 401 && path !== '/api/login') {
+    if (res.status === 401 && path !== 'api/login') {
       showLogin();
       throw new ApiError(401, data);
     }
@@ -55,7 +55,7 @@
   }
 
   async function showApp() {
-    const [config] = await Promise.all([api('GET', '/api/config'), loadProjects()]);
+    const [config] = await Promise.all([api('GET', 'api/config'), loadProjects()]);
     $('view-site').href = config.publicUrl;
     loginView.hidden = true;
     appView.hidden = false;
@@ -69,7 +69,7 @@
   }
 
   async function loadProjects() {
-    const data = await api('GET', '/api/projects');
+    const data = await api('GET', 'api/projects');
     projects = data.projects;
     render();
   }
@@ -147,7 +147,7 @@
       (btn && !btn.disabled ? btn : rowButton(focus.id, focus.action === 'up' ? 'down' : 'up'))?.focus();
     }
     try {
-      await api('PUT', '/api/order', { ids: next.map((p) => p.id) });
+      await api('PUT', 'api/order', { ids: next.map((p) => p.id) });
       setStatus('saved');
     } catch (err) {
       await handleError(err);
@@ -186,7 +186,7 @@
       btn.setAttribute('aria-label', btn.getAttribute('aria-label').replace(/^delete/, 'confirm delete'));
     } else if (action === 'delete') {
       try {
-        const data = await api('DELETE', `/api/projects/${encodeURIComponent(id)}`);
+        const data = await api('DELETE', `api/projects/${encodeURIComponent(id)}`);
         projects = data.projects;
         render();
         $('new-project').focus();
@@ -310,8 +310,8 @@
     const wasEditing = editingId;
     try {
       const data = wasEditing
-        ? await api('PUT', `/api/projects/${encodeURIComponent(wasEditing)}`, collect())
-        : await api('POST', '/api/projects', collect());
+        ? await api('PUT', `api/projects/${encodeURIComponent(wasEditing)}`, collect())
+        : await api('POST', 'api/projects', collect());
       projects = data.projects;
       render();
       closeForm(wasEditing ? rowButton(wasEditing, 'edit') : $('new-project'));
@@ -338,7 +338,7 @@
   $('login-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     try {
-      await api('POST', '/api/login', { password: $('password').value });
+      await api('POST', 'api/login', { password: $('password').value });
       await showApp();
     } catch (err) {
       const messages = { 401: 'wrong password.', 429: 'too many attempts. wait 15 minutes and try again.' };
@@ -347,12 +347,12 @@
   });
 
   $('logout').addEventListener('click', async () => {
-    await api('POST', '/api/logout').catch(() => {});
+    await api('POST', 'api/logout').catch(() => {});
     version = null;
     showLogin();
   });
 
-  api('GET', '/api/session')
+  api('GET', 'api/session')
     .then(({ loggedIn }) => (loggedIn ? showApp() : showLogin()))
     .catch((err) => {
       if (err.status !== 401) showLogin('could not reach the server. try again.');

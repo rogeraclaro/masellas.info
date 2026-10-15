@@ -55,6 +55,15 @@ jobs:
             npx --yes esbuild@0.24.0 --minify --log-level=warning "$f" --outfile="${f%.*}.min.${f##*.}"
           done
 
+      # nginx caches css/js for 10 years, so version the URLs by content hash.
+      - name: Cache-bust asset URLs
+        run: |
+          for rel in css/projects.min.css js/projects.min.js; do
+            hash=$(sha256sum "projects/$rel" | cut -c1-10)
+            sed -i "s#\"$rel\"#\"$rel?v=$hash\"#" projects/index.html
+            grep -q "$rel?v=$hash" projects/index.html || { echo "::error::failed to version $rel"; exit 1; }
+          done
+
       - name: Configure SSH (pinned host key)
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}

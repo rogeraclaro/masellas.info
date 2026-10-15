@@ -45,7 +45,7 @@
   --gutter: clamp(16px, 2.8vw, 40px);
   --col-gap: clamp(12px, 1.4vw, 20px);
   --fs-display: 13.5vw;
-  --fs-row: 4rem;
+  --fs-row: clamp(2.25rem, 9vw, 4rem); /* 4rem from ~711px up */
   --fs-meta: clamp(1rem, 1.25vw, 1.125rem);
   --fs-bar: clamp(1.125rem, 1.6vw, 1.5rem);
 }

@@ -3,7 +3,11 @@ module.exports = {
   apps: [
     {
       name: 'masellas-admin',
-      script: 'server.js',
+      // Run node as a plain binary: pm2's in-process container silently hangs on
+      // this ESM entry point (verified on the VPS with pm2 6.0.14 / Node 22).
+      script: '/usr/bin/node',
+      args: 'server.js',
+      interpreter: 'none',
       cwd: __dirname,
       env: { NODE_ENV: 'production' },
       instances: 1, // in-memory rate limiter and write queue assume a single process

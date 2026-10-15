@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<title>Roger Masellas, Frontend Developer</title>
+	<meta name="mobile-web-app-capable" content="yes">
+	<meta name="author" content="Roger Masellas" />
+	<link rel="stylesheet" type="text/css" href="css/fullpage.css" />
+	<link rel="stylesheet" type="text/css" href="css/styles.css" />
+	<link rel="apple-touch-icon" sizes="152x152" href="/icons/ipad.png">
+	<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+	<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
+	<link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png">
+	<link rel="manifest" href="/icons/site.webmanifest">
+	<link rel="mask-icon" href="/icons/safari-pinned-tab.svg" color="#5bbad5">
+	<link rel="shortcut icon" href="/icons/favicon.ico">
+	<meta name="msapplication-TileColor" content="#f4624e">
+	<meta name="msapplication-config" content="/icons/browserconfig.xml">
+	<meta name="theme-color" content="#f4624e">
+	<meta property="og:image:width" content="1553">
+	<meta property="og:image:height" content="813">
+	<meta property="og:description" content="Roger Masellas resum&eacute; site">
+	<meta property="og:title" content="Roger Masellas, Desarrollador Frontend">
+	<meta property="og:url" content="https://masellas.info">
+	<meta property="og:image" content="https://masellas.info/img/og-image.jpg">
+	<!--[if IE]>
+		<script type="text/javascript">
+			 var console = { log: function() {} };
+		</script>
+	<![endif]-->
+	<script defer src="https://analytics.masellas.info/script.js" data-website-id="05086748-1298-4643-9b45-844e1f8d2c82"></script>
+</head>
+<body>
+
+<ul id="menu">
+	<li data-menuanchor="firstPage" class="active"><a href="#firstPage">the point</a></li>
+	<li data-menuanchor="secondPage"><a href="#secondPage">some words</a></li>
+</ul>
+
+<div id="fullpage">
+	<div class="section " id="section0">
+		<h1>Roger Masellas</h1>
+		<!--<p>This is a work in progress site, in the meantime, here you have some basic info about me:</p>-->
+		<p>My PDF resumé: <a href="pdf/cv-Roger_Masellas_eng.pdf" target="_blank">EN</a> / <a href="pdf/cv-Roger_Masellas_cat.pdf" target="_blank" style="text-decoration: line-through;">CA</a> / <a href="pdf/cv-Roger_Masellas_esp.pdf" target="_blank" style="text-decoration: line-through;">ES</a> (most updated cv in english)</p>
+		<p>My LinkedIn profile: <a href="https://www.linkedin.com/in/roger-masellas/" target="_blank">here</a></p>
+	</div>
+	<div class="section" id="section1">
+		<div class="intro">
+			<p>Founding member of multimedia design studio <a href="https://www.lamosca.com" target="_blank">Lamosca sccl</a>.</p>
+<p>During my years at Lamosca I First directed our multimedia section and then internet section. I
+worked mainly in web development and multimedia applications in various formats, and in organizational and team coordination tasks.</p>
+<p>In recent years, I have combined this main line of work with teaching at several universities.</p>
+<p>I also built and participated in projects (and debates) for many clients, of all sizes and in almost all
+possible formats.</p>
+<p>The above has allowed me to maintain a permanent state of training and learning around IT,
+particularly in Frontend development.</p>
+<p class="nopadding"><a href="mailto:roger@lamosca.com">roger at lamosca.com</a></p>
+		</div>
+	</div>
+</div>
+<script type="text/javascript" src="js/fullpage.js"></script>
+<script type="text/javascript">
+    var myFullpage = new fullpage('#fullpage', {
+			licenseKey: 'OPEN-SOURCE-GPLV3-LICENSE',
+      anchors: ['firstPage', 'secondPage', '3rdPage', '4thpage', 'lastPage'],
+      menu: '#menu',
+      continuousVertical: true,
+/*      afterLoad: function(anchorLink, index){
+            console.log("AFTER LOAD - anchorLink:" +anchorLink + " index:" +index );
+        },
+        onLeave: function(index, nextIndex, direction){
+            console.log("ONLEAVE - index:" +index + " nextIndex:" +nextIndex  + " direction:" + direction);
+
+        },
+*/
+    });
+</script>
+</body>
+</html>

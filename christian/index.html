@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ca">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Torre de la Fullola — Oli d'oliva verge extra BIO</title>
+  <meta name="description"
+    content="Oli d'oliva verge extra ecològic, collit i premsat a mà a la Serra de Cardó (Tortosa).">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+  <svg class="defs" aria-hidden="true">
+    <defs>
+      <pattern id="stripes-cream" width="7" height="7" patternUnits="userSpaceOnUse">
+        <rect width="7" height="7" fill="none" />
+        <line x1="0" y1="0" x2="0" y2="7" stroke="#efe7d2" stroke-width="3.4" />
+      </pattern>
+    </defs>
+  </svg>
+
+  <header class="site-nav">
+    <span class="site-nav__brand">Torre de la Fullola</span>
+    <nav class="site-nav__links">
+      <a href="#story" data-i18n="nav.story">Història</a>
+      <a href="#product" data-i18n="nav.product">El producte</a>
+      <a href="#contact" data-i18n="nav.contact">Contacte</a>
+    </nav>
+    <div class="lang-switch" role="group" aria-label="Language">
+      <button type="button" data-lang="ca">CA</button>
+      <button type="button" data-lang="de">DE</button>
+    </div>
+  </header>
+
+  <div class="hero__rule"></div>
+
+  <main>
+    <section id="hero" class="hero">
+      <h1 class="hero__title">
+        <!-- <svg viewBox="0 0 1000 640" aria-hidden="true">
+          <text x="0" y="220" font-family="Anton" font-size="220" fill="currentColor">TORRE</text>
+          <text x="0" y="420" font-family="Anton" font-size="220" fill="currentColor">DE LA</text>
+          <text x="0" y="620" font-family="Anton" font-size="220" class="stripe">FULLOLA</text>
+        </svg> -->
+        <svg viewBox="0 0 1000 460" aria-hidden="true">
+          <text x="0" y="220" font-family="Anton" font-size="220" fill="currentColor">TORRE</text>
+          <text x="0" y="420" font-family="Anton" font-size="188" fill="currentColor">DE LA </text>
+          <text x="400" y="420" font-family="Anton" font-size="188" class="stripe">FULLOLA</text>
+        </svg>
+        <span class="sr-only">Torre de la Fullola</span>
+      </h1>
+      <div class="hero__foot">
+        <p class="hero__sub" data-i18n="hero.subtitle">Oli d'oliva verge extra ecològic, de la Serra de Cardó</p>
+        <img class="hero__seal" src="img/segell3.png" alt="Segell Torre de la Fullola" width="120" height="120">
+      </div>
+    </section>
+    <section id="story" class="story">
+      <h2 data-i18n="story.heading">La<br>història</h2>
+      <div>
+        <p data-i18n="story.paragraph1">Som una petita explotació familiar d’oliveres centenàries, ubicades en un
+          terreny calcari i rocós de gran pendent i orientació sud, a la falda de la Serra de Cardó (El Boix).</p>
+        <p data-i18n="story.paragraph2">Aquest petit bocí de terra es cultiva de manera tradicional i ecològica.</p>
+        <p data-i18n="story.paragraph3">Les olives es recol·lecten directament de l’arbre mitjançant tècniques manuals i
+          es premsen per procediments mecànics en fred.</p>
+      </div>
+    </section>
+
+    <section id="product" class="product">
+      <div>
+        <h2 class="product__title" data-i18n="product.heading">El producte</h2>
+        <p class="product__desc" data-i18n="product.description">El resultat és un oli d’aroma suau i equilibrat, de
+          gust afruitat i molt baixa acidesa.</p>
+        <div class="rows">
+          <div><span data-i18n="product.varietiesLabel">Varietats</span><strong data-i18n="product.varieties">Morrut ·
+              Sevillenca · Farga</strong></div>
+          <div><span data-i18n="product.categoryLabel">Categoria</span><strong data-i18n="product.badgeVergeExtra">Verge
+              Extra</strong></div>
+          <div><span data-i18n="product.harvestLabel">Collita</span><strong data-i18n="product.harvestValue">A mà,
+              premsat en fred</strong></div>
+        </div>
+        <div class="badges">
+          <span data-i18n="product.badgeBio">BIO</span>
+          <span data-i18n="product.badgeCcpae">CCPAE</span>
+          <span data-i18n="product.badgeUe">Agricultura UE</span>
+        </div>
+      </div>
+      <div></div>
+      <img class="wordmark" src="img/etiqueta.png" alt="Oli d'oliva BIO">
+    </section>
+
+    <section id="contact" class="contact">
+      <div>
+        <h2 data-i18n="contact.heading">Contacte</h2>
+        <p class="contact__intro" data-i18n="contact.intro">Vols saber-ne més o fer una comanda? Escriu-nos.</p>
+        <p class="contact__info">
+          <span data-i18n="contact.phoneLabel">Telèfon</span> — <strong>607 043 372</strong><br>
+          <span data-i18n="contact.domainLabel">Web</span> — <strong>torredelafullola.com</strong>
+        </p>
+        <span class="contact__badge">Torre de la Fullola S.C.P. · Tortosa</span>
+        <div class="certs">
+          <span class="certs__label">Certificacions</span>
+          <img src="img/certificacions.png" alt="Segells CCPAE, agricultura ecològica UE i punts de reciclatge">
+        </div>
+      </div>
+
+      <form class="contact__form" action="https://formspree.io/f/mrennwge" method="POST">
+        <div class="field">
+          <label for="name" data-i18n="contact.formName">Nom</label>
+          <input type="text" id="name" name="name" required>
+        </div>
+        <div class="field">
+          <label for="email" data-i18n="contact.formEmail">Correu electrònic</label>
+          <input type="email" id="email" name="email" required>
+        </div>
+        <div class="field">
+          <label for="message" data-i18n="contact.formMessage">Missatge</label>
+          <textarea id="message" name="message" rows="4" required></textarea>
+        </div>
+        <button class="submit" type="submit" data-i18n="contact.formSubmit">Enviar</button>
+      </form>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p data-i18n="footer.rights">Torre de la Fullola S.C.P. (Tortosa). Tots els drets reservats.</p>
+    <img src="img/segell3.png" alt="Torre de la Fullola" width="32" height="32">
+  </footer>
+
+  <script src="js/i18n-core.js"></script>
+  <script src="js/i18n-strings.js"></script>
+  <script src="js/main.js"></script>
+</body>
+
+</html>

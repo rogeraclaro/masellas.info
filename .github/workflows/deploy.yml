@@ -71,7 +71,8 @@ jobs:
         run: |
           # --checksum: CI checkouts have fresh mtimes, so compare content instead;
           # identical files (e.g. the root-owned christian/) are left alone.
-          rsync -rltz --checksum --omit-dir-times \
+          # No -t either: setting mtimes on files we don't own fails.
+          rsync -rlz --checksum \
             --exclude='.git/' --exclude='.github/' --exclude='.gitignore' --exclude='.claude/' \
             --exclude='/admin/' --exclude='/scripts/' --exclude='.playwright-mcp/' --exclude='.DS_Store' \
             --exclude='/projects/data/projects.json' --exclude='*.md' \

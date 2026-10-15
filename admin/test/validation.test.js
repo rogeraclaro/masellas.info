@@ -16,7 +16,17 @@ test('accepts a valid project and trims the title', () => {
   const { value, errors } = validateProject(valid());
   assert.deepEqual(errors, {});
   assert.equal(value.title, 'Ledger');
-  assert.equal(value.year, 2026);
+  assert.equal(value.year, '2026');
+});
+
+test('year is free text, trimmed', () => {
+  const { value, errors } = validateProject({ ...valid(), year: '  (orig. 2015) 2026 ' });
+  assert.deepEqual(errors, {});
+  assert.equal(value.year, '(orig. 2015) 2026');
+});
+
+test('a whole-number year (older data) is stored as text', () => {
+  assert.equal(validateProject({ ...valid(), year: 2015 }).value.year, '2015');
 });
 
 test('applies defaults for optional fields on create', () => {
@@ -44,10 +54,11 @@ const invalidCases = [
   ['title', 42],
   ['category', ''],
   ['category', 'x'.repeat(31)],
-  ['year', 1999],
-  ['year', 2101],
+  ['year', ''],
+  ['year', '   '],
+  ['year', 'x'.repeat(31)],
   ['year', 2025.5],
-  ['year', '2025'],
+  ['year', null],
   ['description', 'x'.repeat(201)],
   ['description', 5],
   ['url', 'not a url'],
@@ -87,7 +98,7 @@ test('partial mode validates only the given fields', () => {
   const { value, errors } = validateProject({ visible: false }, { partial: true });
   assert.deepEqual(errors, {});
   assert.deepEqual(value, { visible: false });
-  assert.ok(validateProject({ year: 1 }, { partial: true }).errors.year);
+  assert.ok(validateProject({ year: '' }, { partial: true }).errors.year);
 });
 
 test('slugify makes a URL-safe slug', () => {

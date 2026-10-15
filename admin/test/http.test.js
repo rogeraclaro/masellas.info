@@ -131,7 +131,7 @@ test('CRUD round-trip with versions', async () => {
   assert.equal(json.projects[0].id, 'ledger-2', 'id is stable on edit');
   version = json.version;
 
-  res = await call(base, 'PUT', '/api/projects/ledger-2', { cookie, version, body: { year: 1900 } });
+  res = await call(base, 'PUT', '/api/projects/ledger-2', { cookie, version, body: { year: '' } });
   assert.equal(res.status, 400);
   assert.ok((await res.json()).errors.year);
 

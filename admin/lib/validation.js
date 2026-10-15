@@ -27,9 +27,8 @@ const CHECKS = {
   title: (v) => text(v, { min: 1, max: 80, label: 'title' }),
   category: (v) => text(v, { min: 1, max: 30, label: 'category', lower: true }),
   description: (v) => text(v, { min: 0, max: 200, label: 'description' }),
-  year: (v) => (Number.isInteger(v) && v >= 2000 && v <= 2100
-    ? { value: v }
-    : { error: 'year must be a whole number between 2000 and 2100' }),
+  // Free text, e.g. "(orig. 2015) 2026". Whole numbers from older data become text.
+  year: (v) => text(Number.isInteger(v) ? String(v) : v, { min: 1, max: 30, label: 'year' }),
   url: (v) => (isHttpUrl(v) ? { value: v.trim() } : { error: 'url must start with http:// or https://' }),
   visible: (v) => (typeof v === 'boolean' ? { value: v } : { error: 'visible must be true or false' }),
   thumbs: (v) => {

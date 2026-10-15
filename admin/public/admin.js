@@ -263,7 +263,7 @@
     clearErrors();
     $('editor-title').textContent = project ? `edit ${project.title}` : 'new project';
     for (const name of fields) $(`f-${name}`).value = project ? project[name] ?? '' : '';
-    if (!project) $('f-year').value = new Date().getFullYear();
+    if (!project) $('f-year').value = String(new Date().getFullYear());
     $('f-visible').checked = project ? project.visible !== false : true;
     thumbInputs.forEach((input, i) => { input.value = project?.thumbs?.[i] ?? ''; });
     updateCount();
@@ -282,7 +282,7 @@
     return {
       title: $('f-title').value,
       category: $('f-category').value,
-      year: year === '' ? undefined : Number(year),
+      year,
       description: $('f-description').value,
       url: $('f-url').value.trim(),
       visible: $('f-visible').checked,

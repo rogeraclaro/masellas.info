@@ -35,7 +35,7 @@ test('update writes pretty JSON with trailing newline and keeps a .bak of the pr
   assert.equal(result.data.projects.length, 2);
   assert.notEqual(result.version, version);
   assert.equal(await readFile(`${file}.bak`, 'utf8'), before);
-  const leftovers = (await readdir(dir)).filter((name) => name.endsWith('.tmp'));
+  const leftovers = (await readdir(dir)).filter((name) => name.includes('.tmp'));
   assert.deepEqual(leftovers, [], 'no temp files left behind');
 });
 

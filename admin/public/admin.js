@@ -82,6 +82,12 @@
       await loadProjects();
       return;
     }
+    if (err.body && err.body.version) {
+      // Saved privately but the public file failed: reflect the saved state.
+      target(err.message);
+      await loadProjects();
+      return;
+    }
     target(err.status ? `could not save: ${err.message}.` : 'could not reach the server. try again.');
   }
 

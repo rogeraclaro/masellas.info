@@ -8,6 +8,7 @@ import { createStore, ConflictError } from './lib/store.js';
 import { verifyPassword, signSession, verifySession, createRateLimiter } from './lib/auth.js';
 import { validateProject, uniqueSlug, isPermutation } from './lib/validation.js';
 import { parseEnv, loadConfig } from './lib/config.js';
+import { writePublic, prepareFiles } from './lib/publish.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const STATIC_ROOTS = { '/tipos/': path.resolve(HERE, '../tipos'), '/': path.join(HERE, 'public') };
@@ -104,22 +105,39 @@ async function serveStatic(res, pathname) {
   return res.end('not found');
 }
 
-export function createApp({ dataFile, passwordHash, sessionSecret, cookieSecure, publicUrl, log = console.log }) {
+export function createApp({ dataFile, publicFile, passwordHash, sessionSecret, cookieSecure, publicUrl, log = console.log }) {
   const store = createStore(dataFile);
   const limiter = createRateLimiter({ max: 5, windowMs: 15 * 60 * 1000 });
   const cookieAttrs = `HttpOnly; SameSite=Strict; Path=/${cookieSecure ? '; Secure' : ''}`;
+  let publishQueue = Promise.resolve();
+
+  // Public writes run one at a time, in mutation order, so an older list can never land last.
+  function publish(data) {
+    const run = publishQueue.then(() => writePublic(publicFile, data));
+    publishQueue = run.catch(() => {});
+    return run;
+  }
 
   // Runs a validated mutation under If-Match; responds with the full list and new version.
   async function mutate(req, res, status, fn) {
     const expected = req.headers['if-match'];
     if (!expected) throw new HttpError(428, { error: 'If-Match header required' });
+    let data;
+    let version;
     try {
-      const { data, version } = await store.update(expected.replace(/^"|"$/g, ''), fn);
-      sendJson(res, status, { projects: data.projects, version });
+      ({ data, version } = await store.update(expected.replace(/^"|"$/g, ''), fn));
     } catch (err) {
       if (err instanceof ConflictError) throw new HttpError(409, { error: 'data changed elsewhere', version: err.version });
       throw err;
     }
+    try {
+      await publish(data);
+    } catch (err) {
+      // DATA_FILE is the source of truth; the next mutation (or boot) rebuilds the public file.
+      console.error(`admin: public file write failed: ${err.message}`);
+      throw new HttpError(500, { error: 'saved, but the public file could not be updated. it will be retried on the next change.', version });
+    }
+    sendJson(res, status, { projects: data.projects, version });
   }
 
   const findIndex = (projects, id) => {
@@ -231,8 +249,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     console.error(`admin: ${err.message}. See admin/README.md.`);
     process.exit(1);
   }
-  if (!existsSync(config.dataFile)) {
-    console.error(`admin: DATA_FILE not found: ${config.dataFile}`);
+  try {
+    const { seeded } = await prepareFiles(config);
+    if (seeded) console.log(`admin: seeded DATA_FILE from PUBLIC_FILE (${config.dataFile})`);
+  } catch (err) {
+    console.error(`admin: ${err.message}`);
     process.exit(1);
   }
   createApp(config).listen(config.port, config.host, () => {

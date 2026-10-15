@@ -1,5 +1,5 @@
 // JSON file store: atomic writes, one rolling .bak, serialized updates, sha256 versions.
-import { readFile, writeFile, rename, copyFile, stat, unlink } from 'node:fs/promises';
+import { readFile, writeFile, rename, copyFile, stat, unlink, chmod } from 'node:fs/promises';
 import { createHash, randomBytes } from 'node:crypto';
 import path from 'node:path';
 
@@ -7,6 +7,19 @@ export class ConflictError extends Error {
   constructor(version) {
     super('data changed since it was read');
     this.version = version;
+  }
+}
+
+// Temp dotfile in the same directory + rename, so readers never see a half-written file.
+export async function writeAtomic(file, content, mode = 0o644) {
+  const tmp = path.join(path.dirname(file), `.${path.basename(file)}.tmp-${randomBytes(6).toString('hex')}`);
+  try {
+    await writeFile(tmp, content, { mode });
+    await chmod(tmp, mode); // writeFile's mode is filtered by the umask
+    await rename(tmp, file);
+  } catch (err) {
+    await unlink(tmp).catch(() => {});
+    throw err;
   }
 }
 
@@ -22,16 +35,9 @@ export function createStore(file) {
 
   async function write(data) {
     const content = `${JSON.stringify(data, null, 2)}\n`;
-    const tmp = path.join(path.dirname(file), `.${path.basename(file)}.${randomBytes(6).toString('hex')}.tmp`);
     const { mode } = await stat(file);
-    try {
-      await writeFile(tmp, content, { mode });
-      await copyFile(file, `${file}.bak`);
-      await rename(tmp, file);
-    } catch (err) {
-      await unlink(tmp).catch(() => {});
-      throw err;
-    }
+    await copyFile(file, `${file}.bak`);
+    await writeAtomic(file, content, mode);
     return hash(content);
   }
 

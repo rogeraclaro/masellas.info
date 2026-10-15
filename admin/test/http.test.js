@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, readFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createApp } from '../server.js';
@@ -15,16 +15,19 @@ const seed = {
 };
 
 let dataFile;
+let publicFile;
 let passwordHash;
 
-async function boot() {
+async function boot(overrides = {}) {
   const app = createApp({
     dataFile,
+    publicFile,
     passwordHash,
     sessionSecret: 'f'.repeat(64),
     cookieSecure: false,
     publicUrl: 'http://localhost:8765/projects/',
     log: () => {},
+    ...overrides,
   });
   await new Promise((resolve) => app.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${app.address().port}`;
@@ -45,7 +48,10 @@ let cookie;
 
 before(async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'admin-http-'));
-  dataFile = path.join(dir, 'projects.json');
+  await mkdir(path.join(dir, 'private'));
+  await mkdir(path.join(dir, 'web'));
+  dataFile = path.join(dir, 'private', 'projects.json');
+  publicFile = path.join(dir, 'web', 'projects.json');
   await writeFile(dataFile, `${JSON.stringify(seed, null, 2)}\n`);
   passwordHash = hashPassword(PASSWORD);
   ({ app: server, base } = await boot());
@@ -203,6 +209,66 @@ test('login is rate limited after 5 failures per IP', async () => {
     }
     const res = await call(other, 'POST', '/api/login', { body: { password: PASSWORD } });
     assert.equal(res.status, 429);
+  } finally {
+    app.close();
+  }
+});
+
+const publicIds = async (file = publicFile) => JSON.parse(await readFile(file, 'utf8')).projects.map((p) => p.id);
+
+test('public file is regenerated after every mutation, without hidden projects', async () => {
+  let { version } = await (await call(base, 'GET', '/api/projects', { cookie })).json();
+  const step = async (method, pathname, body) => {
+    const res = await call(base, method, pathname, { cookie, version, body });
+    assert.ok(res.ok, `${method} ${pathname} -> ${res.status}`);
+    ({ version } = await res.json());
+  };
+
+  await step('POST', '/api/projects', { title: 'Public Check', category: 'tool', year: 2026, url: 'https://pc.example.com' });
+  assert.ok((await publicIds()).includes('public-check'), 'create');
+
+  await step('PUT', '/api/projects/public-check', { visible: false });
+  assert.ok(!(await publicIds()).includes('public-check'), 'toggle hidden');
+  const pub = JSON.parse(await readFile(publicFile, 'utf8'));
+  assert.ok(pub.projects.every((p) => !('visible' in p)), 'no visible field in public file');
+
+  await step('PUT', '/api/projects/public-check', { visible: true, title: 'Public Two' });
+  assert.equal(JSON.parse(await readFile(publicFile, 'utf8')).projects.find((p) => p.id === 'public-check').title, 'Public Two', 'update');
+
+  const ids = (await (await call(base, 'GET', '/api/projects', { cookie })).json()).projects.map((p) => p.id).reverse();
+  await step('PUT', '/api/order', { ids });
+  assert.deepEqual(await publicIds(), ids, 'reorder');
+
+  await step('DELETE', '/api/projects/public-check');
+  assert.ok(!(await publicIds()).includes('public-check'), 'delete');
+
+  assert.deepEqual(await readdir(path.dirname(publicFile)), ['projects.json'], 'no .bak or temp files in the public dir');
+});
+
+test('public write failure returns 500, keeps the private change, and is retried on the next mutation', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'admin-pubfail-'));
+  const privateFile = path.join(dir, 'projects.json');
+  const brokenPublic = path.join(dir, 'web-missing', 'projects.json');
+  await writeFile(privateFile, `${JSON.stringify(seed, null, 2)}\n`);
+  const { app, base: other } = await boot({ dataFile: privateFile, publicFile: brokenPublic, log: () => {} });
+  try {
+    const login = await call(other, 'POST', '/api/login', { body: { password: PASSWORD } });
+    const session = login.headers.get('set-cookie').split(';')[0];
+    let { version } = await (await call(other, 'GET', '/api/projects', { cookie: session })).json();
+
+    let res = await call(other, 'PUT', '/api/projects/ledger', { cookie: session, version, body: { visible: false } });
+    assert.equal(res.status, 500);
+    const body = await res.json();
+    assert.match(body.error, /public file/);
+    assert.match(body.version, /^[0-9a-f]{64}$/, 'reports the new private version');
+    const onDisk = JSON.parse(await readFile(privateFile, 'utf8'));
+    assert.equal(onDisk.projects[0].visible, false, 'private change is kept');
+
+    await mkdir(path.dirname(brokenPublic));
+    version = body.version;
+    res = await call(other, 'PUT', '/api/projects/rollcall', { cookie: session, version, body: { title: 'Rollcall' } });
+    assert.equal(res.status, 200);
+    assert.deepEqual(await publicIds(brokenPublic), ['rollcall'], 'retry regenerates the whole public file');
   } finally {
     app.close();
   }

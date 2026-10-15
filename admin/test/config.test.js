@@ -4,6 +4,7 @@ import { parseEnv, loadConfig } from '../lib/config.js';
 
 const good = {
   DATA_FILE: '/srv/projects.json',
+  PUBLIC_FILE: '/var/www/projects/data/projects.json',
   ADMIN_PASSWORD_HASH: 'scrypt$16384$8$1$aa$bb',
   SESSION_SECRET: 'ab'.repeat(32),
 };
@@ -29,11 +30,13 @@ test('loadConfig reads overrides', () => {
 });
 
 test('loadConfig fails fast listing every missing variable', () => {
-  assert.throws(() => loadConfig({}), /DATA_FILE.*ADMIN_PASSWORD_HASH.*SESSION_SECRET/s);
+  assert.throws(() => loadConfig({}), /DATA_FILE.*PUBLIC_FILE.*ADMIN_PASSWORD_HASH.*SESSION_SECRET/s);
 });
 
 test('loadConfig rejects a short or non-hex SESSION_SECRET and a relative DATA_FILE', () => {
   assert.throws(() => loadConfig({ ...good, SESSION_SECRET: 'abc' }), /SESSION_SECRET/);
   assert.throws(() => loadConfig({ ...good, SESSION_SECRET: 'z'.repeat(64) }), /SESSION_SECRET/);
   assert.throws(() => loadConfig({ ...good, DATA_FILE: 'data/projects.json' }), /DATA_FILE/);
+  assert.throws(() => loadConfig({ ...good, PUBLIC_FILE: 'projects.json' }), /PUBLIC_FILE/);
+  assert.throws(() => loadConfig({ ...good, PUBLIC_FILE: good.DATA_FILE }), /PUBLIC_FILE/);
 });

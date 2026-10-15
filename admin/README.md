@@ -1,6 +1,11 @@
 # projects admin
 
-Small back-office for `projects/data/projects.json`: log in with one password, add, edit, hide, reorder and delete projects. The public page at `/projects/` reads the same file.
+Small back-office for the projects list on masellas.info: log in with one password, add, edit, hide, reorder and delete projects.
+
+It keeps two files:
+
+- `DATA_FILE` — the private, full list (hidden projects included, with `visible`). Lives outside the web root. The API reads, writes and versions only this file.
+- `PUBLIC_FILE` — what `/projects/` fetches (`projects/data/projects.json` in the web root). Rebuilt from `DATA_FILE` after every change and at boot: visible projects only, in order, without the `visible` field. Never edit it by hand; the next change overwrites it.
 
 Node 22, zero npm dependencies.
 
@@ -11,13 +16,17 @@ cd admin
 cp .env.example .env
 npm run hash-password          # paste the output into ADMIN_PASSWORD_HASH
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"   # SESSION_SECRET
-# edit .env: DATA_FILE, and COOKIE_SECURE=false if you use plain http locally
+# edit .env: DATA_FILE, PUBLIC_FILE, and COOKIE_SECURE=false if you use plain http locally
 npm start
 ```
 
 Open `http://127.0.0.1:8787/`.
 
-For local work, point `DATA_FILE` at a copy (for example `admin/data/projects.json`, which is gitignored) instead of the committed file.
+For local work, put `DATA_FILE` in `admin/data/` (gitignored) and point `PUBLIC_FILE` at a scratch copy outside the repo, so the committed `projects/data/projects.json` never changes.
+
+### First run in production (migration)
+
+If `DATA_FILE` does not exist but `PUBLIC_FILE` does, the admin creates `DATA_FILE` from it once (every project `visible: true`, mode 0600, parent directories created). If neither exists, or the public file cannot be written, it refuses to start.
 
 ## Configure
 
@@ -25,7 +34,8 @@ Environment variables only. `admin/.env` is read at boot if it exists; real envi
 
 | variable | required | default | notes |
 | --- | --- | --- | --- |
-| `DATA_FILE` | yes | | absolute path to `projects.json` |
+| `DATA_FILE` | yes | | absolute path to the private `projects.json`, outside the web root |
+| `PUBLIC_FILE` | yes | | absolute path to the public `projects.json` in the web root; must differ from `DATA_FILE` |
 | `ADMIN_PASSWORD_HASH` | yes | | from `npm run hash-password`; contains `$`, so single-quote it in a shell |
 | `SESSION_SECRET` | yes | | 64+ hex chars (32+ random bytes); changing it logs everyone out |
 | `PORT` | no | `8787` | |
@@ -39,13 +49,14 @@ Environment variables only. `admin/.env` is read at boot if it exists; real envi
 npm test
 ```
 
-Uses `node:test`. Covers validation, slugs, reorder checks, the file store (atomic write, backup, serialized writes, version conflicts), password hashing, session tokens, the rate limiter, and HTTP integration on an ephemeral port.
+Uses `node:test`. Covers validation, slugs, reorder checks, the file store (atomic write, backup, serialized writes, version conflicts), the public projection (regeneration, boot sync, migration, write failures), password hashing, session tokens, the rate limiter, and HTTP integration on an ephemeral port.
 
 ## How it works
 
 - `server.js` — HTTP server, routes, static files (`public/` at `/`, the repo's `tipos/` at `/tipos/`).
 - `lib/store.js` — reads/writes `DATA_FILE`: temp file + rename, previous version kept as `projects.json.bak`, one write at a time, version = sha256 of the file.
 - `lib/auth.js` — scrypt password check, HMAC-signed 12 h session cookie, in-memory login rate limit (5 failures per IP per 15 min).
+- `lib/publish.js` — public projection (`toPublic`), atomic public write (no backup), boot sync and migration.
 - `lib/validation.js` — field rules, slug ids, reorder permutation check.
 
 API (JSON, all under `/api`, session required except login, logout and session):
@@ -62,10 +73,10 @@ API (JSON, all under `/api`, session required except login, logout and session):
 | DELETE | `/api/projects/:id` | | |
 | PUT | `/api/order` | `{ ids }` | exact permutation of current ids |
 
-Mutations need `Content-Type: application/json` and `If-Match: <version>`. A stale version gets 409, a missing one 428. A foreign `Origin` gets 403.
+Mutations need `Content-Type: application/json` and `If-Match: <version>`. A stale version gets 409, a missing one 428. A foreign `Origin` gets 403. If the private save works but the public file cannot be written, the response is 500 with the new `version`; the change is kept and the public file is rebuilt on the next change or restart.
 
 ## Notes
 
-- `visible: false` only hides a project on the public page. The JSON file is public, so hidden projects are still readable there. Do not put anything secret in it.
-- `projects.json.bak` sits next to the data file. If the data file is in the web root, the backup is publicly readable too; deny `*.bak` in the web server if that matters.
+- Hidden projects never reach the web root: they exist only in `DATA_FILE` (and its `.bak`), which must stay outside it.
+- The public file is written as a temp dotfile (`.projects.json.tmp-<random>`) in the same directory, then renamed; mode 0644 so nginx can read it. Make sure nginx denies dotfiles (CloudPanel's vhost usually already has `location ~ /\. { deny all; }`; add it if not).
 - The rate limiter and sessions live in memory: a restart clears the limiter, sessions survive (they are signed, not stored).

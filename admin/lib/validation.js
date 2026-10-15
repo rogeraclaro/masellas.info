@@ -1,8 +1,8 @@
 // Pure validation helpers for project records. No I/O.
 
-const FIELDS = ['title', 'category', 'year', 'description', 'url', 'visible', 'thumbs'];
+const FIELDS = ['title', 'category', 'year', 'description', 'url', 'visible', 'thumbs', 'ai', 'tools'];
 const REQUIRED = ['title', 'category', 'year', 'url'];
-const DEFAULTS = { description: '', visible: true, thumbs: [] };
+const DEFAULTS = { description: '', visible: true, thumbs: [], ai: '', tools: [] };
 
 function isHttpUrl(value) {
   if (typeof value !== 'string') return false;
@@ -36,6 +36,20 @@ const CHECKS = {
     if (v.length > 3) return { error: 'up to 3 thumbs' };
     if (!v.every(isHttpUrl)) return { error: 'each thumb must be an http:// or https:// url' };
     return { value: v.map((url) => url.trim()) };
+  },
+  // Paragraphs are separated by blank lines; the front end splits them.
+  ai: (v) => text(v, { min: 0, max: 5000, label: 'how I used AI' }),
+  tools: (v) => {
+    if (!Array.isArray(v)) return { error: 'tools must be a list' };
+    if (v.length > 12) return { error: 'up to 12 tools' };
+    const clean = [];
+    for (const item of v) {
+      const check = text(item, { min: 1, max: 30, label: 'each tool' });
+      if (check.error) return check;
+      if (clean.some((tool) => tool.toLowerCase() === check.value.toLowerCase())) return { error: `"${check.value}" is listed twice` };
+      clean.push(check.value);
+    }
+    return { value: clean };
   },
 };
 

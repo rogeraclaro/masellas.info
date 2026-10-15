@@ -39,6 +39,29 @@ test('applies defaults for optional fields on create', () => {
   assert.equal(value.description, '');
   assert.equal(value.visible, true);
   assert.deepEqual(value.thumbs, []);
+  assert.equal(value.ai, '');
+  assert.deepEqual(value.tools, []);
+});
+
+test('ai is trimmed text up to 5000 chars, keeping inner blank lines', () => {
+  const ai = '  First paragraph.\n\nSecond one,\nwith a line break.  ';
+  const { value, errors } = validateProject({ ...valid(), ai });
+  assert.deepEqual(errors, {});
+  assert.equal(value.ai, 'First paragraph.\n\nSecond one,\nwith a line break.');
+  assert.deepEqual(validateProject({ ...valid(), ai: 'x'.repeat(5000) }).errors, {});
+});
+
+test('tools are trimmed, kept as entered, and limited to 12', () => {
+  const { value, errors } = validateProject({ ...valid(), tools: [' Claude Code ', 'n8n'] });
+  assert.deepEqual(errors, {});
+  assert.deepEqual(value.tools, ['Claude Code', 'n8n']);
+  assert.deepEqual(validateProject({ ...valid(), tools: Array.from({ length: 12 }, (_, i) => `t${i}`) }).errors, {});
+});
+
+test('partial updates accept ai and tools alone', () => {
+  const { value, errors } = validateProject({ ai: 'Notes.', tools: ['Cursor'] }, { partial: true });
+  assert.deepEqual(errors, {});
+  assert.deepEqual(value, { ai: 'Notes.', tools: ['Cursor'] });
 });
 
 test('lowercases and trims the category', () => {
@@ -68,6 +91,14 @@ const invalidCases = [
   ['thumbs', 'https://a.example.com/x.png'],
   ['thumbs', ['https://a.example.com/1.png', 'https://a.example.com/2.png', 'https://a.example.com/3.png', 'https://a.example.com/4.png']],
   ['thumbs', ['data:image/png;base64,AAAA']],
+  ['ai', 'x'.repeat(5001)],
+  ['ai', 42],
+  ['tools', 'Claude Code, Cursor'],
+  ['tools', Array.from({ length: 13 }, (_, i) => `t${i}`)],
+  ['tools', ['ok', '   ']],
+  ['tools', ['x'.repeat(31)]],
+  ['tools', ['Claude', ' claude ']],
+  ['tools', [42]],
 ];
 
 for (const [field, bad] of invalidCases) {

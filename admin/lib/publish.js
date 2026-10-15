@@ -8,7 +8,9 @@ export function toPublic(data) {
   return {
     projects: data.projects
       .filter((p) => p.visible !== false)
-      .map(({ id, title, category, year, description, url, thumbs }) => ({ id, title, category, year, description, url, thumbs })),
+      .map(({ id, title, category, year, description, url, thumbs, ai = '', tools = [] }) => ({
+        id, title, category, year, description, url, thumbs, ai, tools,
+      })),
   };
 }
 

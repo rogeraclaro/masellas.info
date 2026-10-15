@@ -1,4 +1,4 @@
-/* Projects index: renders the list from JSON and drives the cube-roll motion. */
+/* Projects index: renders the list from JSON, drives the cube-roll motion and the project detail view. */
 (() => {
   'use strict';
 
@@ -75,10 +75,9 @@
   function renderRow(project) {
     const url = safeUrl(project.url);
     const link = el('a', 'work-item cube');
-    if (url) link.href = url.href;
-    link.target = '_blank';
-    link.rel = 'noopener';
-    link.setAttribute('aria-label', `${project.title}, ${project.category} (opens in a new tab)`);
+    link.href = detailHref(project.id);
+    link.dataset.id = project.id;
+    link.setAttribute('aria-label', `${project.title}, ${project.category}: project details`);
 
     const meta = el('span', 'work-item__meta');
     meta.append(el('span', '', `${project.category} / ${project.year}`));
@@ -124,35 +123,49 @@
     });
   }
 
-  // Splits the heading into chars; screen readers get the intact word instead.
-  function splitTitle() {
-    const text = titleEl.textContent.trim();
-    titleEl.textContent = '';
-    const chars = el('span', 'page-title__chars');
-    chars.setAttribute('aria-hidden', 'true');
-    for (const char of text) {
-      chars.append(el('span', 'page-title__char', char === ' ' ? ' ' : char));
-    }
-    chars.append(el('span', 'page-title__line'));
-    titleEl.append(el('span', 'sr-only', text), chars);
-    titleEl.classList.add('is-split');
+  // Splits a heading into chars; screen readers get the intact text instead.
+  // words: one underlined group per word, so long titles wrap between words and never inside one.
+  function splitTitle(heading, text, { words = false } = {}) {
+    heading.textContent = '';
+    heading.append(el('span', 'sr-only', text));
+    const groups = words ? text.split(/\s+/).filter(Boolean) : [text];
+    groups.forEach((group, index) => {
+      if (index > 0) heading.append(document.createTextNode(' '));
+      const chars = el('span', 'page-title__chars');
+      chars.setAttribute('aria-hidden', 'true');
+      for (const char of group) chars.append(el('span', 'page-title__char', char === ' ' ? '\u00a0' : char));
+      chars.append(el('span', 'page-title__line'));
+      heading.append(chars);
+    });
+    heading.classList.add('is-split');
     if (animate) {
-      gsap.set(chars.querySelectorAll('.page-title__char'), { rotateX: 90, autoAlpha: 0, transformOrigin: '50% 100%' });
-      gsap.set(chars.querySelector('.page-title__line'), { scaleX: 0 });
+      gsap.set(heading.querySelectorAll('.page-title__char'), { rotateX: 90, autoAlpha: 0, transformOrigin: '50% 100%' });
+      gsap.set(heading.querySelectorAll('.page-title__line'), { scaleX: 0 });
     }
+  }
+
+  // Chars roll up into place, then the underline grows. Adds to `tl` at `at`.
+  function titleIntro(heading, tl, at = 0) {
+    const chars = heading.querySelectorAll('.page-title__char');
+    tl.to(chars, { autoAlpha: 1, duration: 0.4, ease: ALPHA, stagger: 0.03125 }, at);
+    tl.to(chars, { rotateX: 0, duration: 0.8, ease: 'expo.out', stagger: 0.03125 }, at);
+    tl.to(heading.querySelectorAll('.page-title__line'), { scaleX: 1, duration: 0.8, ease: 'expo.out' }, at + 0.15);
+    return tl;
   }
 
   /* ---------- Cube geometry and hover ---------- */
 
+  function measureCube(cube) {
+    const inner = cube.firstElementChild;
+    const height = inner.offsetHeight;
+    if (!height) return; // not rendered (filtered out, or inside the closed detail)
+    cube.style.setProperty('--height', `${height}px`);
+    // Pull the cube back by half its depth so the front face rests at z = 0.
+    if (animate) gsap.set(inner, { z: -height / 2 });
+  }
+
   function measureCubes() {
-    for (const cube of document.querySelectorAll('.cube')) {
-      const inner = cube.firstElementChild;
-      const height = inner.offsetHeight;
-      if (!height) continue; // filtered out (display: none)
-      cube.style.setProperty('--height', `${height}px`);
-      // Pull the cube back by half its depth so the front face rests at z = 0.
-      if (animate) gsap.set(inner, { z: -height / 2 });
-    }
+    document.querySelectorAll('.cube').forEach(measureCube);
   }
 
   function roll(inner, angle, duration, ease) {
@@ -290,6 +303,291 @@
     pendingFilter = null;
   }
 
+  /* ---------- Detail view (?p=<id>) ----------
+     Open: the coral panel slides up from 100vh while the list page drifts to -33vh under
+     a dark overlay (1.4s expo.inOut), then the title rolls in. Close is the exact reverse.
+     The URL is the source of truth: clicks push a history entry, popstate syncs to it. */
+
+  const pageEl = document.getElementById('page');
+  const menuEl = document.querySelector('nav[aria-label="Main"]');
+  const overlay = document.querySelector('.detail-overlay');
+  const detail = document.getElementById('detail');
+  const scroller = detail.querySelector('.detail__scroller');
+  const content = detail.querySelector('.detail__content');
+  const detailTitle = document.getElementById('detail-title');
+  const nextLink = detail.querySelector('.detail__next a');
+  const pageTitle = document.title;
+  const SLIDE = { duration: 1.4, ease: 'expo.inOut' };
+
+  let order = [];
+  let projectsById = new Map();
+  let currentId = null;
+  let opener = null; // row link to refocus on close
+  let savedScroll = 0;
+  let transitioning = false;
+  let pendingSync = false;
+  let closingToList = false;
+  let activeTl = null;
+  let introTl = null;
+  let detailLenis = null;
+  let closeBtn = null;
+
+  function detailHref(id) {
+    return `?p=${encodeURIComponent(id)}`;
+  }
+
+  const idFromUrl = () => new URLSearchParams(window.location.search).get('p');
+  const listUrl = () => window.location.pathname;
+  const reveals = () => content.querySelectorAll('[data-reveal]:not([hidden])');
+  const plainClick = (event) => event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
+
+  function buildCloseButton() {
+    closeBtn = el('button', 'chip cube detail__close');
+    closeBtn.type = 'button';
+    closeBtn.setAttribute('aria-label', 'close project details');
+    buildCube(closeBtn, [document.createTextNode('close')], () => [document.createTextNode('close')]);
+    detail.prepend(closeBtn); // first in tab order inside the dialog
+  }
+
+  // Blank lines split paragraphs; single newlines become <br>. DOM only, never innerHTML.
+  function aiParagraphs(text) {
+    return text.split(/\n\s*\n/).map((paragraph) => {
+      const p = el('p');
+      paragraph.trim().split('\n').forEach((line, index) => {
+        if (index) p.append(el('br'));
+        p.append(document.createTextNode(line));
+      });
+      return p;
+    });
+  }
+
+  function renderDetail(project) {
+    splitTitle(detailTitle, project.title, { words: true });
+    detail.querySelector('.detail__meta').textContent = `${project.category} / ${project.year}`;
+
+    const lead = detail.querySelector('.detail__lead');
+    lead.textContent = project.description || '';
+    lead.hidden = !project.description;
+
+    const ai = typeof project.ai === 'string' ? project.ai.trim() : '';
+    const aiSection = detail.querySelector('.detail__ai');
+    aiSection.hidden = !ai;
+    aiSection.querySelector('.detail__body').replaceChildren(...(ai ? aiParagraphs(ai) : []));
+
+    const tools = Array.isArray(project.tools) ? project.tools : [];
+    const toolList = detail.querySelector('.detail__tools');
+    toolList.replaceChildren(...tools.map((tool) => el('li', '', tool)));
+    toolList.hidden = !tools.length;
+
+    const url = safeUrl(project.url);
+    const visit = detail.querySelector('.detail__visit');
+    visit.hidden = !url;
+    if (url) {
+      const link = visit.querySelector('a');
+      link.href = url.href;
+      link.setAttribute('aria-label', `visit site: ${project.title} (opens in a new tab)`);
+    }
+
+    const next = order[(order.indexOf(project) + 1) % order.length];
+    nextLink.parentElement.hidden = order.length < 2;
+    nextLink.href = detailHref(next.id);
+    nextLink.dataset.id = next.id;
+    nextLink.textContent = `next project: ${next.title}`;
+
+    document.title = `${project.title} — Projects (IA) — Roger Masellas`;
+    if (animate) gsap.set(reveals(), { autoAlpha: 0, y: 24 });
+  }
+
+  function detailIntro(tl, at) {
+    titleIntro(detailTitle, tl, at);
+    tl.to(reveals(), { autoAlpha: 1, y: 0, duration: 1.2, ease: 'power2.out', stagger: STAGGER }, at + 0.2);
+    return tl;
+  }
+
+  function lockBackground(locked) {
+    pageEl.inert = locked;
+    menuEl.inert = locked;
+    root.classList.toggle('detail-open', locked);
+    if (lenis) {
+      if (locked) lenis.stop();
+      else lenis.start();
+    }
+  }
+
+  // One transition at a time; anything that arrives meanwhile is replayed from the URL afterwards.
+  function startTransition() {
+    if (activeTl) activeTl.kill();
+    if (introTl) introTl.kill();
+    transitioning = true;
+    activeTl = gsap.timeline();
+    return activeTl;
+  }
+
+  function settle() {
+    transitioning = false; // activeTl may still run the title intro; the next transition kills it
+    if (pendingSync) {
+      pendingSync = false;
+      sync();
+    }
+  }
+
+  function openDetail(id, { instant = false, from = null } = {}) {
+    currentId = id;
+    opener = from;
+    savedScroll = window.scrollY;
+    renderDetail(projectsById.get(id));
+    lockBackground(true);
+    detail.hidden = false;
+    scroller.scrollTop = 0;
+    measureCube(closeBtn);
+    // Focus last: GSAP briefly reparents the fixed panel while it parses its transform, which would blur it.
+    const focusTitle = () => detailTitle.focus({ preventScroll: true });
+    if (!animate) return focusTitle();
+
+    if (window.Lenis) {
+      detailLenis = new window.Lenis({ wrapper: scroller, content, easing: (t) => 1 - Math.pow(1 - t, 5) });
+    }
+    const tl = startTransition();
+    if (instant) {
+      // Deep link: panel already in place, only the title intro runs.
+      gsap.set(detail, { y: 0 });
+      gsap.set(pageEl, { y: '-33vh' });
+      gsap.set(overlay, { autoAlpha: 1 });
+      detailIntro(tl, 0.1);
+      tl.call(settle, null, 0);
+      return focusTitle();
+    }
+    tl.fromTo(detail, { y: '100vh' }, { y: 0, ...SLIDE }, 0);
+    tl.fromTo(pageEl, { y: 0 }, { y: '-33vh', ...SLIDE }, 0);
+    tl.fromTo(overlay, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4, ease: ALPHA }, 0.4);
+    detailIntro(tl, 1.1);
+    tl.call(settle, null, SLIDE.duration);
+    return focusTitle();
+  }
+
+  function closeDetail() {
+    currentId = null;
+    const finish = () => {
+      detail.hidden = true;
+      if (detailLenis) {
+        detailLenis.destroy();
+        detailLenis = null;
+      }
+      if (animate) gsap.set([pageEl, detail, overlay], { clearProps: 'transform,opacity,visibility' });
+      lockBackground(false);
+      window.scrollTo(0, savedScroll);
+      if (lenis) lenis.scrollTo(savedScroll, { immediate: true, force: true });
+      document.title = pageTitle;
+      (opener && opener.isConnected && !opener.closest('[hidden]') ? opener : titleEl).focus({ preventScroll: true });
+    };
+    if (!animate) return finish();
+
+    const tl = startTransition();
+    tl.to(detail, { y: '100vh', ...SLIDE }, 0);
+    tl.to(pageEl, { y: 0, ...SLIDE }, 0);
+    tl.to(overlay, { autoAlpha: 0, duration: 0.4, ease: ALPHA }, SLIDE.duration - 0.8);
+    tl.call(() => {
+      finish();
+      settle();
+    }, null, SLIDE.duration);
+  }
+
+  // "next project": old content rolls out, new content rolls in, panel back to the top.
+  function swapDetail(id) {
+    currentId = id;
+    const project = projectsById.get(id);
+    const showNew = () => {
+      renderDetail(project);
+      if (detailLenis) detailLenis.scrollTo(0, { immediate: true, force: true });
+      scroller.scrollTop = 0;
+      detailTitle.focus({ preventScroll: true });
+    };
+    if (!animate) return showNew();
+
+    const tl = startTransition();
+    tl.to(detailTitle.querySelectorAll('.page-title__char'), { rotateX: -90, autoAlpha: 0, duration: 0.4, ease: 'expo.in', stagger: 0.015 }, 0);
+    tl.to(detailTitle.querySelectorAll('.page-title__line'), { scaleX: 0, duration: 0.4, ease: 'expo.in' }, 0);
+    tl.to(reveals(), { autoAlpha: 0, y: -24, duration: 0.4, ease: ALPHA }, 0);
+    tl.call(() => {
+      showNew();
+      introTl = detailIntro(gsap.timeline(), 0);
+      settle();
+    }, null, 0.5);
+  }
+
+  // Brings the view in line with the URL (used by popstate and after each transition).
+  function sync() {
+    if (transitioning) {
+      pendingSync = true;
+      return;
+    }
+    const id = idFromUrl();
+    const wanted = id && projectsById.has(id) ? id : null;
+    if (id && !wanted) history.replaceState(null, '', listUrl());
+    if (wanted === currentId) return;
+    if (!wanted) closeDetail();
+    else if (currentId) swapDetail(wanted);
+    else openDetail(wanted, { from: list.querySelector(`a[data-id="${CSS.escape(wanted)}"]`) });
+  }
+
+  // Close goes back to the list entry, however many "next project" steps were taken.
+  function requestClose() {
+    if (transitioning || !currentId) return;
+    const depth = (history.state && history.state.depth) || 0;
+    if (depth > 0) {
+      closingToList = true;
+      history.go(-depth);
+    } else {
+      history.replaceState(null, '', listUrl());
+      closeDetail();
+    }
+  }
+
+  function openFromUrl() {
+    const id = idFromUrl();
+    if (!id) return;
+    if (!projectsById.has(id)) {
+      history.replaceState(null, '', listUrl());
+      return;
+    }
+    history.replaceState({ p: id, depth: 0 }, '', window.location.href);
+    openDetail(id, { instant: true });
+  }
+
+  function bindDetail() {
+    if (animate && window.Lenis) gsap.ticker.add((time) => detailLenis && detailLenis.raf(time * 1000));
+
+    list.addEventListener('click', (event) => {
+      const link = event.target.closest('a.work-item');
+      if (!link || !plainClick(event)) return; // modified clicks open the real ?p= link
+      event.preventDefault();
+      if (transitioning || currentId) return;
+      history.pushState({ p: link.dataset.id, depth: 1 }, '', detailHref(link.dataset.id));
+      openDetail(link.dataset.id, { from: link });
+    });
+
+    nextLink.addEventListener('click', (event) => {
+      if (!plainClick(event)) return;
+      event.preventDefault();
+      if (transitioning) return;
+      const id = nextLink.dataset.id;
+      history.pushState({ p: id, depth: ((history.state && history.state.depth) || 0) + 1 }, '', detailHref(id));
+      swapDetail(id);
+    });
+
+    closeBtn.addEventListener('click', requestClose);
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && currentId) requestClose();
+    });
+    window.addEventListener('popstate', () => {
+      if (closingToList) {
+        closingToList = false;
+        history.replaceState(null, '', listUrl());
+      }
+      sync();
+    });
+  }
+
   /* ---------- Data + intro ---------- */
 
   // Returns the visible projects, or null when the data cannot be loaded.
@@ -305,18 +603,15 @@
 
   function intro() {
     if (!animate) return;
-    const chars = titleEl.querySelectorAll('.page-title__char');
-    const tl = gsap.timeline();
-    tl.to(chars, { autoAlpha: 1, duration: 0.4, ease: ALPHA, stagger: 0.03125 }, 0);
-    tl.to(chars, { rotateX: 0, duration: 0.8, ease: 'expo.out', stagger: 0.03125 }, 0);
-    tl.to(titleEl.querySelector('.page-title__line'), { scaleX: 1, duration: 0.8, ease: 'expo.out' }, 0.15);
+    const tl = titleIntro(titleEl, gsap.timeline());
     tl.fromTo(countEl, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4, ease: ALPHA }, 0.15);
     if (filtersEl.children.length) tl.fromTo(filtersEl.children, { autoAlpha: 0 }, { autoAlpha: 1, duration: 1.2, ease: 'power2.out', stagger: STAGGER }, 0.3);
     tl.add(() => show(), 0.2);
   }
 
   async function init() {
-    splitTitle();
+    splitTitle(titleEl, titleEl.textContent.trim());
+    titleEl.tabIndex = -1; // focus target when a deep-linked detail closes
     const [projects] = await Promise.all([loadProjects(), document.fonts ? document.fonts.ready : null]);
     if (!projects) {
       list.after(el('p', 'work-list__error', 'The projects could not load. Try again in a minute.'));
@@ -325,6 +620,9 @@
     }
 
     list.append(...projects.map(renderRow));
+    order = projects;
+    projectsById = new Map(projects.map((project) => [project.id, project]));
+    buildCloseButton();
     renderFilters([...new Set(projects.map((project) => project.category))]);
     updateCount();
     measureCubes();
@@ -356,7 +654,9 @@
       }, 100);
     });
 
+    bindDetail();
     intro();
+    openFromUrl();
   }
 
   init();

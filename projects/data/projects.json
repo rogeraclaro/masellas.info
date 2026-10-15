@@ -7,7 +7,12 @@
       "year": 2026,
       "description": "Invoices and hours for a small studio. It replaced three spreadsheets and one notebook nobody could read.",
       "url": "https://ledger.example.com",
-      "thumbs": []
+      "thumbs": [],
+      "ai": "Claude wrote the first pass of the invoice parser. I rewrote the edge cases: VAT on partial hours, credit notes, the client who pays in two halves.\n\nCursor did most of the boring CRUD while I watched the tests. When it got clever with the database, I made it boring again.\n\nThe numbers are mine. I checked every total by hand for the first two months.",
+      "tools": [
+        "Claude Code",
+        "Cursor"
+      ]
     },
     {
       "id": "olive-mill",
@@ -16,7 +21,13 @@
       "year": 2025,
       "description": "Shop for a family olive-oil mill. Two products, one checkout, nothing else on purpose.",
       "url": "https://olive-mill.example.com",
-      "thumbs": []
+      "thumbs": [],
+      "ai": "I used Claude to draft the product copy in three languages, then the family rewrote half of it because \"nobody talks like that about oil\".\n\nThe checkout is hand-written. I asked the model for help with the shipping rules and kept only the tests it suggested.",
+      "tools": [
+        "Claude",
+        "Cursor",
+        "n8n"
+      ]
     },
     {
       "id": "rollcall",
@@ -25,7 +36,12 @@
       "year": 2026,
       "description": "Attendance for university classes. Students scan a code, I stop counting heads.",
       "url": "https://rollcall.example.com",
-      "thumbs": []
+      "thumbs": [],
+      "ai": "Claude Code scaffolded the QR flow and the export to the university spreadsheet in an afternoon. The afternoon after that I spent removing what it added \"just in case\".\n\nAn n8n flow sends the weekly attendance summary. A model writes the one-line comment at the top; I read it before it goes out.\n\nNo student data goes to any model. That was the first rule, before any code.",
+      "tools": [
+        "Claude Code",
+        "n8n"
+      ]
     },
     {
       "id": "type-check",
@@ -34,7 +50,13 @@
       "year": 2025,
       "description": "WordPress plugin that flags orphaned words and bad hyphenation before anyone presses publish.",
       "url": "https://type-check.example.com",
-      "thumbs": []
+      "thumbs": [],
+      "ai": "The hyphenation rules come from books, not from a model. I used Claude to turn my notes into test cases, about two hundred of them.\n\nCursor helped with the WordPress hooks I never remember. I reviewed every line before it touched a real site.",
+      "tools": [
+        "Claude",
+        "Cursor",
+        "PHPUnit"
+      ]
     },
     {
       "id": "seat-map",
@@ -43,7 +65,12 @@
       "year": 2025,
       "description": "Seat booking for a small theatre. Runs fine on the box-office laptop from 2014.",
       "url": "https://seat-map.example.com",
-      "thumbs": []
+      "thumbs": [],
+      "ai": "The seat layout started as a photo of the theatre plan. Claude turned it into JSON; I fixed row K, which does not exist in real life either.\n\nThe box-office laptop is from 2014, so I asked for plain JavaScript and said no to every framework it offered. It listened, mostly.",
+      "tools": [
+        "Claude Code",
+        "Whisper"
+      ]
     },
     {
       "id": "class-notes",
@@ -52,7 +79,14 @@
       "year": 2026,
       "description": "Course notes for my frontend classes. Plain HTML, updated the night before, as usual.",
       "url": "https://class-notes.example.com",
-      "thumbs": []
+      "thumbs": [],
+      "ai": "I record the class, Whisper transcribes it, and Claude turns the transcript into a first draft of the notes.\n\nThen I cut it in half. Students read short notes; they do not read long ones.\n\nThe exercises are mine. The model is good at explaining, not at choosing what is worth practising.",
+      "tools": [
+        "Whisper",
+        "Claude",
+        "n8n",
+        "Cursor"
+      ]
     }
   ]
 }

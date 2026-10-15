@@ -9,7 +9,7 @@
   const statusEl = $('status');
   const editor = $('editor');
   const form = $('project-form');
-  const fields = ['title', 'category', 'year', 'description', 'url'];
+  const fields = ['title', 'category', 'year', 'description', 'url', 'ai'];
   const thumbInputs = [...document.querySelectorAll('.thumb')];
 
   let projects = [];
@@ -255,6 +255,7 @@
 
   function updateCount() {
     $('description-count').textContent = `${$('f-description').value.length} / 200`;
+    $('ai-count').textContent = `${$('f-ai').value.length} / 5000`;
   }
 
   function openForm(project, trigger) {
@@ -266,6 +267,7 @@
     if (!project) $('f-year').value = String(new Date().getFullYear());
     $('f-visible').checked = project ? project.visible !== false : true;
     thumbInputs.forEach((input, i) => { input.value = project?.thumbs?.[i] ?? ''; });
+    $('f-tools').value = (project?.tools ?? []).join(', ');
     updateCount();
     editor.hidden = false;
     $('f-title').focus();
@@ -287,6 +289,8 @@
       url: $('f-url').value.trim(),
       visible: $('f-visible').checked,
       thumbs: thumbInputs.map((input) => input.value.trim()).filter(Boolean),
+      ai: $('f-ai').value,
+      tools: $('f-tools').value.split(',').map((tool) => tool.trim()).filter(Boolean),
     };
   }
 
@@ -323,6 +327,7 @@
   });
 
   $('f-description').addEventListener('input', updateCount);
+  $('f-ai').addEventListener('input', updateCount);
   $('cancel').addEventListener('click', () => closeForm());
   editor.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') closeForm();

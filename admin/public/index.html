@@ -67,6 +67,18 @@
 					<input id="f-url" name="url" type="url" required placeholder="https://" aria-describedby="e-url">
 					<p id="e-url" class="field-error"></p>
 				</div>
+				<div class="field">
+					<label for="f-ai">how I used AI</label>
+					<textarea id="f-ai" name="ai" rows="10" maxlength="5000" aria-describedby="ai-hint e-ai"></textarea>
+					<p id="ai-hint" class="hint"><span id="ai-count">0 / 5000</span>. blank line = new paragraph.</p>
+					<p id="e-ai" class="field-error"></p>
+				</div>
+				<div class="field">
+					<label for="f-tools">tools</label>
+					<input id="f-tools" name="tools" placeholder="Claude Code, Cursor, n8n" aria-describedby="tools-hint e-tools">
+					<p id="tools-hint" class="hint">comma-separated, up to 12.</p>
+					<p id="e-tools" class="field-error"></p>
+				</div>
 				<div class="field field--check">
 					<input id="f-visible" name="visible" type="checkbox" checked>
 					<label for="f-visible">visible on the site</label>

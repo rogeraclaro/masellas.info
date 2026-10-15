@@ -374,13 +374,28 @@ ul {
   outline-offset: -4px;
 }
 
+.work-item {
+  --row-pad: clamp(14px, 1.5vw, 22px);
+  --fs-info: clamp(1rem, 1.2vw, 1.125rem);
+  --lh-info: 1.25;
+}
+
 .work-item .face {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   column-gap: var(--col-gap);
   align-items: center;
-  padding: clamp(14px, 1.5vw, 22px) var(--gutter);
+  padding: var(--row-pad) var(--gutter);
   overflow: hidden;
+}
+
+/* Rows must be tall enough for the coral face's info block:
+   2 description lines + 1 domain line (+4px gap) + vertical padding.
+   JS measures the row, so the cube depth follows automatically. */
+@media (min-width: 1200px) {
+  .work-item .face--front {
+    min-height: calc(var(--row-pad) * 2 + var(--fs-info) * var(--lh-info) * 3 + 4px);
+  }
 }
 
 .work-item .face--front {
@@ -437,8 +452,8 @@ ul {
 .work-item__info {
   grid-column: 8 / span 5;
   font-family: var(--font-book);
-  font-size: clamp(1rem, 1.2vw, 1.125rem);
-  line-height: 1.25;
+  font-size: var(--fs-info);
+  line-height: var(--lh-info);
   letter-spacing: -0.02em;
 }
 

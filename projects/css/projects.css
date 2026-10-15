@@ -242,6 +242,14 @@ ul { list-style: none; margin: 0; padding: 0; }
 /* ---------- List ---------- */
 .work-list { border-top: 1px solid var(--hairline); }
 .work-list:focus { outline: none; }
+.work-list__error {
+  margin: 0;
+  padding: clamp(14px, 1.5vw, 22px) var(--gutter);
+  border-bottom: 1px solid var(--hairline);
+  font-family: var(--font-book);
+  font-size: var(--fs-bar);
+  color: var(--bone-60);
+}
 
 .work-item { border-bottom: 1px solid var(--hairline); }
 .js .work-item { visibility: hidden; }

@@ -2,3 +2,5 @@
 **/.DS_Store
 node_modules/
 .playwright-mcp/
+admin/.env
+admin/data/

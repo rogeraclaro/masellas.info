@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="robots" content="noindex, nofollow">
+	<title>Projects admin — Roger Masellas</title>
+	<link rel="icon" href="data:,">
+	<link rel="stylesheet" href="admin.css">
+	<script defer src="admin.js"></script>
+</head>
+<body>
+
+<main id="login" class="login" hidden>
+	<h1 class="heading">projects / admin</h1>
+	<form id="login-form" class="login__form" novalidate>
+		<label for="password">password</label>
+		<input id="password" name="password" type="password" autocomplete="current-password" required aria-describedby="login-error">
+		<p id="login-error" class="field-error" aria-live="assertive"></p>
+		<button type="submit" class="btn btn--primary">log in</button>
+	</form>
+</main>
+
+<div id="app" hidden>
+	<header class="bar">
+		<h1 class="heading">projects / admin</h1>
+		<nav class="bar__nav" aria-label="Admin">
+			<a id="view-site" class="btn" href="https://masellas.info/projects/" target="_blank" rel="noopener">view site</a>
+			<button id="logout" type="button" class="btn">log out</button>
+		</nav>
+	</header>
+
+	<main class="content">
+		<div class="toolbar">
+			<button id="new-project" type="button" class="btn btn--primary">new project</button>
+			<p id="status" class="status" role="status" aria-live="polite"></p>
+		</div>
+
+		<section id="editor" class="editor" hidden aria-labelledby="editor-title">
+			<h2 id="editor-title" class="heading heading--small" tabindex="-1">new project</h2>
+			<form id="project-form" class="form" novalidate>
+				<p id="form-error" class="field-error" aria-live="assertive"></p>
+				<div class="field">
+					<label for="f-title">title</label>
+					<input id="f-title" name="title" maxlength="80" required aria-describedby="e-title">
+					<p id="e-title" class="field-error"></p>
+				</div>
+				<div class="field field--half">
+					<label for="f-category">category</label>
+					<input id="f-category" name="category" list="categories" maxlength="30" required aria-describedby="e-category">
+					<datalist id="categories"></datalist>
+					<p id="e-category" class="field-error"></p>
+				</div>
+				<div class="field field--half">
+					<label for="f-year">year</label>
+					<input id="f-year" name="year" type="number" min="2000" max="2100" step="1" inputmode="numeric" required aria-describedby="e-year">
+					<p id="e-year" class="field-error"></p>
+				</div>
+				<div class="field">
+					<label for="f-description">description</label>
+					<textarea id="f-description" name="description" rows="3" maxlength="200" aria-describedby="description-count e-description"></textarea>
+					<p id="description-count" class="hint">0 / 200</p>
+					<p id="e-description" class="field-error"></p>
+				</div>
+				<div class="field">
+					<label for="f-url">url</label>
+					<input id="f-url" name="url" type="url" required placeholder="https://" aria-describedby="e-url">
+					<p id="e-url" class="field-error"></p>
+				</div>
+				<div class="field field--check">
+					<input id="f-visible" name="visible" type="checkbox" checked>
+					<label for="f-visible">visible on the site</label>
+				</div>
+				<fieldset class="field">
+					<legend>thumbs (optional, up to 3 image urls)</legend>
+					<label class="sr-only" for="f-thumb-0">thumb 1</label>
+					<input id="f-thumb-0" class="thumb" type="url" placeholder="https://" aria-describedby="e-thumbs">
+					<label class="sr-only" for="f-thumb-1">thumb 2</label>
+					<input id="f-thumb-1" class="thumb" type="url" placeholder="https://" aria-describedby="e-thumbs">
+					<label class="sr-only" for="f-thumb-2">thumb 3</label>
+					<input id="f-thumb-2" class="thumb" type="url" placeholder="https://" aria-describedby="e-thumbs">
+					<p id="e-thumbs" class="field-error"></p>
+				</fieldset>
+				<div class="form__actions">
+					<button type="submit" class="btn btn--primary">save</button>
+					<button id="cancel" type="button" class="btn">cancel</button>
+				</div>
+			</form>
+		</section>
+
+		<ol id="list" class="list" aria-label="Projects, in site order"></ol>
+		<p class="hint">drag a row, or use up / down, to change the order on the site.</p>
+	</main>
+</div>
+
+</body>
+</html>

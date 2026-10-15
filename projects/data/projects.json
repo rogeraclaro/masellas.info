@@ -7,7 +7,8 @@
       "year": 2026,
       "description": "Invoices and hours for a small studio. It replaced three spreadsheets and one notebook nobody could read.",
       "url": "https://ledger.example.com",
-      "thumbs": []
+      "thumbs": [],
+      "visible": true
     },
     {
       "id": "olive-mill",
@@ -16,7 +17,8 @@
       "year": 2025,
       "description": "Shop for a family olive-oil mill. Two products, one checkout, nothing else on purpose.",
       "url": "https://olive-mill.example.com",
-      "thumbs": []
+      "thumbs": [],
+      "visible": true
     },
     {
       "id": "rollcall",
@@ -25,7 +27,8 @@
       "year": 2026,
       "description": "Attendance for university classes. Students scan a code, I stop counting heads.",
       "url": "https://rollcall.example.com",
-      "thumbs": []
+      "thumbs": [],
+      "visible": true
     },
     {
       "id": "type-check",
@@ -34,7 +37,8 @@
       "year": 2025,
       "description": "WordPress plugin that flags orphaned words and bad hyphenation before anyone presses publish.",
       "url": "https://type-check.example.com",
-      "thumbs": []
+      "thumbs": [],
+      "visible": true
     },
     {
       "id": "seat-map",
@@ -43,7 +47,8 @@
       "year": 2025,
       "description": "Seat booking for a small theatre. Runs fine on the box-office laptop from 2014.",
       "url": "https://seat-map.example.com",
-      "thumbs": []
+      "thumbs": [],
+      "visible": true
     },
     {
       "id": "class-notes",
@@ -52,7 +57,8 @@
       "year": 2026,
       "description": "Course notes for my frontend classes. Plain HTML, updated the night before, as usual.",
       "url": "https://class-notes.example.com",
-      "thumbs": []
+      "thumbs": [],
+      "visible": true
     }
   ]
 }

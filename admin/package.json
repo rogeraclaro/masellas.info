@@ -1,0 +1,15 @@
+{
+  "name": "masellas-projects-admin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Back-office for the projects list on masellas.info",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test",
+    "hash-password": "node hash-password.js"
+  }
+}

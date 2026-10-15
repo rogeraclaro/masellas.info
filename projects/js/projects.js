@@ -292,14 +292,14 @@
 
   /* ---------- Data + intro ---------- */
 
+  // Returns the visible projects, or null when the data cannot be loaded.
   async function loadProjects() {
     try {
-      const response = await fetch('data/projects.json', { cache: 'no-cache' });
+      const response = await fetch('data/projects.json', { cache: 'no-store' });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return (await response.json()).projects;
+      return (await response.json()).projects.filter((project) => project.visible !== false);
     } catch (err) {
-      // file:// or network failure: use the inline copy embedded in the page.
-      return JSON.parse(document.getElementById('projects-data').textContent).projects;
+      return null;
     }
   }
 
@@ -311,13 +311,18 @@
     tl.to(chars, { rotateX: 0, duration: 0.8, ease: 'expo.out', stagger: 0.03125 }, 0);
     tl.to(titleEl.querySelector('.page-title__line'), { scaleX: 1, duration: 0.8, ease: 'expo.out' }, 0.15);
     tl.fromTo(countEl, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4, ease: ALPHA }, 0.15);
-    tl.fromTo(filtersEl.children, { autoAlpha: 0 }, { autoAlpha: 1, duration: 1.2, ease: 'power2.out', stagger: STAGGER }, 0.3);
+    if (filtersEl.children.length) tl.fromTo(filtersEl.children, { autoAlpha: 0 }, { autoAlpha: 1, duration: 1.2, ease: 'power2.out', stagger: STAGGER }, 0.3);
     tl.add(() => show(), 0.2);
   }
 
   async function init() {
     splitTitle();
     const [projects] = await Promise.all([loadProjects(), document.fonts ? document.fonts.ready : null]);
+    if (!projects) {
+      list.after(el('p', 'work-list__error', 'The projects could not load. Try again in a minute.'));
+      intro();
+      return;
+    }
 
     list.append(...projects.map(renderRow));
     renderFilters([...new Set(projects.map((project) => project.category))]);

@@ -1,0 +1,58 @@
+/* 3D cube roll: structure, plus the static fallback when nothing animates. */
+
+/* ---------- 3D cube (rows, menu tabs and filter chips) ----------
+   The inner rotates around X. The front face sits in normal flow and is pushed
+   forward by half the height; the other two faces are hinged above and below.
+   JS sets --height and shifts the inner back by the same amount (gsap z) so the
+   front face rests exactly at z = 0 and stays pixel-sharp. */
+.cube {
+  display: block;
+  overflow: hidden;
+  perspective: var(--cube-perspective, 1600px);
+}
+
+.cube__inner {
+  display: block;
+  position: relative;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.face {
+  display: block;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+.face--front {
+  transform: translateZ(calc(var(--height, 0px) / 2));
+}
+
+.face--before,
+.face--after {
+  position: absolute;
+  inset: 0;
+}
+
+.face--before {
+  transform: rotateX(90deg) translateZ(calc(var(--height, 0px) / 2));
+}
+
+.face--after {
+  transform: rotateX(-90deg) translateZ(calc(var(--height, 0px) / 2));
+}
+
+
+/* No motion (reduced motion or GSAP unavailable) */
+.no-motion .face--before,
+.no-motion .face--after {
+  display: none;
+}
+
+.no-motion .face--front {
+  transform: none;
+}
+
+.no-motion .cube__inner {
+  will-change: auto;
+}

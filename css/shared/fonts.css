@@ -1,0 +1,25 @@
+/* Brand webfonts (served from /tipos/ by the main site). */
+
+@font-face {
+  font-family: 'agltbook';
+  src: url('/tipos/aglt-book-webfont.woff2') format('woff2'), url('/tipos/aglt-book-webfont.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'agltmedium';
+  src: url('/tipos/aglt-medium-webfont.woff2') format('woff2'), url('/tipos/aglt-medium-webfont.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'agltbold';
+  src: url('/tipos/aglt-bold-webfont.woff2') format('woff2'), url('/tipos/aglt-bold-webfont.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}

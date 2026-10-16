@@ -1,0 +1,33 @@
+/* Design tokens shared by every page (values from the masellas-design system). */
+
+:root {
+  /* Brand palette (from the masellas-design tokens) */
+  --coral: #f4624e;
+  --charcoal: #272525;
+  --bone: #e4e1ce;
+  --bone-60: rgba(228, 225, 206, 0.6);
+  --hairline: rgba(228, 225, 206, 0.2);
+  --menu-idle: rgba(255, 255, 255, 0.5);
+  --menu-hover: rgba(255, 255, 255, 0.8);
+  --menu-active: rgba(0, 0, 0, 0.5);
+
+  --font-book: 'agltbook', Helvetica, Arial, sans-serif;
+  --font-medium: 'agltmedium', Helvetica, Arial, sans-serif;
+  --font-bold: 'agltbold', Helvetica, Arial, sans-serif;
+
+  --dur-link: 0.25s;
+  --ease: ease-in-out;
+  --wipe-distance: 500px;
+  --z-menu: 70;
+
+  --gutter: clamp(16px, 2.8vw, 40px);
+  --col-gap: clamp(12px, 1.4vw, 20px);
+  --fs-display: 13.5vw;
+  --fs-title: 9vw; /* display titles: projects (IA), Roger Masellas */
+  --fs-body: 1.25rem; /* long-form text */
+  --lh-body: 1.45;
+  --fs-row: clamp(2.25rem, 9vw, 4rem);
+  /* 4rem from ~711px up */
+  --fs-meta: clamp(1rem, 1.25vw, 1.125rem);
+  --fs-bar: clamp(1.125rem, 1.6vw, 1.5rem);
+}

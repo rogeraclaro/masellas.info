@@ -1,0 +1,56 @@
+/* Fixed brand tab menu, same on every page. */
+
+/* ---------- Menu (brand tab menu) ---------- */
+.menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--z-menu);
+  display: flex;
+  gap: 10px;
+  padding: 10px 0 0 10px;
+  font-family: var(--font-medium);
+  font-size: 16px;
+  line-height: 26px;
+}
+
+.menu__tab {
+  --cube-perspective: 300px;
+  display: inline-block;
+}
+
+.menu__tab .face {
+  padding: 1px 8px;
+  color: #000;
+  background: var(--menu-idle);
+}
+
+.menu__tab[aria-current] .face--front {
+  background: var(--menu-active);
+  color: #fff;
+}
+
+.menu__tab .face--before,
+.menu__tab .face--after {
+  background: var(--menu-hover);
+  color: #000;
+}
+
+.menu__tab:focus-visible {
+  outline: 2px solid var(--bone);
+  outline-offset: 2px;
+}
+
+
+@media (max-width: 640px) {
+  .menu__tab .face {
+    padding: 6px 12px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .no-motion .menu__tab:hover .face--front {
+    background: var(--menu-hover);
+    color: #000;
+  }
+}

@@ -2,8 +2,9 @@
 
 Pushing to `main` runs `.github/workflows/deploy.yml`:
 
-1. `test` — `npm test` in `admin/` on Node 22.
+1. `test` — `npm test` in `admin/` and `npm test` at the repo root (site logic), on Node 22.
 2. `deploy` (GitHub environment `production`):
+   - builds the bundles with `scripts/build.sh` and versions their URLs with `scripts/cache-bust.sh`.
    - rsyncs the site to `/home/rogermasellas/htdocs/masellas.info/`. It does not delete anything and does not change ownership or permissions.
    - copies `projects/data/projects.json` only if the server has none yet. After that the admin owns it.
    - rsyncs `admin/` to `/home/rogermasellas/masellas-admin/app/` with `--delete`. `.env` and `data/` are protected.
@@ -18,6 +19,27 @@ Server layout:
   .env                                                 config + secrets (never deployed)
 /home/rogermasellas/masellas-admin/data/projects.json  private list, hidden projects included
 ```
+
+## Front-end build
+
+Both pages load bundled, minified files built from ES module sources by esbuild 0.24.0 (no other dependencies):
+
+| source | output |
+| --- | --- |
+| `js/home.js`, `css/home.css` | `js/home.min.js`, `css/home.min.css` |
+| `projects/js/projects.js`, `projects/css/projects.css` | `projects/js/projects.min.js`, `projects/css/projects.min.css` |
+| `js/page-transition.js` | `js/page-transition.min.js` (render-blocking, both pages) |
+
+Shared code lives in `js/shared/` and `css/shared/` and is pulled in with `import` / `@import`.
+
+```sh
+npm run build   # = sh scripts/build.sh; CI runs the same script
+npm test        # pure logic: section wrap, gesture gate, page-transition direction
+```
+
+Commit the rebuilt `.min` files too, so the site works when served straight from the repo. CI rebuilds them anyway, then `scripts/cache-bust.sh` appends `?v=<hash>` to their URLs in `index.html` and `projects/index.html`. It rewrites the HTML in place, so only run it in CI.
+
+Page transitions: each page sets its place on a horizontal axis with `<html data-page-x="…">` (home `0`, projects `-1`). A page with a lower value slides in from the left, a higher one from the right. A new page only needs its own value plus `css/shared/view-transitions.css` and `js/page-transition.min.js`.
 
 ## One-time setup
 

@@ -1,0 +1,66 @@
+/* Cross-page slides (View Transitions API, same-origin navigations).
+   js/page-transition.js adds the type from each page's <html data-page-x>:
+   slide-from-left  = the new page sits left of the old one (home -> projects)
+   slide-from-right = the new page sits right of the old one (projects -> home)
+   Browsers without support, or with reduced motion, navigate normally. */
+
+@view-transition {
+  navigation: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @view-transition {
+    navigation: none;
+  }
+}
+
+:root {
+  --page-vt-duration: 1.3s;
+  --page-vt-ease: cubic-bezier(0.87, 0, 0.13, 1); /* close to expo.inOut */
+}
+
+/* The menu is the same on both pages: it stays put while the pages slide under it. */
+.menu {
+  view-transition-name: site-menu;
+}
+
+::view-transition-group(site-menu) {
+  animation-duration: var(--page-vt-duration);
+}
+
+/* Incoming page slides over the outgoing one, which drifts a third and darkens. */
+html:active-view-transition-type(slide-from-left)::view-transition-new(root) {
+  animation: var(--page-vt-duration) var(--page-vt-ease) both page-in-from-left;
+}
+
+html:active-view-transition-type(slide-from-left)::view-transition-old(root) {
+  animation: var(--page-vt-duration) var(--page-vt-ease) both page-out-to-right;
+}
+
+html:active-view-transition-type(slide-from-right)::view-transition-new(root) {
+  animation: var(--page-vt-duration) var(--page-vt-ease) both page-in-from-right;
+}
+
+html:active-view-transition-type(slide-from-right)::view-transition-old(root) {
+  animation: var(--page-vt-duration) var(--page-vt-ease) both page-out-to-left;
+}
+
+@keyframes page-in-from-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes page-in-from-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes page-out-to-right {
+  from { transform: translateX(0); filter: brightness(1); }
+  to { transform: translateX(33%); filter: brightness(0.4); }
+}
+
+@keyframes page-out-to-left {
+  from { transform: translateX(0); filter: brightness(1); }
+  to { transform: translateX(-33%); filter: brightness(0.4); }
+}

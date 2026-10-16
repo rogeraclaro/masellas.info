@@ -34,6 +34,8 @@ jobs:
       - name: Admin tests
         working-directory: admin
         run: npm test
+      - name: Site tests
+        run: npm test
 
   deploy:
     needs: test
@@ -48,21 +50,13 @@ jobs:
         with:
           node-version: 22
 
-      # The sources are the truth; always ship .min files built from them.
-      - name: Build minified assets
-        run: |
-          for f in projects/css/projects.css projects/js/projects.js; do
-            npx --yes esbuild@0.24.0 --minify --log-level=warning "$f" --outfile="${f%.*}.min.${f##*.}"
-          done
+      # The sources are the truth; always ship bundles built from them (same script as locally).
+      - name: Build bundles
+        run: sh scripts/build.sh
 
-      # nginx caches css/js for 10 years, so version the URLs by content hash.
+      # nginx caches css/js for 10 years, so version the URLs by content hash (fails if one is missing).
       - name: Cache-bust asset URLs
-        run: |
-          for rel in css/projects.min.css js/projects.min.js; do
-            hash=$(sha256sum "projects/$rel" | cut -c1-10)
-            sed -i "s#\"$rel\"#\"$rel?v=$hash\"#" projects/index.html
-            grep -q "$rel?v=$hash" projects/index.html || { echo "::error::failed to version $rel"; exit 1; }
-          done
+        run: sh scripts/cache-bust.sh
 
       - name: Configure SSH (pinned host key)
         env:
@@ -95,6 +89,7 @@ jobs:
           rsync -rlz --checksum \
             --exclude='.git/' --exclude='.github/' --exclude='.gitignore' --exclude='.claude/' \
             --exclude='/admin/' --exclude='/scripts/' --exclude='.playwright-mcp/' --exclude='.DS_Store' \
+            --exclude='/package.json' \
             --exclude='/projects/data/projects.json' --exclude='*.md' \
             ./ "deploy-target:$SITE_DIR"
 

@@ -1,0 +1,164 @@
+/* Home: two full-screen sections ("the point" on coral, "some words" on charcoal).
+   Bundled by esbuild (scripts/build.sh) into home.min.css. */
+@import "./shared/fonts.css";
+@import "./shared/tokens.css";
+@import "./shared/cube.css";
+@import "./shared/menu.css";
+@import "./shared/title.css";
+@import "./shared/wipe-link.css";
+@import "./shared/view-transitions.css";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Sections are fixed layers; nothing scrolls the body. */
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+html {
+  background: var(--charcoal);
+  color: var(--bone);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-medium);
+  font-size: 16px;
+  line-height: 1.3;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- Sections ----------
+   One fixed full-screen stage; sections are absolute layers inside it. (Sections must not be
+   position: fixed themselves: GSAP reparents fixed elements while reading their transforms,
+   which drops keyboard focus.) */
+.sections {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+.section {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow-x: hidden;
+  overflow-y: auto; /* a section taller than the screen scrolls inside itself */
+  overscroll-behavior: contain;
+  visibility: hidden;
+}
+
+.section.is-active {
+  visibility: visible;
+}
+
+.section__inner {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100%;
+  padding: 72px var(--gutter) 48px; /* top: clear the fixed menu */
+}
+
+.section__inner:focus {
+  outline: none;
+}
+
+.section--coral {
+  background: var(--coral);
+  color: var(--charcoal);
+  text-align: center;
+}
+
+.section--dark {
+  background: var(--charcoal);
+  color: var(--bone);
+}
+
+/* Darkens the outgoing section while the next one slides over it. */
+.section-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* ---------- The point ---------- */
+.home-title {
+  color: var(--charcoal);
+}
+
+.section--coral p {
+  margin: clamp(16px, 2.4vw, 32px) 0 0;
+  font-family: var(--font-book);
+  font-size: var(--fs-bar);
+  line-height: 1.4;
+  letter-spacing: -0.03em;
+}
+
+.home-title + p {
+  margin-top: clamp(24px, 4vw, 56px);
+}
+
+/* ---------- Some words ---------- */
+.intro {
+  width: 100%;
+  max-width: 65ch;
+  margin: 0 auto;
+  font-family: var(--font-book);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+}
+
+.intro p {
+  margin: 0 0 1em;
+}
+
+.intro p:last-child {
+  margin-bottom: 0;
+}
+
+.section--dark .wipe-link:focus-visible,
+.section--coral .wipe-link--on-coral:focus-visible {
+  outline: none;
+}
+
+/* Text waits for its intro (js/home.js). */
+.js .home-animate {
+  visibility: hidden;
+}

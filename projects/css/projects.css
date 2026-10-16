@@ -1,57 +1,13 @@
 /* Projects index — Masellas design system, motion modelled on a 3D "cube roll" list. */
+/* Shared with the home page (css/shared/); bundled by esbuild (scripts/build.sh). */
+@import "../../css/shared/fonts.css";
+@import "../../css/shared/tokens.css";
+@import "../../css/shared/cube.css";
+@import "../../css/shared/menu.css";
+@import "../../css/shared/title.css";
+@import "../../css/shared/wipe-link.css";
+@import "../../css/shared/view-transitions.css";
 
-@font-face {
-  font-family: 'agltbook';
-  src: url('/tipos/aglt-book-webfont.woff2') format('woff2'), url('/tipos/aglt-book-webfont.woff') format('woff');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'agltmedium';
-  src: url('/tipos/aglt-medium-webfont.woff2') format('woff2'), url('/tipos/aglt-medium-webfont.woff') format('woff');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'agltbold';
-  src: url('/tipos/aglt-bold-webfont.woff2') format('woff2'), url('/tipos/aglt-bold-webfont.woff') format('woff');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-:root {
-  /* Brand palette (from the masellas-design tokens) */
-  --coral: #f4624e;
-  --charcoal: #272525;
-  --bone: #e4e1ce;
-  --bone-60: rgba(228, 225, 206, 0.6);
-  --hairline: rgba(228, 225, 206, 0.2);
-  --menu-idle: rgba(255, 255, 255, 0.5);
-  --menu-hover: rgba(255, 255, 255, 0.8);
-  --menu-active: rgba(0, 0, 0, 0.5);
-
-  --font-book: 'agltbook', Helvetica, Arial, sans-serif;
-  --font-medium: 'agltmedium', Helvetica, Arial, sans-serif;
-  --font-bold: 'agltbold', Helvetica, Arial, sans-serif;
-
-  --dur-link: 0.25s;
-  --ease: ease-in-out;
-  --wipe-distance: 500px;
-  --z-menu: 70;
-
-  --gutter: clamp(16px, 2.8vw, 40px);
-  --col-gap: clamp(12px, 1.4vw, 20px);
-  --fs-display: 13.5vw;
-  --fs-row: clamp(2.25rem, 9vw, 4rem);
-  /* 4rem from ~711px up */
-  --fs-meta: clamp(1rem, 1.25vw, 1.125rem);
-  --fs-bar: clamp(1.125rem, 1.6vw, 1.5rem);
-}
 
 /* Lenis (inline instead of loading lenis.css) */
 html.lenis,
@@ -137,141 +93,9 @@ ul {
   transform: translate(-50%, 0);
 }
 
-/* ---------- 3D cube (rows, menu tabs and filter chips) ----------
-   The inner rotates around X. The front face sits in normal flow and is pushed
-   forward by half the height; the other two faces are hinged above and below.
-   JS sets --height and shifts the inner back by the same amount (gsap z) so the
-   front face rests exactly at z = 0 and stays pixel-sharp. */
-.cube {
-  display: block;
-  overflow: hidden;
-  perspective: var(--cube-perspective, 1600px);
-}
-
-.cube__inner {
-  display: block;
-  position: relative;
-  transform-style: preserve-3d;
-  will-change: transform;
-}
-
-.face {
-  display: block;
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-}
-
-.face--front {
-  transform: translateZ(calc(var(--height, 0px) / 2));
-}
-
-.face--before,
-.face--after {
-  position: absolute;
-  inset: 0;
-}
-
-.face--before {
-  transform: rotateX(90deg) translateZ(calc(var(--height, 0px) / 2));
-}
-
-.face--after {
-  transform: rotateX(-90deg) translateZ(calc(var(--height, 0px) / 2));
-}
-
-/* ---------- Menu (brand tab menu) ---------- */
-.menu {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: var(--z-menu);
-  display: flex;
-  gap: 10px;
-  padding: 10px 0 0 10px;
-  font-family: var(--font-medium);
-  font-size: 16px;
-  line-height: 26px;
-}
-
-.menu__tab {
-  --cube-perspective: 300px;
-  display: inline-block;
-}
-
-.menu__tab .face {
-  padding: 1px 8px;
-  color: #000;
-  background: var(--menu-idle);
-}
-
-.menu__tab[aria-current='page'] .face--front {
-  background: var(--menu-active);
-  color: #fff;
-}
-
-.menu__tab .face--before,
-.menu__tab .face--after {
-  background: var(--menu-hover);
-  color: #000;
-}
-
-.menu__tab:focus-visible {
-  outline: 2px solid var(--bone);
-  outline-offset: 2px;
-}
-
 /* ---------- Header ---------- */
 .page-header {
   padding: clamp(96px, 16vh, 180px) var(--gutter) clamp(32px, 5vw, 72px);
-}
-
-.page-title {
-  margin: 0;
-  font-family: var(--font-bold);
-  font-weight: normal;
-  font-size: 9vw;
-  line-height: 0.9;
-  letter-spacing: -0.045em;
-  color: var(--bone);
-  text-decoration: underline;
-  /* fallback before the split */
-  text-decoration-thickness: 0.045em;
-  text-underline-offset: 0.12em;
-}
-
-.js .page-title {
-  visibility: hidden;
-}
-
-.page-title.is-split {
-  visibility: visible;
-  text-decoration: none;
-}
-
-.page-title__chars {
-  position: relative;
-  display: inline-block;
-  padding-bottom: 0.2em;
-  /* room for descenders above the underline */
-  perspective: 800px;
-  transform-style: preserve-3d;
-}
-
-.page-title__char {
-  display: inline-block;
-  transform-origin: 50% 100%;
-  will-change: transform, opacity;
-}
-
-/* The underline survives the split as its own element (animatable). */
-.page-title__line {
-  position: absolute;
-  left: 0;
-  right: 0.06em;
-  bottom: 0.04em;
-  height: 0.045em;
-  background: currentColor;
-  transform-origin: 0 50%;
 }
 
 .page-bar {
@@ -481,19 +305,6 @@ ul {
   margin: 0;
 }
 
-.wipe-link {
-  color: var(--coral);
-  box-shadow: inset 0 0 0 0 var(--bone);
-  transition: var(--dur-link) var(--ease);
-}
-
-.wipe-link:hover,
-.wipe-link:focus-visible {
-  color: var(--charcoal);
-  box-shadow: inset var(--wipe-distance) 0 0 0 var(--bone);
-  outline: none;
-}
-
 /* ---------- Below 1200px: stacked rows, no hover roll ---------- */
 @media (max-width: 1199px) {
 
@@ -514,10 +325,6 @@ ul {
 }
 
 @media (max-width: 640px) {
-  .menu__tab .face {
-    padding: 6px 12px;
-  }
-
   .page-bar {
     flex-direction: column;
     align-items: flex-start;
@@ -525,19 +332,6 @@ ul {
 }
 
 /* ---------- No motion (reduced motion or GSAP unavailable) ---------- */
-.no-motion .face--before,
-.no-motion .face--after {
-  display: none;
-}
-
-.no-motion .face--front {
-  transform: none;
-}
-
-.no-motion .cube__inner {
-  will-change: auto;
-}
-
 @media (hover: hover) and (pointer: fine) {
 
   .no-motion .work-item:hover .face--front,
@@ -554,11 +348,6 @@ ul {
   .no-motion .chip:hover .face--front {
     background: var(--coral);
     color: var(--charcoal);
-  }
-
-  .no-motion .menu__tab:hover .face--front {
-    background: var(--menu-hover);
-    color: #000;
   }
 }
 

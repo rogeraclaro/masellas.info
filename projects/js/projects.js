@@ -1,4 +1,11 @@
-/* Projects index: renders the list from JSON, drives the cube-roll motion and the project detail view. */
+/* Projects index: renders the list from JSON, drives the cube-roll motion and the project detail view.
+   Bundled with esbuild (scripts/build.sh) into projects.min.js. */
+import { el } from '../../js/shared/dom.js';
+import { setupGsap } from '../../js/shared/ease.js';
+import { splitTitle as splitShared, titleIntro as introShared } from '../../js/shared/split-title.js';
+import { buildCube, measureCube as measureShared, bindCube as bindShared, clearLeave } from '../../js/shared/cube.js';
+import { pageReady } from '../../js/shared/page-ready.js';
+
 (() => {
   'use strict';
 
@@ -17,16 +24,10 @@
   const countEl = document.querySelector('.page-count');
   const filtersEl = document.querySelector('.filters');
   const titleEl = document.querySelector('[data-split]');
-  const leaveTimers = new WeakMap();
   let lenis = null;
 
   if (animate) {
-    gsap.defaults({ ease: 'none' });
-    if (window.CustomEase) {
-      gsap.registerPlugin(window.CustomEase);
-      window.CustomEase.create('masellas.alpha', '.25, .46, .45, .9');
-      ALPHA = 'masellas.alpha';
-    }
+    ALPHA = setupGsap(gsap);
     if (window.Lenis) {
       lenis = new window.Lenis({ easing: (t) => 1 - Math.pow(1 - t, 5), wheelMultiplier: 1 });
       gsap.ticker.add((time) => lenis.raf(time * 1000));
@@ -38,14 +39,7 @@
     root.classList.add('no-motion');
   }
 
-  /* ---------- DOM helpers (textContent only, never innerHTML with data) ---------- */
-
-  function el(tag, className, text) {
-    const node = document.createElement(tag);
-    if (className) node.className = className;
-    if (text != null) node.textContent = String(text);
-    return node;
-  }
+  /* ---------- DOM helpers (el() is shared; textContent only, never innerHTML with data) ---------- */
 
   function safeUrl(url) {
     try {
@@ -54,22 +48,6 @@
     } catch (err) {
       return null;
     }
-  }
-
-  // Wraps front content plus two hidden faces into the cube structure.
-  function buildCube(cube, frontNodes, makeHiddenNodes) {
-    const inner = el('span', 'cube__inner');
-    const front = el('span', 'face face--front');
-    front.append(...frontNodes);
-    inner.append(front);
-    for (const side of ['before', 'after']) {
-      const face = el('span', `face face--${side}`);
-      face.setAttribute('aria-hidden', 'true');
-      face.append(...makeHiddenNodes());
-      inner.append(face);
-    }
-    cube.append(inner);
-    return cube;
   }
 
   function renderRow(project) {
@@ -123,87 +101,19 @@
     });
   }
 
-  // Splits a heading into chars; screen readers get the intact text instead.
-  // words: one underlined group per word, so long titles wrap between words and never inside one.
-  function splitTitle(heading, text, { words = false } = {}) {
-    heading.textContent = '';
-    heading.append(el('span', 'sr-only', text));
-    const groups = words ? text.split(/\s+/).filter(Boolean) : [text];
-    groups.forEach((group, index) => {
-      if (index > 0) heading.append(document.createTextNode(' '));
-      const chars = el('span', 'page-title__chars');
-      chars.setAttribute('aria-hidden', 'true');
-      for (const char of group) chars.append(el('span', 'page-title__char', char === ' ' ? '\u00a0' : char));
-      chars.append(el('span', 'page-title__line'));
-      heading.append(chars);
-    });
-    heading.classList.add('is-split');
-    if (animate) {
-      gsap.set(heading.querySelectorAll('.page-title__char'), { rotateX: 90, autoAlpha: 0, transformOrigin: '50% 100%' });
-      gsap.set(heading.querySelectorAll('.page-title__line'), { scaleX: 0 });
-    }
-  }
-
-  // Chars roll up into place, then the underline grows. Adds to `tl` at `at`.
-  function titleIntro(heading, tl, at = 0) {
-    const chars = heading.querySelectorAll('.page-title__char');
-    tl.to(chars, { autoAlpha: 1, duration: 0.4, ease: ALPHA, stagger: 0.03125 }, at);
-    tl.to(chars, { rotateX: 0, duration: 0.8, ease: 'expo.out', stagger: 0.03125 }, at);
-    tl.to(heading.querySelectorAll('.page-title__line'), { scaleX: 1, duration: 0.8, ease: 'expo.out' }, at + 0.15);
-    return tl;
-  }
+  // Shared title splitter/intro (js/shared/split-title.js), bound to this page's motion settings.
+  const splitTitle = (heading, text, options = {}) => splitShared(heading, text, { ...options, gsap: animate ? gsap : null });
+  const titleIntro = (heading, tl, at = 0) => introShared(heading, tl, at, ALPHA);
 
   /* ---------- Cube geometry and hover ---------- */
 
-  function measureCube(cube) {
-    const inner = cube.firstElementChild;
-    const height = inner.offsetHeight;
-    if (!height) return; // not rendered (filtered out, or inside the closed detail)
-    cube.style.setProperty('--height', `${height}px`);
-    // Pull the cube back by half its depth so the front face rests at z = 0.
-    if (animate) gsap.set(inner, { z: -height / 2 });
-  }
+  const measureCube = (cube) => measureShared(cube, animate ? gsap : null);
 
   function measureCubes() {
     document.querySelectorAll('.cube').forEach(measureCube);
   }
 
-  function roll(inner, angle, duration, ease) {
-    gsap.killTweensOf(inner, 'rotateX');
-    gsap.to(inner, { rotateX: angle, duration, ease });
-  }
-
-  function clearLeave(inner) {
-    clearTimeout(leaveTimers.get(inner));
-    leaveTimers.delete(inner);
-  }
-
-  function bindCube(cube, leaveDelay) {
-    const inner = cube.firstElementChild;
-    const rollBack = () => roll(inner, 0, leaveDelay ? 0.8 : 0.6, leaveDelay ? 'expo.inOut' : 'expo.out');
-
-    cube.addEventListener('mouseenter', (event) => {
-      if (!hoverQuery.matches) return;
-      clearLeave(inner);
-      const rect = cube.getBoundingClientRect();
-      // Entering through the top half rolls down (-90), bottom half rolls up (+90).
-      roll(inner, event.clientY < rect.top + rect.height / 2 ? -90 : 90, 0.6, 'expo.out');
-    });
-    cube.addEventListener('mouseleave', () => {
-      if (!hoverQuery.matches) return;
-      clearLeave(inner);
-      if (leaveDelay) leaveTimers.set(inner, setTimeout(rollBack, leaveDelay));
-      else rollBack();
-    });
-    cube.addEventListener('focus', () => {
-      if (!hoverQuery.matches || !cube.matches(':focus-visible')) return;
-      clearLeave(inner);
-      roll(inner, -90, 0.6, 'expo.out');
-    });
-    cube.addEventListener('blur', () => {
-      if (gsap.getProperty(inner, 'rotateX') !== 0 && !cube.matches(':hover')) rollBack();
-    });
-  }
+  const bindCube = (cube, leaveDelay) => bindShared(cube, { gsap, hoverQuery, leaveDelay });
 
   /* ---------- List show / hide ---------- */
 
@@ -615,6 +525,7 @@
     const [projects] = await Promise.all([loadProjects(), document.fonts ? document.fonts.ready : null]);
     if (!projects) {
       list.after(el('p', 'work-list__error', 'The projects could not load. Try again in a minute.'));
+      await pageReady();
       intro();
       return;
     }
@@ -655,6 +566,7 @@
     });
 
     bindDetail();
+    await pageReady(); // after the cross-page slide, not under it
     intro();
     openFromUrl();
   }

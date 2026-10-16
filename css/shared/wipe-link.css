@@ -1,0 +1,30 @@
+/* Brand wipe link: a solid block floods in behind the text on hover. */
+
+.wipe-link {
+  color: var(--coral);
+  box-shadow: inset 0 0 0 0 var(--bone);
+  transition: var(--dur-link) var(--ease);
+}
+
+.wipe-link:hover,
+.wipe-link:focus-visible {
+  color: var(--charcoal);
+  box-shadow: inset var(--wipe-distance) 0 0 0 var(--bone);
+  outline: none;
+}
+
+
+
+/* On coral: charcoal text, a charcoal block with bone text floods in; padding grows 10 -> 22px. */
+.wipe-link--on-coral {
+  padding: 0 10px;
+  color: var(--charcoal);
+  box-shadow: inset 0 0 0 0 var(--charcoal);
+}
+
+.wipe-link--on-coral:hover,
+.wipe-link--on-coral:focus-visible {
+  padding: 0 22px;
+  color: var(--bone);
+  box-shadow: inset var(--wipe-distance) 0 0 0 var(--charcoal);
+}

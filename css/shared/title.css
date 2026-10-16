@@ -1,0 +1,50 @@
+/* Display title: agltbold, underlined, split into chars by js/shared/split-title.js. */
+
+.page-title {
+  margin: 0;
+  font-family: var(--font-bold);
+  font-weight: normal;
+  font-size: var(--fs-title);
+  line-height: 0.9;
+  letter-spacing: -0.045em;
+  color: var(--bone);
+  text-decoration: underline;
+  /* fallback before the split */
+  text-decoration-thickness: 0.045em;
+  text-underline-offset: 0.12em;
+}
+
+.js .page-title {
+  visibility: hidden;
+}
+
+.page-title.is-split {
+  visibility: visible;
+  text-decoration: none;
+}
+
+.page-title__chars {
+  position: relative;
+  display: inline-block;
+  padding-bottom: 0.2em;
+  /* room for descenders above the underline */
+  perspective: 800px;
+  transform-style: preserve-3d;
+}
+
+.page-title__char {
+  display: inline-block;
+  transform-origin: 50% 100%;
+  will-change: transform, opacity;
+}
+
+/* The underline survives the split as its own element (animatable). */
+.page-title__line {
+  position: absolute;
+  left: 0;
+  right: 0.06em;
+  bottom: 0.04em;
+  height: 0.045em;
+  background: currentColor;
+  transform-origin: 0 50%;
+}

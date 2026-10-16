@@ -1,0 +1,13 @@
+{
+  "name": "masellas-info",
+  "private": true,
+  "description": "Static site sources. Build with npm run build; the admin has its own package in admin/.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "sh scripts/build.sh",
+    "test": "node --test \"scripts/test/*.test.js\""
+  }
+}

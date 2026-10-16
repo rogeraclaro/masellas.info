@@ -90,13 +90,14 @@ jobs:
             --exclude='.git/' --exclude='.github/' --exclude='.gitignore' --exclude='.claude/' \
             --exclude='/admin/' --exclude='/scripts/' --exclude='.playwright-mcp/' --exclude='.DS_Store' \
             --exclude='/package.json' \
-            --exclude='/projects/data/projects.json' --exclude='*.md' \
+            --exclude='/projects/data/projects.json' --exclude='/projects/data/some-words.json' --exclude='*.md' \
             ./ "deploy-target:$SITE_DIR"
 
-      - name: Seed public projects.json (first deploy only)
+      # The admin owns these files after the first deploy; only create them if missing.
+      - name: Seed public data files (first deploy only)
         run: |
-          rsync -rltz --ignore-existing projects/data/projects.json \
-            "deploy-target:${SITE_DIR}projects/data/projects.json"
+          rsync -rltz --ignore-existing projects/data/projects.json projects/data/some-words.json \
+            "deploy-target:${SITE_DIR}projects/data/"
 
       - name: Sync admin app (.env and data protected)
         run: |
@@ -122,6 +123,7 @@ jobs:
       - name: Smoke check
         run: |
           curl -fsS --retry 5 --retry-delay 2 --retry-all-errors https://masellas.info/projects/data/projects.json > /dev/null
+          curl -fsS --retry 5 --retry-delay 2 --retry-all-errors https://masellas.info/projects/data/some-words.json > /dev/null
           code=$(curl -sS --retry 5 --retry-delay 2 --retry-all-errors -o /dev/null -w '%{http_code}' https://masellas.info/admin/)
           echo "admin: HTTP $code"
           test "$code" = 200

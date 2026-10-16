@@ -31,6 +31,19 @@ test('loadConfig reads overrides', () => {
   assert.equal(config.publicUrl, 'http://localhost:8765/projects/');
 });
 
+test('loadConfig derives the some-words files from DATA_FILE / PUBLIC_FILE (no new required vars)', () => {
+  const config = loadConfig(good);
+  assert.equal(config.someWordsFile, '/srv/some-words.json');
+  assert.equal(config.someWordsPublicFile, '/var/www/projects/data/some-words.json');
+});
+
+test('loadConfig accepts optional absolute overrides for the some-words files', () => {
+  const config = loadConfig({ ...good, SOME_WORDS_FILE: '/x/words.json', SOME_WORDS_PUBLIC_FILE: '/y/words.json' });
+  assert.equal(config.someWordsFile, '/x/words.json');
+  assert.equal(config.someWordsPublicFile, '/y/words.json');
+  assert.throws(() => loadConfig({ ...good, SOME_WORDS_FILE: 'words.json' }), /SOME_WORDS_FILE/);
+});
+
 test('loadConfig reads COOKIE_PATH and TRUST_PROXY', () => {
   const config = loadConfig({ ...good, COOKIE_PATH: '/admin/', TRUST_PROXY: 'true' });
   assert.equal(config.cookiePath, '/admin/');

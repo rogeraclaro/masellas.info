@@ -1,5 +1,6 @@
 // Env-only configuration with a tiny .env parser (no dotenv dependency).
 import path from 'node:path';
+import { someWordsPaths } from './publish.js';
 
 export function parseEnv(text) {
   const env = {};
@@ -22,13 +23,20 @@ export function loadConfig(env) {
   if (!/^[0-9a-f]{64,}$/i.test(env.SESSION_SECRET)) {
     throw new Error('SESSION_SECRET must be at least 32 random bytes as hex (64+ hex chars)');
   }
+  // Optional overrides; by default the "some words" files sit next to the projects files.
+  for (const key of ['SOME_WORDS_FILE', 'SOME_WORDS_PUBLIC_FILE']) {
+    if (env[key] && !path.isAbsolute(env[key])) throw new Error(`${key} must be an absolute path`);
+  }
   const cookiePath = env.COOKIE_PATH || '/';
+  const derived = someWordsPaths({ dataFile: env.DATA_FILE, publicFile: env.PUBLIC_FILE });
   if (!/^\/[A-Za-z0-9/_-]*$/.test(cookiePath)) throw new Error('COOKIE_PATH must be a plain path starting with /');
   return {
     port: Number(env.PORT || 8787),
     host: env.HOST || '127.0.0.1',
     dataFile: env.DATA_FILE,
     publicFile: env.PUBLIC_FILE,
+    someWordsFile: env.SOME_WORDS_FILE || derived.someWordsFile,
+    someWordsPublicFile: env.SOME_WORDS_PUBLIC_FILE || derived.someWordsPublicFile,
     passwordHash: env.ADMIN_PASSWORD_HASH,
     sessionSecret: env.SESSION_SECRET,
     cookieSecure: env.COOKIE_SECURE !== 'false',

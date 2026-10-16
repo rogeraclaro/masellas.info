@@ -135,3 +135,51 @@ textarea { resize: vertical; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
+
+/* View switch: projects / some words */
+.views { display: flex; gap: 8px; margin-right: auto; }
+.view-tab[aria-pressed="true"] { background: var(--coral); border-color: var(--coral); color: var(--charcoal); }
+.view-tab[aria-pressed="true"]:hover,
+.view-tab[aria-pressed="true"]:focus-visible { box-shadow: none; }
+
+/* Some words: live preview styled like the home's charcoal section */
+/* agltbook draws [ ] like ( ), which hides the link syntax. This copy of the font skips the
+   square brackets (U+005B, U+005D), so only they fall back to Helvetica/Arial. */
+@font-face {
+  font-family: 'agltbook-edit';
+  src: url('/tipos/aglt-book-webfont.woff2') format('woff2'), url('/tipos/aglt-book-webfont.woff') format('woff');
+  font-display: swap;
+  unicode-range: U+0000-005A, U+005C, U+005E-FFFF;
+}
+#f-words, #words-hint, #e-words, .preview-problems { font-family: 'agltbook-edit', Helvetica, Arial, sans-serif; }
+#f-words { min-height: 18em; }
+.preview-block { margin-top: 40px; }
+.preview-problems:empty { display: none; }
+.preview-problems { color: var(--coral); }
+.preview {
+  max-width: 65ch;
+  margin-top: 16px;
+  padding: 32px clamp(16px, 4vw, 48px);
+  border: 1px solid var(--hairline);
+  background: var(--charcoal);
+  color: var(--bone);
+  font-family: var(--font-book);
+  font-size: 1.25rem;
+  line-height: 1.2;
+  letter-spacing: -0.035em;
+}
+.preview p { margin: 0 0 20px; }
+.preview p:last-child { margin-bottom: 0; }
+.preview a {
+  padding: 0 10px;
+  color: var(--coral);
+  text-decoration: none;
+  box-shadow: inset 0 0 0 0 var(--bone);
+  transition: box-shadow var(--dur) ease-in-out, color var(--dur) ease-in-out, padding var(--dur) ease-in-out;
+}
+.preview a:hover,
+.preview a:focus-visible { padding: 0 22px; color: var(--charcoal); box-shadow: inset 500px 0 0 0 var(--bone); }
+/* A paragraph that is only a link sits flush (the old .nopadding). */
+.preview .link-only a,
+.preview .link-only a:hover,
+.preview .link-only a:focus-visible { padding: 0; }

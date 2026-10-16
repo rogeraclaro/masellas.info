@@ -1,4 +1,5 @@
-// Pure validation helpers for project records. No I/O.
+// Pure validation helpers for project records and the home's "some words". No I/O.
+import { parseRichText, RICH_TEXT_MAX } from './rich-text.js';
 
 const FIELDS = ['title', 'category', 'year', 'description', 'url', 'visible', 'thumbs', 'ai', 'tools'];
 const REQUIRED = ['title', 'category', 'year', 'url'];
@@ -102,4 +103,21 @@ export function isPermutation(ids, currentIds) {
   if (!ids.every((id) => typeof id === 'string')) return false;
   const set = new Set(ids);
   return set.size === ids.length && currentIds.every((id) => set.has(id));
+}
+
+// "some words": { text } only, 1-4000 chars after trimming, links checked by the shared parser.
+export function validateSomeWords(input) {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
+    return { value: {}, errors: { _body: 'expected a JSON object' } };
+  }
+  const errors = {};
+  const unknown = Object.keys(input).filter((key) => key !== 'text');
+  if (unknown.length) errors._unknown = `unknown fields: ${unknown.join(', ')}`;
+  const check = text(input.text, { min: 1, max: RICH_TEXT_MAX, label: 'text' });
+  if (check.error) errors.text = check.error;
+  else {
+    const { errors: linkErrors } = parseRichText(check.value);
+    if (linkErrors.length) errors.text = linkErrors.join(' ');
+  }
+  return { value: errors.text ? {} : { text: check.value }, errors };
 }

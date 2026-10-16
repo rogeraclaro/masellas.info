@@ -152,7 +152,8 @@ ul {
   margin: 0 0 20px; /* original: padding-top 20px between paragraphs */
 }
 
-/* Original "p a": 10px side padding growing to 22px on hover; .nopadding opts out. */
+/* Original "p a": 10px side padding growing to 22px on hover; a paragraph that is only a link
+   (.link-only, set by the rich-text renderer; formerly .nopadding) opts out. */
 .intro .wipe-link {
   padding: 0 10px;
 }
@@ -162,7 +163,7 @@ ul {
   padding: 0 22px;
 }
 
-.intro .nopadding .wipe-link {
+.intro .link-only .wipe-link {
   padding: 0;
 }
 

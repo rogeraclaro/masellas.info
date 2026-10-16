@@ -54,6 +54,8 @@ before(async () => {
   dataFile = path.join(dir, 'private', 'projects.json');
   publicFile = path.join(dir, 'web', 'projects.json');
   await writeFile(dataFile, `${JSON.stringify(seed, null, 2)}\n`);
+  // "some words" files sit next to the projects files (derived, no extra config).
+  await writeFile(path.join(dir, 'private', 'some-words.json'), `${JSON.stringify({ text: 'Hello.' }, null, 2)}\n`);
   passwordHash = hashPassword(PASSWORD);
   ({ app: server, base } = await boot());
 });
@@ -336,5 +338,60 @@ test('public write failure returns 500, keeps the private change, and is retried
     assert.deepEqual(await publicIds(brokenPublic), ['rollcall'], 'retry regenerates the whole public file');
   } finally {
     app.close();
+  }
+});
+
+test('some words: GET requires a session', async () => {
+  assert.equal((await call(base, 'GET', '/api/some-words')).status, 401);
+  assert.equal((await call(base, 'PUT', '/api/some-words', { body: { text: 'x' }, version: 'v' })).status, 401);
+});
+
+test('some words: GET returns text and version; PUT validates, saves, publishes and versions', async () => {
+  let res = await call(base, 'GET', '/api/some-words', { cookie });
+  assert.equal(res.status, 200);
+  let json = await res.json();
+  assert.equal(json.text, 'Hello.');
+  assert.match(json.version, /^[0-9a-f]{64}$/);
+  const { version } = json;
+
+  res = await call(base, 'PUT', '/api/some-words', { cookie, body: { text: 'No version.' } });
+  assert.equal(res.status, 428);
+
+  res = await call(base, 'PUT', '/api/some-words', { cookie, version, body: { text: 'Bad [x](javascript:alert(1)).' } });
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).errors.text, /javascript:alert\(1\)/);
+
+  const text = 'First paragraph with [a link](https://example.com).\n\n[roger at lamosca.com](mailto:roger@lamosca.com)';
+  res = await call(base, 'PUT', '/api/some-words', { cookie, version, body: { text: `  ${text}  ` } });
+  assert.equal(res.status, 200);
+  json = await res.json();
+  assert.equal(json.text, text);
+  assert.notEqual(json.version, version);
+
+  const web = path.dirname(publicFile);
+  assert.deepEqual(JSON.parse(await readFile(path.join(web, 'some-words.json'), 'utf8')), { text });
+  const priv = path.dirname(dataFile);
+  assert.equal(JSON.parse(await readFile(path.join(priv, 'some-words.json'), 'utf8')).text, text);
+  assert.equal(JSON.parse(await readFile(path.join(priv, 'some-words.json.bak'), 'utf8')).text, 'Hello.');
+  assert.ok(!(await readdir(web)).some((name) => name.endsWith('.bak')), 'no backup in the public dir');
+
+  res = await call(base, 'PUT', '/api/some-words', { cookie, version, body: { text: 'Stale tab.' } });
+  assert.equal(res.status, 409, 'old version is rejected');
+  assert.equal((await res.json()).version, json.version);
+});
+
+test('some words: rejects foreign origins and non-JSON like the rest of the API', async () => {
+  const res = await call(base, 'PUT', '/api/some-words', { cookie, version: 'v', body: { text: 'x' }, headers: { origin: 'https://evil.example.com' } });
+  assert.equal(res.status, 403);
+});
+
+test('the shared rich-text modules are served for the UI, nothing else from lib/', async () => {
+  for (const name of ['rich-text.js', 'rich-text-dom.js']) {
+    const res = await fetch(`${base}/${name}`);
+    assert.equal(res.status, 200, name);
+    assert.match(res.headers.get('content-type'), /javascript/);
+  }
+  for (const p of ['/lib/store.js', '/store.js', '/lib/rich-text.js', '/config.js']) {
+    assert.equal((await fetch(base + p)).status, 404, p);
   }
 });

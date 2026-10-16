@@ -7,7 +7,7 @@
 	<title>Projects admin — Roger Masellas</title>
 	<link rel="icon" href="data:,">
 	<link rel="stylesheet" href="admin.css">
-	<script defer src="admin.js"></script>
+	<script type="module" src="admin.js"></script>
 </head>
 <body>
 
@@ -23,14 +23,18 @@
 
 <div id="app" hidden>
 	<header class="bar">
-		<h1 class="heading">projects / admin</h1>
+		<h1 class="heading">admin</h1>
+		<div class="views" role="group" aria-label="What to edit">
+			<button type="button" class="btn view-tab" data-view="projects" aria-pressed="true">projects</button>
+			<button type="button" class="btn view-tab" data-view="words" aria-pressed="false">some words</button>
+		</div>
 		<nav class="bar__nav" aria-label="Admin">
 			<a id="view-site" class="btn" href="https://masellas.info/projects/" target="_blank" rel="noopener">view site</a>
 			<button id="logout" type="button" class="btn">log out</button>
 		</nav>
 	</header>
 
-	<main class="content">
+	<main class="content" id="view-projects">
 		<div class="toolbar">
 			<button id="new-project" type="button" class="btn btn--primary">new project</button>
 			<p id="status" class="status" role="status" aria-live="polite"></p>
@@ -102,6 +106,30 @@
 
 		<ol id="list" class="list" aria-label="Projects, in site order"></ol>
 		<p class="hint">drag a row, or use up / down, to change the order on the site.</p>
+	</main>
+
+	<main class="content" id="view-words" hidden>
+		<section aria-labelledby="words-title">
+			<h2 id="words-title" class="heading heading--small">some words</h2>
+			<p class="hint">the text of the "some words" section on the home page.</p>
+			<form id="words-form" class="form" novalidate>
+				<div class="field">
+					<label for="f-words">text</label>
+					<textarea id="f-words" name="text" rows="16" maxlength="4000" aria-describedby="words-hint e-words"></textarea>
+					<p id="words-hint" class="hint"><span id="words-count">0 / 4000</span> · blank line = new paragraph · links: [text](https://…) or [text](mailto:…)</p>
+					<p id="e-words" class="field-error" aria-live="assertive"></p>
+				</div>
+				<div class="form__actions">
+					<button type="submit" class="btn btn--primary">save</button>
+					<p id="words-status" class="status" role="status" aria-live="polite"></p>
+				</div>
+			</form>
+		</section>
+		<section class="preview-block" aria-labelledby="preview-title">
+			<h2 id="preview-title" class="heading heading--small">preview</h2>
+			<p id="preview-problems" class="hint preview-problems"></p>
+			<div id="words-preview" class="preview"></div>
+		</section>
 	</main>
 </div>
 

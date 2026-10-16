@@ -5,6 +5,9 @@ import { splitTitle, titleIntro, hideTitle } from './shared/split-title.js';
 import { measureCube, bindCube } from './shared/cube.js';
 import { pageReady } from './shared/page-ready.js';
 import { step, jump, indexFromHash, createGestureGate } from './home/sections.js';
+// Same parser the admin validates with (admin/lib is deployed as-is; esbuild bundles it here).
+import { parseRichText, RICH_TEXT_MAX } from '../admin/lib/rich-text.js';
+import { renderRichText } from '../admin/lib/rich-text-dom.js';
 
 const root = document.documentElement;
 const gsap = window.gsap;
@@ -17,11 +20,14 @@ const anchors = sections.map((section) => section.dataset.anchor);
 const shade = document.querySelector('.section-shade');
 const tabs = [...document.querySelectorAll('.menu__tab')];
 const title = document.getElementById('home-title');
+const words = document.querySelector('.intro');
+const wordsSection = words && words.closest('.section');
 const tabIndex = (tab) => (tab.pathname === window.location.pathname ? indexFromHash(tab.hash, anchors) : -1);
 
 let alpha = 'power1.out';
 let current = 0;
 let animating = false;
+let pendingWords = null; // fetched "some words" paragraphs waiting for a safe moment to swap in
 
 if (animate) alpha = setupGsap(gsap);
 else {
@@ -49,6 +55,32 @@ function textIntro(section, tl, at = 0) {
   tl.to(texts(section), { autoAlpha: 1, y: 0, duration: 1.2, ease: 'power2.out', stagger: 0.0625 }, textsAt);
 }
 
+/* ---------- "some words" from the admin (projects/data/some-words.json) ---------- */
+
+// The paragraphs in index.html stay as the no-JS / failure fallback.
+async function loadSomeWords() {
+  try {
+    const response = await fetch('projects/data/some-words.json', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const { text } = await response.json();
+    if (typeof text !== 'string' || !text.trim() || text.length > RICH_TEXT_MAX) throw new Error('no usable text');
+    const { blocks, errors } = parseRichText(text);
+    if (errors.length) throw new Error(errors[0]);
+    return renderRichText(blocks, { paragraphClass: 'home-animate' });
+  } catch (err) {
+    console.warn(`some words: keeping the built-in text (${err.message})`);
+    return null;
+  }
+}
+
+// Swaps only while the section is off screen (or forced while its text is hidden for the intro),
+// so readers never see the text jump; otherwise it waits for the next visit.
+function applyWords({ force = false } = {}) {
+  if (!pendingWords || (!force && wordsSection.classList.contains('is-active'))) return;
+  words.replaceChildren(...pendingWords);
+  pendingWords = null;
+}
+
 /* ---------- Section switching ---------- */
 
 function markActive(index) {
@@ -70,6 +102,7 @@ function go(move, { focus = false } = {}) {
   if (!move || animating) return;
   const from = sections[current];
   const to = sections[move.index];
+  if (to === wordsSection) applyWords(); // before hideText(), so the intro animates the new nodes
   to.classList.add('is-active');
   to.scrollTop = 0;
   markActive(move.index);
@@ -181,7 +214,23 @@ async function init() {
   hideText(sections[start]);
   bindInput();
 
-  await Promise.all([document.fonts ? document.fonts.ready : null, pageReady()]);
+  // Never blocks "the point"; a deep link to "some words" waits briefly (max 1.5 s) for its text.
+  const wordsReady = wordsSection
+    ? loadSomeWords().then((nodes) => {
+      pendingWords = nodes;
+      applyWords();
+    })
+    : Promise.resolve();
+  const startsOnWords = sections[start] === wordsSection;
+  await Promise.all([
+    document.fonts ? document.fonts.ready : null,
+    pageReady(),
+    startsOnWords ? Promise.race([wordsReady, new Promise((resolve) => setTimeout(resolve, 1500))]) : null,
+  ]);
+  if (startsOnWords && pendingWords) {
+    applyWords({ force: true }); // its text is still hidden for the intro
+    hideText(wordsSection);
+  }
   for (const tab of tabs) {
     measureCube(tab, animate ? gsap : null);
     if (animate) bindCube(tab, { gsap, hoverQuery });

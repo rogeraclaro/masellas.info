@@ -6,7 +6,7 @@ Pushing to `main` runs `.github/workflows/deploy.yml`:
 2. `deploy` (GitHub environment `production`):
    - builds the bundles with `scripts/build.sh` and versions their URLs with `scripts/cache-bust.sh`.
    - rsyncs the site to `/home/rogermasellas/htdocs/masellas.info/`. It does not delete anything and does not change ownership or permissions.
-   - copies `projects/data/projects.json` only if the server has none yet. After that the admin owns it.
+   - copies `projects/data/projects.json` and `projects/data/some-words.json` only if the server has none yet. After that the admin owns them.
    - rsyncs `admin/` to `/home/rogermasellas/masellas-admin/app/` with `--delete`. `.env` and `data/` are protected.
    - reloads the app with pm2 under `rogermasellas`, then smoke-checks `/projects/data/projects.json` and `/admin/`.
 
@@ -15,9 +15,11 @@ Server layout:
 ```
 /home/rogermasellas/htdocs/masellas.info/             site (web root)
   projects/data/projects.json                          public list, rebuilt by the admin
+  projects/data/some-words.json                        home "some words" text, rebuilt by the admin
 /home/rogermasellas/masellas-admin/app/                admin code (deployed)
   .env                                                 config + secrets (never deployed)
 /home/rogermasellas/masellas-admin/data/projects.json  private list, hidden projects included
+/home/rogermasellas/masellas-admin/data/some-words.json  private copy of the "some words" text
 ```
 
 ## Front-end build
@@ -31,6 +33,8 @@ Both pages load bundled, minified files built from ES module sources by esbuild 
 | `js/page-transition.js` | `js/page-transition.min.js` (render-blocking, both pages) |
 
 Shared code lives in `js/shared/` and `css/shared/` and is pulled in with `import` / `@import`.
+
+The home bundle also imports `admin/lib/rich-text.js` and `admin/lib/rich-text-dom.js`: one parser for both the admin's validation and the home's rendering. The admin is deployed as-is, so it uses the same files directly. The home loads `/projects/data/some-words.json` at runtime and keeps the paragraphs in `index.html` as the fallback. No new environment variables are needed: the admin derives the some-words paths from `DATA_FILE` and `PUBLIC_FILE`.
 
 ```sh
 npm run build   # = sh scripts/build.sh; CI runs the same script

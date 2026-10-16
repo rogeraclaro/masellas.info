@@ -6,12 +6,17 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createStore, ConflictError } from './lib/store.js';
 import { verifyPassword, signSession, verifySession, createRateLimiter } from './lib/auth.js';
-import { validateProject, uniqueSlug, isPermutation } from './lib/validation.js';
+import { validateProject, validateSomeWords, uniqueSlug, isPermutation } from './lib/validation.js';
 import { parseEnv, loadConfig } from './lib/config.js';
-import { writePublic, prepareFiles } from './lib/publish.js';
+import { writePublic, prepareFiles, someWordsPaths, writeSomeWordsPublic, prepareSomeWords } from './lib/publish.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const STATIC_ROOTS = { '/tipos/': path.resolve(HERE, '../tipos'), '/': path.join(HERE, 'public') };
+// The UI imports the same parser the server validates with; only these two files leave lib/.
+const SHARED_FILES = {
+  '/rich-text.js': path.join(HERE, 'lib/rich-text.js'),
+  '/rich-text-dom.js': path.join(HERE, 'lib/rich-text-dom.js'),
+};
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -80,7 +85,14 @@ function checkCsrf(req) {
   if (host !== req.headers.host) throw new HttpError(403, { error: 'cross-origin request rejected' });
 }
 
+async function sendFile(res, file, type) {
+  const body = await readFile(file);
+  res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-cache' });
+  return res.end(body);
+}
+
 async function serveStatic(res, pathname) {
+  if (Object.hasOwn(SHARED_FILES, pathname)) return sendFile(res, SHARED_FILES[pathname], MIME['.js']);
   let decoded;
   try {
     decoded = decodeURIComponent(pathname);
@@ -95,9 +107,7 @@ async function serveStatic(res, pathname) {
     const type = MIME[path.extname(file)];
     if (type && file.startsWith(root + path.sep)) {
       try {
-        const body = await readFile(file);
-        res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-cache' });
-        return res.end(body);
+        return await sendFile(res, file, type);
       } catch { /* fall through to 404 */ }
     }
   }
@@ -107,40 +117,45 @@ async function serveStatic(res, pathname) {
 
 export function createApp({
   dataFile, publicFile, passwordHash, sessionSecret, cookieSecure, publicUrl, cookiePath = '/', trustProxy = false, log = console.log,
+  someWordsFile = someWordsPaths({ dataFile, publicFile }).someWordsFile,
+  someWordsPublicFile = someWordsPaths({ dataFile, publicFile }).someWordsPublicFile,
 }) {
   const store = createStore(dataFile);
+  const wordsStore = createStore(someWordsFile);
   const limiter = createRateLimiter({ max: 5, windowMs: 15 * 60 * 1000 });
   const cookieAttrs = `HttpOnly; SameSite=Strict; Path=${cookiePath}${cookieSecure ? '; Secure' : ''}`;
-  let publishQueue = Promise.resolve();
-
-  // Public writes run one at a time, in mutation order, so an older list can never land last.
-  function publish(data) {
-    const run = publishQueue.then(() => writePublic(publicFile, data));
-    publishQueue = run.catch(() => {});
-    return run;
+  // A private file plus its public copy: mutations run under If-Match, then republish.
+  // Public writes run one at a time, in mutation order, so an older copy can never land last.
+  function resource(resourceStore, writeCopy, shape) {
+    let publishQueue = Promise.resolve();
+    const publish = (data) => {
+      const run = publishQueue.then(() => writeCopy(data));
+      publishQueue = run.catch(() => {});
+      return run;
+    };
+    return async function mutate(req, res, status, fn) {
+      const expected = req.headers['if-match'];
+      if (!expected) throw new HttpError(428, { error: 'If-Match header required' });
+      let data;
+      let version;
+      try {
+        ({ data, version } = await resourceStore.update(expected.replace(/^"|"$/g, ''), fn));
+      } catch (err) {
+        if (err instanceof ConflictError) throw new HttpError(409, { error: 'data changed elsewhere', version: err.version });
+        throw err;
+      }
+      try {
+        await publish(data);
+      } catch (err) {
+        // The private file is the source of truth; the next change (or boot) rebuilds the public copy.
+        console.error(`admin: public file write failed: ${err.message}`);
+        throw new HttpError(500, { error: 'saved, but the public file could not be updated. it will be retried on the next change.', version });
+      }
+      sendJson(res, status, { ...shape(data), version });
+    };
   }
-
-  // Runs a validated mutation under If-Match; responds with the full list and new version.
-  async function mutate(req, res, status, fn) {
-    const expected = req.headers['if-match'];
-    if (!expected) throw new HttpError(428, { error: 'If-Match header required' });
-    let data;
-    let version;
-    try {
-      ({ data, version } = await store.update(expected.replace(/^"|"$/g, ''), fn));
-    } catch (err) {
-      if (err instanceof ConflictError) throw new HttpError(409, { error: 'data changed elsewhere', version: err.version });
-      throw err;
-    }
-    try {
-      await publish(data);
-    } catch (err) {
-      // DATA_FILE is the source of truth; the next mutation (or boot) rebuilds the public file.
-      console.error(`admin: public file write failed: ${err.message}`);
-      throw new HttpError(500, { error: 'saved, but the public file could not be updated. it will be retried on the next change.', version });
-    }
-    sendJson(res, status, { projects: data.projects, version });
-  }
+  const mutate = resource(store, (data) => writePublic(publicFile, data), (data) => ({ projects: data.projects }));
+  const mutateWords = resource(wordsStore, (data) => writeSomeWordsPublic(someWordsPublicFile, data), (data) => ({ text: data.text }));
 
   // Behind the proxy every socket is 127.0.0.1; only then trust its headers (otherwise they are spoofable).
   function clientIp(req) {
@@ -209,6 +224,15 @@ export function createApp({
         return data;
       });
     }
+    if (method === 'GET' && pathname === '/api/some-words') {
+      const { data, version } = await wordsStore.read();
+      return sendJson(res, 200, { text: data.text, version });
+    }
+    if (method === 'PUT' && pathname === '/api/some-words') {
+      const { value, errors } = validateSomeWords(body);
+      if (Object.keys(errors).length) throw invalid(errors);
+      return mutateWords(req, res, 200, () => ({ text: value.text }));
+    }
     const match = /^\/api\/projects\/([^/]+)$/.exec(pathname);
     if (match && (method === 'PUT' || method === 'DELETE')) {
       const id = decodeURIComponent(match[1]);
@@ -263,6 +287,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
     const { seeded } = await prepareFiles(config);
     if (seeded) console.log(`admin: seeded DATA_FILE from PUBLIC_FILE (${config.dataFile})`);
+    // Last resort for "some words": the default committed in the repo (absent on the server,
+    // where the deploy seeds the public copy instead).
+    const defaultFile = path.resolve(HERE, '../projects/data/some-words.json');
+    const words = await prepareSomeWords({ ...config, defaultFile });
+    if (words.seeded) console.log(`admin: seeded ${config.someWordsFile} from ${words.seeded}`);
   } catch (err) {
     console.error(`admin: ${err.message}`);
     process.exit(1);

@@ -1,11 +1,19 @@
 # projects admin
 
-Small back-office for the projects list on masellas.info: log in with one password, add, edit, hide, reorder and delete projects.
+Small back-office for masellas.info: log in with one password, then edit the projects list (add, edit, hide, reorder, delete) or the text of the home's "some words" section (switch at the top).
 
 It keeps two files:
 
 - `DATA_FILE` — the private, full list (hidden projects included, with `visible`). Lives outside the web root. The API reads, writes and versions only this file.
 - `PUBLIC_FILE` — what `/projects/` fetches (`projects/data/projects.json` in the web root). Rebuilt from `DATA_FILE` after every change and at boot: visible projects only, in order, without the `visible` field. Never edit it by hand; the next change overwrites it.
+
+"Some words" uses the same two-file setup, with no extra configuration: `some-words.json` sits next to each file above (private: `dirname(DATA_FILE)/some-words.json`; public: `dirname(PUBLIC_FILE)/some-words.json`, served at `/projects/data/some-words.json`). Optional overrides: `SOME_WORDS_FILE`, `SOME_WORDS_PUBLIC_FILE` (absolute paths). At boot the private file is seeded once if missing: from the public copy, else from the repo default `projects/data/some-words.json`; the admin refuses to start if none exists.
+
+Text format (validated on save, rendered on the home with the same parser, `lib/rich-text.js`):
+
+- a blank line starts a new paragraph; a single newline is a line break
+- links only as `[text](https://…)`, `[text](http://…)` or `[text](mailto:…)`; any other scheme, relative URL or stray bracket is rejected with a message that quotes the link
+- a paragraph that is only a link renders flush (no side padding)
 
 Node 22, zero npm dependencies.
 
@@ -62,7 +70,9 @@ Uses `node:test`. Covers validation, slugs, reorder checks, the file store (atom
 - `lib/store.js` — reads/writes `DATA_FILE`: temp file + rename, previous version kept as `projects.json.bak`, one write at a time, version = sha256 of the file.
 - `lib/auth.js` — scrypt password check, HMAC-signed 12 h session cookie, in-memory login rate limit (5 failures per IP per 15 min).
 - `lib/publish.js` — public projection (`toPublic`), atomic public write (no backup), boot sync and migration.
-- `lib/validation.js` — field rules, slug ids, reorder permutation check.
+- `lib/validation.js` — field rules, slug ids, reorder permutation check, "some words" text.
+- `lib/rich-text.js` — pure parser for the "some words" text (paragraphs, line breaks, links). Also served to the admin UI and bundled into the home page by `scripts/build.sh`.
+- `lib/rich-text-dom.js` — browser renderer for parsed text (admin preview and home).
 - `lib/envfile.js` — the `.env` update behind `hash-password --env`.
 - `ecosystem.config.cjs` — pm2 process file (`masellas-admin`, one instance).
 
@@ -79,6 +89,8 @@ API (JSON, all under `/api`, session required except login, logout and session):
 | PUT | `/api/projects/:id` | any project fields | |
 | DELETE | `/api/projects/:id` | | |
 | PUT | `/api/order` | `{ ids }` | exact permutation of current ids |
+| GET | `/api/some-words` | | `{ text, version }` |
+| PUT | `/api/some-words` | `{ text }` | 1–4000 chars; republishes the public copy |
 
 Mutations need `Content-Type: application/json` and `If-Match: <version>`. A stale version gets 409, a missing one 428. A foreign `Origin` gets 403. If the private save works but the public file cannot be written, the response is 500 with the new `version`; the change is kept and the public file is rebuilt on the next change or restart.
 

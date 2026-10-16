@@ -1,4 +1,8 @@
-/* Projects admin UI. Vanilla JS; all user data goes through textContent, never innerHTML. */
+/* Admin UI (projects + the home's "some words"). Vanilla JS module; all user data goes through
+   textContent, never innerHTML. The rich-text parser is the same file the server validates with. */
+import { parseRichText, RICH_TEXT_MAX } from './rich-text.js';
+import { renderRichText } from './rich-text-dom.js';
+
 (() => {
   'use strict';
 
@@ -29,10 +33,11 @@
     }
   }
 
-  async function api(method, path, body) {
+  // ifMatch/track: "some words" has its own version and must not touch the projects one.
+  async function api(method, path, body, { ifMatch = version, track = true } = {}) {
     const headers = {};
     if (method !== 'GET') headers['Content-Type'] = 'application/json';
-    if (method !== 'GET' && version) headers['If-Match'] = version;
+    if (method !== 'GET' && ifMatch) headers['If-Match'] = ifMatch;
     const res = await fetch(path, { method, headers, credentials: 'same-origin', body: body === undefined ? undefined : JSON.stringify(body) });
     const data = await res.json().catch(() => ({}));
     if (res.status === 401 && path !== 'api/login') {
@@ -40,7 +45,7 @@
       throw new ApiError(401, data);
     }
     if (!res.ok) throw new ApiError(res.status, data);
-    if (data.version) version = data.version;
+    if (track && data.version) version = data.version;
     return data;
   }
 
@@ -338,6 +343,90 @@
     if (event.target.dataset.confirm) resetDelete(event.target);
   });
 
+  /* ---------- Views: projects / some words ---------- */
+
+  function showView(name) {
+    for (const tab of document.querySelectorAll('.view-tab')) tab.setAttribute('aria-pressed', String(tab.dataset.view === name));
+    $('view-projects').hidden = name !== 'projects';
+    $('view-words').hidden = name !== 'words';
+    if (name === 'words' && wordsVersion === null) loadWords().catch((err) => wordsFailed(err));
+  }
+
+  for (const tab of document.querySelectorAll('.view-tab')) {
+    tab.addEventListener('click', () => showView(tab.dataset.view));
+  }
+
+  /* ---------- Some words ---------- */
+
+  const wordsInput = $('f-words');
+  let wordsVersion = null;
+  let wordsTimer = 0;
+
+  function setWordsStatus(text) {
+    clearTimeout(wordsTimer);
+    $('words-status').textContent = text;
+    if (text === 'saved') wordsTimer = setTimeout(() => { $('words-status').textContent = ''; }, 3000);
+  }
+
+  // Live preview with the same parser and renderer as the home page.
+  function renderPreview() {
+    const text = wordsInput.value;
+    $('words-count').textContent = `${text.length} / ${RICH_TEXT_MAX}`;
+    const { blocks, errors } = parseRichText(text);
+    $('words-preview').replaceChildren(...renderRichText(blocks));
+    $('preview-problems').textContent = errors.length ? `not saved like this: ${errors.join(' ')}` : '';
+  }
+
+  async function loadWords({ keepDraft = false } = {}) {
+    const data = await api('GET', 'api/some-words', undefined, { track: false });
+    wordsVersion = data.version;
+    if (!keepDraft) wordsInput.value = data.text;
+    renderPreview();
+  }
+
+  function wordsFailed(err, message) {
+    if (err.status === 401) return;
+    setWordsStatus(message || (err.status ? `could not load: ${err.message}.` : 'could not reach the server. try again.'));
+  }
+
+  function clearWordsError() {
+    $('e-words').textContent = '';
+    wordsInput.removeAttribute('aria-invalid');
+  }
+
+  wordsInput.addEventListener('input', () => {
+    clearWordsError();
+    renderPreview();
+  });
+
+  $('words-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    clearWordsError();
+    try {
+      const data = await api('PUT', 'api/some-words', { text: wordsInput.value }, { ifMatch: wordsVersion, track: false });
+      wordsVersion = data.version;
+      wordsInput.value = data.text;
+      renderPreview();
+      setWordsStatus('saved');
+    } catch (err) {
+      if (err.status === 401) return;
+      if (err.status === 400 && err.body.errors) {
+        $('e-words').textContent = Object.values(err.body.errors).join(' ');
+        wordsInput.setAttribute('aria-invalid', 'true');
+        wordsInput.focus();
+      } else if (err.status === 409) {
+        // Like projects: reload what is saved. The draft stays in the box so nothing typed is lost.
+        await loadWords({ keepDraft: true }).catch(() => {});
+        setWordsStatus('the text changed elsewhere. your draft is still here; saving again replaces the other version.');
+      } else if (err.body && err.body.version) {
+        wordsVersion = err.body.version; // saved privately, public copy pending
+        setWordsStatus(err.message);
+      } else {
+        wordsFailed(err, err.status ? `could not save: ${err.message}.` : 'could not reach the server. try again.');
+      }
+    }
+  });
+
   /* ---------- Session ---------- */
 
   $('login-form').addEventListener('submit', async (event) => {
@@ -354,6 +443,7 @@
   $('logout').addEventListener('click', async () => {
     await api('POST', 'api/logout').catch(() => {});
     version = null;
+    wordsVersion = null;
     showLogin();
   });
 

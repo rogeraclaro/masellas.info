@@ -12,8 +12,13 @@ test('a page further right enters from the right', () => {
   assert.equal(transitionType('0', '1'), 'slide-from-right'); // home -> a future right-hand page
 });
 
-test('same position or unknown positions give no transition', () => {
-  assert.equal(transitionType(0, 0), null);
+test('same position crossfades (e.g. a language switch: same page, other language)', () => {
+  assert.equal(transitionType(0, 0), 'fade'); // /  -> /en/
+  assert.equal(transitionType('-1', '-1'), 'fade'); // /projects/ -> /es/projects/
+  assert.equal(transitionType('0', 0), 'fade');
+});
+
+test('unknown positions give no transition', () => {
   assert.equal(transitionType(undefined, 0), null);
   assert.equal(transitionType(null, 0), null);
   assert.equal(transitionType('', '0'), null);

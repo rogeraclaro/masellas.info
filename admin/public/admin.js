@@ -13,8 +13,9 @@ import { renderRichText } from './rich-text-dom.js';
   const statusEl = $('status');
   const editor = $('editor');
   const form = $('project-form');
-  const fields = ['title', 'category', 'year', 'description', 'url', 'ai'];
+  const fields = ['title', 'year', 'url']; // shared by every language
   const thumbInputs = [...document.querySelectorAll('.thumb')];
+  const LANGS = ['ca', 'en', 'es']; // ca: principal; an empty en / es shows the ca text on the site
 
   let projects = [];
   let version = null;
@@ -96,14 +97,122 @@ import { renderRichText } from './rich-text-dom.js';
     target(err.status ? `could not save: ${err.message}.` : 'could not reach the server. try again.');
   }
 
-  /* ---------- List ---------- */
-
   function el(tag, className, text) {
     const node = document.createElement(tag);
     if (className) node.className = className;
     if (text != null) node.textContent = String(text);
     return node;
   }
+
+  /* ---------- Per-language fields ----------
+     index.html marks the ca control with data-langs; this adds an en and an es copy (one shown
+     at a time) and a ca / en / es tab strip that also tells which languages are empty. */
+
+  function langField(base, { onChange = () => {} } = {}) {
+    const name = base.id.replace(/^f-/, '');
+    const label = document.querySelector(`label[for="${base.id}"]`);
+    const required = base.required;
+    const statusEl = el('p', 'hint lang-status');
+    statusEl.id = `${name}-langs`;
+    statusEl.setAttribute('aria-live', 'polite');
+    const list = base.getAttribute('list');
+    const inputs = {};
+    for (const lang of LANGS) {
+      const input = lang === 'ca' ? base : base.cloneNode();
+      input.id = `f-${name}-${lang}`;
+      input.name = `${base.name}-${lang}`;
+      input.lang = lang;
+      input.removeAttribute('data-langs');
+      input.setAttribute('aria-describedby', `${statusEl.id} ${base.getAttribute('aria-describedby')}`);
+      if (lang !== 'ca') {
+        input.required = false;
+        input.hidden = true;
+      }
+      if (list) {
+        input.setAttribute('list', `${list}-${lang}`);
+        const datalist = el('datalist');
+        datalist.id = `${list}-${lang}`;
+        base.parentElement.append(datalist);
+      }
+      inputs[lang] = input;
+    }
+    base.after(inputs.en, inputs.es);
+    label.htmlFor = inputs.ca.id;
+
+    const strip = el('div', 'lang-tabs');
+    strip.setAttribute('role', 'group');
+    strip.setAttribute('aria-label', `${label.textContent}: language`);
+    const tabs = {};
+    for (const lang of LANGS) {
+      const tab = el('button', 'btn lang-tab');
+      tab.type = 'button';
+      tab.addEventListener('click', () => select(lang, { focus: true }));
+      tabs[lang] = tab;
+      strip.append(tab);
+    }
+    label.after(strip);
+    (base.parentElement.querySelector('.field-error') || base.parentElement.lastElementChild).before(statusEl);
+
+    let current = 'ca';
+    const isEmpty = (lang) => !inputs[lang].value.trim();
+
+    function refresh() {
+      for (const lang of LANGS) {
+        const note = lang === 'ca' && required ? 'required' : isEmpty(lang) ? 'empty' : '';
+        tabs[lang].replaceChildren(document.createTextNode(lang));
+        if (note) tabs[lang].append(' ', el('span', 'lang-tab__note', note));
+        tabs[lang].setAttribute('aria-pressed', String(lang === current));
+        const states = [lang === 'ca' && required ? 'required' : '', isEmpty(lang) ? 'empty' : ''].filter(Boolean);
+        tabs[lang].setAttribute('aria-label', [lang, ...states].join(', '));
+      }
+      const fallback = LANGS.filter((lang) => lang !== 'ca' && isEmpty(lang));
+      statusEl.textContent = fallback.length && !isEmpty('ca') ? `${fallback.join(', ')} empty: the site shows the ca text there.` : '';
+    }
+
+    function select(lang, { focus = false } = {}) {
+      current = lang;
+      for (const code of LANGS) inputs[code].hidden = code !== lang;
+      label.htmlFor = inputs[lang].id;
+      refresh();
+      onChange();
+      if (focus) inputs[lang].focus();
+    }
+
+    for (const lang of LANGS) {
+      inputs[lang].addEventListener('input', () => {
+        refresh();
+        onChange();
+      });
+    }
+    refresh();
+
+    return {
+      inputs,
+      current: () => current,
+      value: () => Object.fromEntries(LANGS.map((lang) => [lang, inputs[lang].value])),
+      set(value) {
+        for (const lang of LANGS) inputs[lang].value = (value && value[lang]) ?? '';
+        select('ca');
+      },
+      select,
+    };
+  }
+
+  // Server errors on per-language fields come keyed "<field>.<lang>": show that language.
+  function errorInput(key, localized) {
+    const [field, lang] = key.split('.');
+    const group = localized[field];
+    if (!group) return { field, input: $(`f-${field}`) };
+    if (lang) group.select(lang);
+    return { field, input: group.inputs[lang || 'ca'] };
+  }
+
+  const langFields = {};
+  for (const name of ['category', 'description', 'ai']) {
+    langFields[name] = langField($(`f-${name}`), { onChange: () => updateCount() });
+  }
+
+  /* ---------- List ---------- */
 
   function button(label, action, ariaLabel) {
     const btn = el('button', 'btn', label);
@@ -119,7 +228,7 @@ import { renderRichText } from './rich-text-dom.js';
     row.draggable = true;
 
     const info = el('div', 'row__info');
-    const meta = el('span', 'row__meta', `${project.category} / ${project.year} / `);
+    const meta = el('span', 'row__meta', `${project.category.ca} / ${project.year} / `);
     const visible = project.visible !== false;
     meta.append(el('span', visible ? 'row__state' : 'row__state row__state--hidden', visible ? 'visible' : 'hidden'));
     info.append(el('span', 'row__title', project.title), meta);
@@ -138,8 +247,10 @@ import { renderRichText } from './rich-text-dom.js';
   function render() {
     list.replaceChildren(...projects.map(renderRow));
     if (!projects.length) list.append(el('li', 'empty', 'no projects yet.'));
-    const categories = [...new Set(projects.map((p) => p.category))].sort();
-    $('categories').replaceChildren(...categories.map((c) => Object.assign(document.createElement('option'), { value: c })));
+    for (const lang of LANGS) {
+      const categories = [...new Set(projects.map((p) => p.category[lang]).filter(Boolean))].sort();
+      $(`categories-${lang}`).replaceChildren(...categories.map((c) => Object.assign(document.createElement('option'), { value: c })));
+    }
   }
 
   const rowButton = (id, action) => list.querySelector(`[data-id="${CSS.escape(id)}"] [data-action="${action}"]`);
@@ -258,9 +369,11 @@ import { renderRichText } from './rich-text-dom.js';
     form.querySelectorAll('[aria-invalid]').forEach((input) => input.removeAttribute('aria-invalid'));
   }
 
+  // Counts the language on show.
   function updateCount() {
-    $('description-count').textContent = `${$('f-description').value.length} / 200`;
-    $('ai-count').textContent = `${$('f-ai').value.length} / 5000`;
+    const shown = (name) => langFields[name].inputs[langFields[name].current()].value.length;
+    $('description-count').textContent = `${shown('description')} / 200`;
+    $('ai-count').textContent = `${shown('ai')} / 5000`;
   }
 
   function openForm(project, trigger) {
@@ -269,6 +382,7 @@ import { renderRichText } from './rich-text-dom.js';
     clearErrors();
     $('editor-title').textContent = project ? `edit ${project.title}` : 'new project';
     for (const name of fields) $(`f-${name}`).value = project ? project[name] ?? '' : '';
+    for (const [name, group] of Object.entries(langFields)) group.set(project ? project[name] : null);
     if (!project) $('f-year').value = String(new Date().getFullYear());
     $('f-visible').checked = project ? project.visible !== false : true;
     thumbInputs.forEach((input, i) => { input.value = project?.thumbs?.[i] ?? ''; });
@@ -288,23 +402,24 @@ import { renderRichText } from './rich-text-dom.js';
     const year = $('f-year').value.trim();
     return {
       title: $('f-title').value,
-      category: $('f-category').value,
+      category: langFields.category.value(),
       year,
-      description: $('f-description').value,
+      description: langFields.description.value(),
       url: $('f-url').value.trim(),
       visible: $('f-visible').checked,
       thumbs: thumbInputs.map((input) => input.value.trim()).filter(Boolean),
-      ai: $('f-ai').value,
+      ai: langFields.ai.value(),
       tools: $('f-tools').value.split(',').map((tool) => tool.trim()).filter(Boolean),
     };
   }
 
   function showErrors(errors) {
     let first = null;
-    for (const [field, message] of Object.entries(errors)) {
+    for (const [key, message] of Object.entries(errors)) {
+      const { field, input: fieldInput } = errorInput(key, first ? {} : langFields); // only the first error switches tabs
       const target = $(`e-${field}`) || $('form-error');
       target.textContent = target.textContent ? `${target.textContent} ${message}` : message;
-      const input = field === 'thumbs' ? thumbInputs[0] : $(`f-${field}`);
+      const input = field === 'thumbs' ? thumbInputs[0] : fieldInput || langFields[field]?.inputs.ca;
       if (input) {
         input.setAttribute('aria-invalid', 'true');
         first ??= input;
@@ -331,8 +446,6 @@ import { renderRichText } from './rich-text-dom.js';
     }
   });
 
-  $('f-description').addEventListener('input', updateCount);
-  $('f-ai').addEventListener('input', updateCount);
   $('cancel').addEventListener('click', () => closeForm());
   editor.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') closeForm();
@@ -358,7 +471,7 @@ import { renderRichText } from './rich-text-dom.js';
 
   /* ---------- Some words ---------- */
 
-  const wordsInput = $('f-words');
+  const words = langField($('f-words'), { onChange: () => renderPreview() });
   let wordsVersion = null;
   let wordsTimer = 0;
 
@@ -368,9 +481,9 @@ import { renderRichText } from './rich-text-dom.js';
     if (text === 'saved') wordsTimer = setTimeout(() => { $('words-status').textContent = ''; }, 3000);
   }
 
-  // Live preview with the same parser and renderer as the home page.
+  // Live preview of the language on show, with the same parser and renderer as the home page.
   function renderPreview() {
-    const text = wordsInput.value;
+    const text = words.inputs[words.current()].value;
     $('words-count').textContent = `${text.length} / ${RICH_TEXT_MAX}`;
     const { blocks, errors } = parseRichText(text);
     $('words-preview').replaceChildren(...renderRichText(blocks));
@@ -380,7 +493,7 @@ import { renderRichText } from './rich-text-dom.js';
   async function loadWords({ keepDraft = false } = {}) {
     const data = await api('GET', 'api/some-words', undefined, { track: false });
     wordsVersion = data.version;
-    if (!keepDraft) wordsInput.value = data.text;
+    if (!keepDraft) words.set(data.text);
     renderPreview();
   }
 
@@ -391,29 +504,28 @@ import { renderRichText } from './rich-text-dom.js';
 
   function clearWordsError() {
     $('e-words').textContent = '';
-    wordsInput.removeAttribute('aria-invalid');
+    for (const input of Object.values(words.inputs)) input.removeAttribute('aria-invalid');
   }
 
-  wordsInput.addEventListener('input', () => {
-    clearWordsError();
-    renderPreview();
-  });
+  for (const input of Object.values(words.inputs)) input.addEventListener('input', clearWordsError);
 
   $('words-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     clearWordsError();
     try {
-      const data = await api('PUT', 'api/some-words', { text: wordsInput.value }, { ifMatch: wordsVersion, track: false });
+      const data = await api('PUT', 'api/some-words', { text: words.value() }, { ifMatch: wordsVersion, track: false });
       wordsVersion = data.version;
-      wordsInput.value = data.text;
-      renderPreview();
+      const shown = words.current();
+      words.set(data.text);
+      words.select(shown);
       setWordsStatus('saved');
     } catch (err) {
       if (err.status === 401) return;
       if (err.status === 400 && err.body.errors) {
         $('e-words').textContent = Object.values(err.body.errors).join(' ');
-        wordsInput.setAttribute('aria-invalid', 'true');
-        wordsInput.focus();
+        const { input } = errorInput(Object.keys(err.body.errors)[0], { text: words });
+        input.setAttribute('aria-invalid', 'true');
+        input.focus();
       } else if (err.status === 409) {
         // Like projects: reload what is saved. The draft stays in the box so nothing typed is lost.
         await loadWords({ keepDraft: true }).catch(() => {});

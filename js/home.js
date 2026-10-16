@@ -5,6 +5,8 @@ import { splitTitle, titleIntro, hideTitle } from './shared/split-title.js';
 import { measureCube, bindCube } from './shared/cube.js';
 import { pageReady } from './shared/page-ready.js';
 import { step, jump, indexFromHash, createGestureGate } from './home/sections.js';
+import { pageLang } from './shared/i18n.js';
+import { bindLangLinks } from './shared/lang-links.js';
 // Same parser the admin validates with (admin/lib is deployed as-is; esbuild bundles it here).
 import { parseRichText, RICH_TEXT_MAX } from '../admin/lib/rich-text.js';
 import { renderRichText } from '../admin/lib/rich-text-dom.js';
@@ -18,7 +20,8 @@ const SLIDE = { duration: 1.4, ease: 'expo.inOut' };
 const sections = [...document.querySelectorAll('.section')];
 const anchors = sections.map((section) => section.dataset.anchor);
 const shade = document.querySelector('.section-shade');
-const tabs = [...document.querySelectorAll('.menu__tab')];
+const tabs = [...document.querySelectorAll('.menu .menu__tab')]; // section links (the point / some words / projects)
+const cubes = [...document.querySelectorAll('.menu__tab')]; // plus the language tabs
 const title = document.getElementById('home-title');
 const words = document.querySelector('.intro');
 const wordsSection = words && words.closest('.section');
@@ -55,12 +58,12 @@ function textIntro(section, tl, at = 0) {
   tl.to(texts(section), { autoAlpha: 1, y: 0, duration: 1.2, ease: 'power2.out', stagger: 0.0625 }, textsAt);
 }
 
-/* ---------- "some words" from the admin (projects/data/some-words.json) ---------- */
+/* ---------- "some words" from the admin (projects/data/some-words.<lang>.json) ---------- */
 
-// The paragraphs in index.html stay as the no-JS / failure fallback.
+// The paragraphs in the page (from i18n/<lang>.json) stay as the no-JS / failure fallback.
 async function loadSomeWords() {
   try {
-    const response = await fetch('projects/data/some-words.json', { cache: 'no-store' });
+    const response = await fetch(`/projects/data/some-words.${pageLang()}.json`, { cache: 'no-store' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const { text } = await response.json();
     if (typeof text !== 'string' || !text.trim() || text.length > RICH_TEXT_MAX) throw new Error('no usable text');
@@ -213,6 +216,7 @@ async function init() {
   markActive(start);
   hideText(sections[start]);
   bindInput();
+  bindLangLinks(document.querySelector('.lang-nav'));
 
   // Never blocks "the point"; a deep link to "some words" waits briefly (max 1.5 s) for its text.
   const wordsReady = wordsSection
@@ -231,7 +235,7 @@ async function init() {
     applyWords({ force: true }); // its text is still hidden for the intro
     hideText(wordsSection);
   }
-  for (const tab of tabs) {
+  for (const tab of cubes) {
     measureCube(tab, animate ? gsap : null);
     if (animate) bindCube(tab, { gsap, hoverQuery });
   }

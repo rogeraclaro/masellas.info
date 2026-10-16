@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="{{lang}}" data-page-x="-1">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>{{projects.title}}</title>
+	{{{alternates}}}
+	<meta name="robots" content="noindex, nofollow">
+	<meta name="author" content="Roger Masellas">
+	<meta name="description" content="{{projects.description}}">
+	{{{og_locale}}}
+	<script>document.documentElement.className += ' js';</script>
+	<link rel="preload" href="/tipos/aglt-bold-webfont.woff2" as="font" type="font/woff2" crossorigin>
+	<link rel="stylesheet" href="/projects/css/projects.min.css">
+	<script src="/js/page-transition.min.js" blocking="render"></script>
+	<link rel="apple-touch-icon" sizes="152x152" href="/icons/ipad.png">
+	<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+	<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
+	<link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png">
+	<link rel="manifest" href="/icons/site.webmanifest">
+	<link rel="mask-icon" href="/icons/safari-pinned-tab.svg" color="#5bbad5">
+	<link rel="shortcut icon" href="/icons/favicon.ico">
+	<meta name="msapplication-TileColor" content="#f4624e">
+	<meta name="msapplication-config" content="/icons/browserconfig.xml">
+	<meta name="theme-color" content="#f4624e">
+	<script defer src="https://analytics.masellas.info/script.js" data-website-id="05086748-1298-4643-9b45-844e1f8d2c82"></script>
+	<script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+	<script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/CustomEase.min.js"></script>
+	<script defer src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+	<script defer src="/projects/js/projects.min.js"></script>
+</head>
+<body>
+
+<a class="skip-link" href="#projects-list">{{projects.skip_link}}</a>
+
+<nav aria-label="{{nav.main_label}}">
+	<ul class="menu">
+		<li><a class="menu__tab cube" href="{{home_url}}#firstPage"><span class="cube__inner"><span class="face face--front">{{nav.the_point}}</span><span class="face face--before" aria-hidden="true">{{nav.the_point}}</span><span class="face face--after" aria-hidden="true">{{nav.the_point}}</span></span></a></li>
+		<li><a class="menu__tab cube" href="{{home_url}}#secondPage"><span class="cube__inner"><span class="face face--front">{{nav.some_words}}</span><span class="face face--before" aria-hidden="true">{{nav.some_words}}</span><span class="face face--after" aria-hidden="true">{{nav.some_words}}</span></span></a></li>
+		<li><a class="menu__tab cube" href="{{projects_url}}" aria-current="page"><span class="cube__inner"><span class="face face--front">{{nav.projects}}</span><span class="face face--before" aria-hidden="true">{{nav.projects}}</span><span class="face face--after" aria-hidden="true">{{nav.projects}}</span></span></a></li>
+	</ul>
+</nav>
+
+{{{lang_switcher}}}
+
+<div class="page" id="page">
+<main>
+	<header class="page-header">
+		<h1 class="page-title" data-split>{{projects.heading}}</h1>
+		<div class="page-bar">
+			<p class="page-count" aria-live="polite"></p>
+			<div class="filters" role="group" aria-label="{{projects.filters_label}}"></div>
+		</div>
+	</header>
+
+	<ul class="work-list" id="projects-list" tabindex="-1" aria-label="{{projects.list_label}}"></ul>
+</main>
+
+<footer class="page-footer">
+	<p>{{projects.footer_note}} / <a class="wipe-link" href="mailto:roger@lamosca.com">{{contact.email_text}}</a></p>
+</footer>
+</div>
+
+<div class="detail-overlay" aria-hidden="true"></div>
+
+<div class="detail" id="detail" role="dialog" aria-modal="true" aria-labelledby="detail-title" hidden>
+	<div class="detail__scroller">
+		<article class="detail__content">
+			<p class="detail__crumb">{{projects.heading}}</p>
+			<h2 class="page-title detail__title" id="detail-title" tabindex="-1"></h2>
+			<p class="detail__meta" data-reveal></p>
+			<p class="detail__lead" data-reveal></p>
+			<section class="detail__ai" data-reveal aria-labelledby="detail-ai-heading">
+				<h3 class="detail__heading" id="detail-ai-heading">{{projects.detail_ai}}</h3>
+				<div class="detail__body"></div>
+			</section>
+			<ul class="detail__tools" data-reveal aria-label="{{projects.detail_tools_label}}"></ul>
+			<p class="detail__visit" data-reveal><a class="detail-link" target="_blank" rel="noopener">{{projects.detail_visit}}</a></p>
+			<nav class="detail__next" data-reveal aria-label="{{projects.detail_next_label}}"><a class="detail-link detail-link--big" href="{{projects_url}}"></a></nav>
+		</article>
+	</div>
+</div>
+
+<script type="application/json" id="i18n">{{{i18n_json}}}</script>
+
+</body>
+</html>

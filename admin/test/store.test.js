@@ -77,3 +77,15 @@ test('a failing mutator leaves the file untouched and the queue usable', async (
   const { data } = await store.update(null, (d) => d);
   assert.deepEqual(data, initial);
 });
+
+test('a migrate function upgrades data on read; the version stays the hash of the file as stored', async () => {
+  const raw = await readFile(file, 'utf8');
+  const store = createStore(file, { migrate: (data) => ({ projects: data.projects.map((p) => ({ ...p, title: { ca: p.title } })) }) });
+  const { data, version } = await store.read();
+  assert.deepEqual(data.projects[0].title, { ca: 'A' });
+  assert.equal(version, (await createStore(file).read()).version);
+  assert.equal(await readFile(file, 'utf8'), raw, 'reading never rewrites the file');
+  const result = await store.update(version, (current) => current);
+  assert.deepEqual(JSON.parse(await readFile(file, 'utf8')).projects[0].title, { ca: 'A' }, 'the next write stores the migrated shape');
+  assert.equal((await store.read()).version, result.version);
+});

@@ -51,8 +51,7 @@
 				</div>
 				<div class="field field--half">
 					<label for="f-category">category</label>
-					<input id="f-category" name="category" list="categories" maxlength="30" required aria-describedby="e-category">
-					<datalist id="categories"></datalist>
+					<input id="f-category" name="category" list="categories" maxlength="30" required aria-describedby="e-category" data-langs>
 					<p id="e-category" class="field-error"></p>
 				</div>
 				<div class="field field--half">
@@ -62,7 +61,7 @@
 				</div>
 				<div class="field">
 					<label for="f-description">description</label>
-					<textarea id="f-description" name="description" rows="3" maxlength="200" aria-describedby="description-count e-description"></textarea>
+					<textarea id="f-description" name="description" rows="3" maxlength="200" aria-describedby="description-count e-description" data-langs></textarea>
 					<p id="description-count" class="hint">0 / 200</p>
 					<p id="e-description" class="field-error"></p>
 				</div>
@@ -73,7 +72,7 @@
 				</div>
 				<div class="field">
 					<label for="f-ai">how I used AI</label>
-					<textarea id="f-ai" name="ai" rows="10" maxlength="5000" aria-describedby="ai-hint e-ai"></textarea>
+					<textarea id="f-ai" name="ai" rows="10" maxlength="5000" aria-describedby="ai-hint e-ai" data-langs></textarea>
 					<p id="ai-hint" class="hint"><span id="ai-count">0 / 5000</span>. blank line = new paragraph.</p>
 					<p id="e-ai" class="field-error"></p>
 				</div>
@@ -115,7 +114,7 @@
 			<form id="words-form" class="form" novalidate>
 				<div class="field">
 					<label for="f-words">text</label>
-					<textarea id="f-words" name="text" rows="16" maxlength="4000" aria-describedby="words-hint e-words"></textarea>
+					<textarea id="f-words" class="words-input" name="text" rows="16" maxlength="4000" required aria-describedby="words-hint e-words" data-langs></textarea>
 					<p id="words-hint" class="hint"><span id="words-count">0 / 4000</span> · blank line = new paragraph · links: [text](https://…) or [text](mailto:…)</p>
 					<p id="e-words" class="field-error" aria-live="assertive"></p>
 				</div>

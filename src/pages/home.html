@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="{{lang}}" data-page-x="0">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<title>{{home.title}}</title>
+	{{{alternates}}}
+	<meta name="mobile-web-app-capable" content="yes">
+	<meta name="author" content="Roger Masellas" />
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<script>document.documentElement.className += ' js';</script>
+	<link rel="preload" href="/tipos/aglt-bold-webfont.woff2" as="font" type="font/woff2" crossorigin>
+	<link rel="stylesheet" type="text/css" href="/css/home.min.css" />
+	<script src="/js/page-transition.min.js" blocking="render"></script>
+	<link rel="apple-touch-icon" sizes="152x152" href="/icons/ipad.png">
+	<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+	<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
+	<link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png">
+	<link rel="manifest" href="/icons/site.webmanifest">
+	<link rel="mask-icon" href="/icons/safari-pinned-tab.svg" color="#5bbad5">
+	<link rel="shortcut icon" href="/icons/favicon.ico">
+	<meta name="msapplication-TileColor" content="#f4624e">
+	<meta name="msapplication-config" content="/icons/browserconfig.xml">
+	<meta name="theme-color" content="#f4624e">
+	<meta property="og:image:width" content="1553">
+	<meta property="og:image:height" content="813">
+	<meta property="og:description" content="{{home.og_description}}">
+	<meta property="og:title" content="{{home.og_title}}">
+	<meta property="og:url" content="{{page_url}}">
+	{{{og_locale}}}
+	<meta property="og:image" content="https://masellas.info/img/og-image.jpg">
+	<!--[if IE]>
+		<script type="text/javascript">
+			 var console = { log: function() {} };
+		</script>
+	<![endif]-->
+	<script defer src="https://analytics.masellas.info/script.js" data-website-id="05086748-1298-4643-9b45-844e1f8d2c82"></script>
+	<script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+	<script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/CustomEase.min.js"></script>
+	<script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/Observer.min.js"></script>
+	<script defer src="/js/home.min.js"></script>
+</head>
+<body>
+
+<nav aria-label="{{nav.main_label}}">
+	<ul class="menu">
+		<li><a class="menu__tab cube" href="{{home_url}}#firstPage" aria-current="location"><span class="cube__inner"><span class="face face--front">{{nav.the_point}}</span><span class="face face--before" aria-hidden="true">{{nav.the_point}}</span><span class="face face--after" aria-hidden="true">{{nav.the_point}}</span></span></a></li>
+		<li><a class="menu__tab cube" href="{{home_url}}#secondPage"><span class="cube__inner"><span class="face face--front">{{nav.some_words}}</span><span class="face face--before" aria-hidden="true">{{nav.some_words}}</span><span class="face face--after" aria-hidden="true">{{nav.some_words}}</span></span></a></li>
+		<li><a class="menu__tab cube" href="{{projects_url}}"><span class="cube__inner"><span class="face face--front">{{nav.projects}}</span><span class="face face--before" aria-hidden="true">{{nav.projects}}</span><span class="face face--after" aria-hidden="true">{{nav.projects}}</span></span></a></li>
+	</ul>
+</nav>
+
+{{{lang_switcher}}}
+
+<main class="sections">
+	<section class="section section--coral is-active" id="section0" data-anchor="firstPage" aria-labelledby="home-title">
+		<div class="section__inner" tabindex="-1">
+			<h1 class="page-title home-title" id="home-title">Roger Masellas</h1>
+			<!--<p>This is a work in progress site, in the meantime, here you have some basic info about me:</p>-->
+			<p class="home-animate">{{home.cv_label}} <a class="wipe-link wipe-link--on-coral" href="/pdf/cv-Roger_Masellas_eng.pdf" target="_blank">EN</a> / <a class="wipe-link wipe-link--on-coral" href="/pdf/cv-Roger_Masellas_cat.pdf" target="_blank" style="text-decoration: line-through;">CA</a> / <a class="wipe-link wipe-link--on-coral" href="/pdf/cv-Roger_Masellas_esp.pdf" target="_blank" style="text-decoration: line-through;">ES</a> {{home.cv_note}}</p>
+			<p class="home-animate">{{home.linkedin_label}} <a class="wipe-link wipe-link--on-coral" href="https://www.linkedin.com/in/roger-masellas/" target="_blank">{{home.linkedin_link}}</a></p>
+		</div>
+	</section>
+	<section class="section section--dark" id="section1" data-anchor="secondPage" aria-label="{{nav.some_words}}">
+		<div class="section__inner" tabindex="-1">
+			<div class="intro">
+				{{{words_html}}}
+			</div>
+		</div>
+	</section>
+	<div class="section-shade" aria-hidden="true"></div>
+</main>
+</body>
+</html>

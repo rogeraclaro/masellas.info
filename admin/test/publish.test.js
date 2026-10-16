@@ -42,13 +42,46 @@ test('toPublic fills ai and tools defaults for older records and keeps given val
   assert.deepEqual(second.tools, ['Claude Code']);
 });
 
-test('writePublic writes atomically, mode 0644, with no backup or temp files left', async () => {
+test('writePublic writes one file per language plus the legacy one, atomically, mode 0644, no backup or temp files', async () => {
   await writeFile(publicFile, '{"projects":[]}\n');
   await writePublic(publicFile, { projects: [project('a', true), project('b', false)] });
-  const written = JSON.parse(await readFile(publicFile, 'utf8'));
-  assert.deepEqual(written.projects.map((p) => p.id), ['a']);
-  assert.deepEqual(await readdir(path.dirname(publicFile)), ['projects.json']);
-  assert.equal((await stat(publicFile)).mode & 0o777, 0o644);
+  const files = ['projects.ca.json', 'projects.en.json', 'projects.es.json', 'projects.json'];
+  assert.deepEqual((await readdir(path.dirname(publicFile))).sort(), files);
+  for (const name of files) {
+    const file = path.join(path.dirname(publicFile), name);
+    assert.deepEqual(JSON.parse(await readFile(file, 'utf8')).projects.map((p) => p.id), ['a'], name);
+    assert.equal((await stat(file)).mode & 0o777, 0o644, name);
+  }
+});
+
+const localized = {
+  ...project('loc', true),
+  category: { ca: 'eina', en: 'tool', es: '' },
+  description: { ca: 'Descripció.', en: '', es: 'Descripción.' },
+  ai: { ca: 'Notes ca.', en: 'Notes en.', es: '' },
+};
+
+test('toPublic flattens per-language fields for the language, falling back to ca when empty', () => {
+  const [en] = toPublic({ projects: [localized] }, 'en').projects;
+  assert.equal(en.category, 'tool');
+  assert.equal(en.description, 'Descripció.', 'empty en description falls back to ca');
+  assert.equal(en.ai, 'Notes en.');
+  const [es] = toPublic({ projects: [localized] }, 'es').projects;
+  assert.equal(es.category, 'eina', 'empty es category falls back to ca');
+  assert.equal(es.description, 'Descripción.');
+  assert.equal(es.ai, 'Notes ca.');
+  const [ca] = toPublic({ projects: [localized] }).projects;
+  assert.deepEqual([ca.category, ca.description, ca.ai], ['eina', 'Descripció.', 'Notes ca.'], 'default is ca');
+  assert.deepEqual(Object.keys(en), ['id', 'title', 'category', 'year', 'description', 'url', 'thumbs', 'ai', 'tools']);
+});
+
+test('writePublic writes each language its own text; the legacy projects.json is ca', async () => {
+  await writePublic(publicFile, { projects: [localized] });
+  const read = async (name) => JSON.parse(await readFile(path.join(path.dirname(publicFile), name), 'utf8')).projects[0];
+  assert.equal((await read('projects.en.json')).category, 'tool');
+  assert.equal((await read('projects.es.json')).category, 'eina');
+  assert.equal((await read('projects.ca.json')).category, 'eina');
+  assert.deepEqual(await read('projects.json'), await read('projects.ca.json'));
 });
 
 test('writePublic fails loudly when the target directory is missing', async () => {
@@ -62,6 +95,8 @@ test('prepareFiles regenerates a stale public file from the private data', async
   assert.equal(result.seeded, false);
   const pub = JSON.parse(await readFile(publicFile, 'utf8'));
   assert.deepEqual(pub.projects.map((p) => p.id), ['b']);
+  const es = JSON.parse(await readFile(path.join(path.dirname(publicFile), 'projects.es.json'), 'utf8'));
+  assert.deepEqual(es.projects.map((p) => p.category), ['tool'], 'legacy private data is published per language');
 });
 
 test('prepareFiles seeds the private file from the public one when it is missing', async () => {

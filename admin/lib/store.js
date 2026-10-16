@@ -25,12 +25,14 @@ export async function writeAtomic(file, content, mode = 0o644) {
 
 const hash = (content) => createHash('sha256').update(content).digest('hex');
 
-export function createStore(file) {
+// migrate(data) upgrades older shapes on read; the version stays the hash of the file as
+// stored, and the next write stores the upgraded shape.
+export function createStore(file, { migrate = (data) => data } = {}) {
   let queue = Promise.resolve();
 
   async function read() {
     const content = await readFile(file, 'utf8');
-    return { data: JSON.parse(content), version: hash(content) };
+    return { data: migrate(JSON.parse(content)), version: hash(content) };
   }
 
   async function write(data) {

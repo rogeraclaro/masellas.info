@@ -10,11 +10,13 @@ function position(value) {
 }
 
 // 'slide-from-left' when the new page sits left of the old one, 'slide-from-right' when
-// it sits to the right, null when the positions are equal or unknown.
+// it sits to the right, 'fade' when both share a position (the same page in another
+// language), null when a position is unknown.
 export function transitionType(fromX, toX) {
   const from = position(fromX);
   const to = position(toX);
-  if (!Number.isFinite(from) || !Number.isFinite(to) || from === to) return null;
+  if (!Number.isFinite(from) || !Number.isFinite(to)) return null;
+  if (from === to) return 'fade';
   return to < from ? 'slide-from-left' : 'slide-from-right';
 }
 

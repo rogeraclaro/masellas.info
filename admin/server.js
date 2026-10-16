@@ -9,6 +9,7 @@ import { verifyPassword, signSession, verifySession, createRateLimiter } from '.
 import { validateProject, validateSomeWords, uniqueSlug, isPermutation } from './lib/validation.js';
 import { parseEnv, loadConfig } from './lib/config.js';
 import { writePublic, prepareFiles, someWordsPaths, writeSomeWordsPublic, prepareSomeWords } from './lib/publish.js';
+import { migrateProjects, migrateSomeWords } from './lib/languages.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const STATIC_ROOTS = { '/tipos/': path.resolve(HERE, '../tipos'), '/': path.join(HERE, 'public') };
@@ -120,8 +121,9 @@ export function createApp({
   someWordsFile = someWordsPaths({ dataFile, publicFile }).someWordsFile,
   someWordsPublicFile = someWordsPaths({ dataFile, publicFile }).someWordsPublicFile,
 }) {
-  const store = createStore(dataFile);
-  const wordsStore = createStore(someWordsFile);
+  // Older files (plain strings) are read as { ca, en, es } and stored that way on the next write.
+  const store = createStore(dataFile, { migrate: migrateProjects });
+  const wordsStore = createStore(someWordsFile, { migrate: migrateSomeWords });
   const limiter = createRateLimiter({ max: 5, windowMs: 15 * 60 * 1000 });
   const cookieAttrs = `HttpOnly; SameSite=Strict; Path=${cookiePath}${cookieSecure ? '; Secure' : ''}`;
   // A private file plus its public copy: mutations run under If-Match, then republish.

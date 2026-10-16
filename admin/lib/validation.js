@@ -1,9 +1,11 @@
 // Pure validation helpers for project records and the home's "some words". No I/O.
 import { parseRichText, RICH_TEXT_MAX } from './rich-text.js';
+import { LANGS, DEFAULT_LANG } from './languages.js';
 
 const FIELDS = ['title', 'category', 'year', 'description', 'url', 'visible', 'thumbs', 'ai', 'tools'];
 const REQUIRED = ['title', 'category', 'year', 'url'];
-const DEFAULTS = { description: '', visible: true, thumbs: [], ai: '', tools: [] };
+const emptyText = () => Object.fromEntries(LANGS.map((lang) => [lang, '']));
+const DEFAULTS = { description: emptyText(), visible: true, thumbs: [], ai: emptyText(), tools: [] };
 
 function isHttpUrl(value) {
   if (typeof value !== 'string') return false;
@@ -24,10 +26,29 @@ function text(value, { min, max, label, lower = false }) {
   return { value: clean };
 }
 
+// A per-language value: { ca, en, es }, all three as text. Each language gets the field's
+// rules; only ca has to meet `min` (an empty en / es falls back to ca on the site).
+// Returns { value } or { errors } keyed "<field>.<lang>" (or "<field>" for the shape).
+function perLanguage(v, field, check, { min = 0, label = field } = {}) {
+  const isObject = v !== null && typeof v === 'object' && !Array.isArray(v);
+  const keys = isObject ? Object.keys(v) : [];
+  if (!isObject || keys.length !== LANGS.length || !LANGS.every((lang) => keys.includes(lang))) {
+    return { errors: { [field]: `${label} needs ca, en and es text` } };
+  }
+  const value = {};
+  const errors = {};
+  for (const lang of LANGS) {
+    const result = check(v[lang], { min: lang === DEFAULT_LANG ? min : 0, label: `${label} (${lang})` });
+    if (result.error) errors[`${field}.${lang}`] = result.error;
+    else value[lang] = result.value;
+  }
+  return Object.keys(errors).length ? { errors } : { value };
+}
+
 const CHECKS = {
   title: (v) => text(v, { min: 1, max: 80, label: 'title' }),
-  category: (v) => text(v, { min: 1, max: 30, label: 'category', lower: true }),
-  description: (v) => text(v, { min: 0, max: 200, label: 'description' }),
+  category: (v) => perLanguage(v, 'category', (item, opts) => text(item, { ...opts, max: 30, lower: true }), { min: 1 }),
+  description: (v) => perLanguage(v, 'description', (item, opts) => text(item, { ...opts, max: 200 })),
   // Free text, e.g. "(orig. 2015) 2026". Whole numbers from older data become text.
   year: (v) => text(Number.isInteger(v) ? String(v) : v, { min: 1, max: 30, label: 'year' }),
   url: (v) => (isHttpUrl(v) ? { value: v.trim() } : { error: 'url must start with http:// or https://' }),
@@ -39,7 +60,7 @@ const CHECKS = {
     return { value: v.map((url) => url.trim()) };
   },
   // Paragraphs are separated by blank lines; the front end splits them.
-  ai: (v) => text(v, { min: 0, max: 5000, label: 'how I used AI' }),
+  ai: (v) => perLanguage(v, 'ai', (item, opts) => text(item, { ...opts, max: 5000 }), { label: 'how I used AI' }),
   tools: (v) => {
     if (!Array.isArray(v)) return { error: 'tools must be a list' };
     if (v.length > 12) return { error: 'up to 12 tools' };
@@ -74,6 +95,7 @@ export function validateProject(input, { partial = false } = {}) {
     }
     const check = CHECKS[field](input[field]);
     if (check.error) errors[field] = check.error;
+    else if (check.errors) Object.assign(errors, check.errors);
     else value[field] = check.value;
   }
   return { value, errors };
@@ -105,7 +127,15 @@ export function isPermutation(ids, currentIds) {
   return set.size === ids.length && currentIds.every((id) => set.has(id));
 }
 
-// "some words": { text } only, 1-4000 chars after trimming, links checked by the shared parser.
+// One language of "some words": up to 4000 chars after trimming, links checked by the shared parser.
+function richText(v, opts) {
+  const check = text(v, { ...opts, max: RICH_TEXT_MAX });
+  if (check.error) return check;
+  const { errors } = parseRichText(check.value);
+  return errors.length ? { error: `${opts.label}: ${errors.join(' ')}` } : check;
+}
+
+// "some words": { text: { ca, en, es } } only; ca is required (1-4000), en / es may be empty.
 export function validateSomeWords(input) {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
     return { value: {}, errors: { _body: 'expected a JSON object' } };
@@ -113,11 +143,7 @@ export function validateSomeWords(input) {
   const errors = {};
   const unknown = Object.keys(input).filter((key) => key !== 'text');
   if (unknown.length) errors._unknown = `unknown fields: ${unknown.join(', ')}`;
-  const check = text(input.text, { min: 1, max: RICH_TEXT_MAX, label: 'text' });
-  if (check.error) errors.text = check.error;
-  else {
-    const { errors: linkErrors } = parseRichText(check.value);
-    if (linkErrors.length) errors.text = linkErrors.join(' ');
-  }
-  return { value: errors.text ? {} : { text: check.value }, errors };
+  const check = perLanguage(input.text, 'text', richText, { min: 1 });
+  if (check.errors) Object.assign(errors, check.errors);
+  return { value: check.errors ? {} : { text: check.value }, errors };
 }

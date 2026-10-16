@@ -5,6 +5,8 @@ import { setupGsap } from '../../js/shared/ease.js';
 import { splitTitle as splitShared, titleIntro as introShared } from '../../js/shared/split-title.js';
 import { buildCube, measureCube as measureShared, bindCube as bindShared, clearLeave } from '../../js/shared/cube.js';
 import { pageReady } from '../../js/shared/page-ready.js';
+import { loadStrings, pageLang } from '../../js/shared/i18n.js';
+import { bindLangLinks } from '../../js/shared/lang-links.js';
 
 (() => {
   'use strict';
@@ -15,6 +17,7 @@ import { pageReady } from '../../js/shared/page-ready.js';
   const animate = Boolean(gsap) && !reducedMotion;
   // Cube hover only where it makes sense: wide screens with a real mouse.
   const hoverQuery = window.matchMedia('(min-width: 1200px) and (hover: hover) and (pointer: fine)');
+  const t = loadStrings(); // UI text for the page language (i18n/<lang>.json, injected by the build)
 
   const STAGGER = 0.0625;
   const ROW_LEAVE_DELAY = 500; // ms; leaves a trailing wave when sweeping across rows
@@ -55,7 +58,7 @@ import { pageReady } from '../../js/shared/page-ready.js';
     const link = el('a', 'work-item cube');
     link.href = detailHref(project.id);
     link.dataset.id = project.id;
-    link.setAttribute('aria-label', `${project.title}, ${project.category}: project details`);
+    link.setAttribute('aria-label', t('row_label', { title: project.title, category: project.category }));
 
     const meta = el('span', 'work-item__meta');
     meta.append(el('span', '', `${project.category} / ${project.year}`));
@@ -85,8 +88,9 @@ import { pageReady } from '../../js/shared/page-ready.js';
     return li;
   }
 
+  // The "all" chip filters on '' so no category name can clash with it.
   function renderFilters(categories) {
-    ['all', ...categories].forEach((category, index) => {
+    ['', ...categories].forEach((category, index) => {
       if (index > 0) {
         const sep = el('span', 'filters__sep', '/');
         sep.setAttribute('aria-hidden', 'true');
@@ -96,7 +100,8 @@ import { pageReady } from '../../js/shared/page-ready.js';
       chip.type = 'button';
       chip.dataset.filter = category;
       chip.setAttribute('aria-pressed', String(index === 0));
-      buildCube(chip, [document.createTextNode(category)], () => [document.createTextNode(category)]);
+      const label = category || t('filter_all');
+      buildCube(chip, [document.createTextNode(label)], () => [document.createTextNode(label)]);
       filtersEl.append(chip);
     });
   }
@@ -172,7 +177,7 @@ import { pageReady } from '../../js/shared/page-ready.js';
 
   function updateCount() {
     const total = visibleRows().length;
-    countEl.textContent = `${total} project${total === 1 ? '' : 's'}`;
+    countEl.textContent = t.count('count', total);
   }
 
   async function applyFilter(category) {
@@ -196,7 +201,7 @@ import { pageReady } from '../../js/shared/page-ready.js';
 
     await hide();
     for (const row of list.children) {
-      row.hidden = category !== 'all' && row.dataset.category !== category;
+      row.hidden = category !== '' && row.dataset.category !== category;
     }
     measureCubes();
     if (lenis) lenis.resize();
@@ -219,7 +224,7 @@ import { pageReady } from '../../js/shared/page-ready.js';
      The URL is the source of truth: clicks push a history entry, popstate syncs to it. */
 
   const pageEl = document.getElementById('page');
-  const menuEl = document.querySelector('nav[aria-label="Main"]');
+  const menuEl = document.querySelector('.menu').closest('nav');
   const overlay = document.querySelector('.detail-overlay');
   const detail = document.getElementById('detail');
   const scroller = detail.querySelector('.detail__scroller');
@@ -254,8 +259,8 @@ import { pageReady } from '../../js/shared/page-ready.js';
   function buildCloseButton() {
     closeBtn = el('button', 'chip cube detail__close');
     closeBtn.type = 'button';
-    closeBtn.setAttribute('aria-label', 'close project details');
-    buildCube(closeBtn, [document.createTextNode('close')], () => [document.createTextNode('close')]);
+    closeBtn.setAttribute('aria-label', t('close_label'));
+    buildCube(closeBtn, [document.createTextNode(t('close'))], () => [document.createTextNode(t('close'))]);
     detail.prepend(closeBtn); // first in tab order inside the dialog
   }
 
@@ -295,16 +300,16 @@ import { pageReady } from '../../js/shared/page-ready.js';
     if (url) {
       const link = visit.querySelector('a');
       link.href = url.href;
-      link.setAttribute('aria-label', `visit site: ${project.title} (opens in a new tab)`);
+      link.setAttribute('aria-label', t('visit_label', { title: project.title }));
     }
 
     const next = order[(order.indexOf(project) + 1) % order.length];
     nextLink.parentElement.hidden = order.length < 2;
     nextLink.href = detailHref(next.id);
     nextLink.dataset.id = next.id;
-    nextLink.textContent = `next project: ${next.title}`;
+    nextLink.textContent = t('next', { title: next.title });
 
-    document.title = `${project.title} — Projects (IA) — Roger Masellas`;
+    document.title = t('detail_title', { title: project.title });
     if (animate) gsap.set(reveals(), { autoAlpha: 0, y: 24 });
   }
 
@@ -503,7 +508,7 @@ import { pageReady } from '../../js/shared/page-ready.js';
   // Returns the visible projects, or null when the data cannot be loaded.
   async function loadProjects() {
     try {
-      const response = await fetch('data/projects.json', { cache: 'no-store' });
+      const response = await fetch(`/projects/data/projects.${pageLang()}.json`, { cache: 'no-store' });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return (await response.json()).projects.filter((project) => project.visible !== false);
     } catch (err) {
@@ -521,10 +526,11 @@ import { pageReady } from '../../js/shared/page-ready.js';
 
   async function init() {
     splitTitle(titleEl, titleEl.textContent.trim());
+    bindLangLinks(document.querySelector('.lang-nav'));
     titleEl.tabIndex = -1; // focus target when a deep-linked detail closes
     const [projects] = await Promise.all([loadProjects(), document.fonts ? document.fonts.ready : null]);
     if (!projects) {
-      list.after(el('p', 'work-list__error', 'The projects could not load. Try again in a minute.'));
+      list.after(el('p', 'work-list__error', t('load_error')));
       await pageReady();
       intro();
       return;

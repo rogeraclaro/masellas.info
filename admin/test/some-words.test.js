@@ -6,20 +6,26 @@ import path from 'node:path';
 import { validateSomeWords } from '../lib/validation.js';
 import { someWordsPaths, writeSomeWordsPublic, prepareSomeWords } from '../lib/publish.js';
 
-test('validateSomeWords trims and accepts valid text', () => {
-  const { value, errors } = validateSomeWords({ text: '  Hello [there](https://example.com).  ' });
+const words = (ca, en = '', es = '') => ({ text: { ca, en, es } });
+
+test('validateSomeWords trims and accepts valid text per language; en / es may be empty', () => {
+  const { value, errors } = validateSomeWords(words('  Hola [aquí](https://example.com).  ', ' Hello. '));
   assert.deepEqual(errors, {});
-  assert.deepEqual(value, { text: 'Hello [there](https://example.com).' });
+  assert.deepEqual(value, { text: { ca: 'Hola [aquí](https://example.com).', en: 'Hello.', es: '' } });
 });
 
-test('validateSomeWords rejects empty, too long, non-text, unknown fields and bad links', () => {
-  assert.match(validateSomeWords({ text: '   ' }).errors.text, /required/);
-  assert.match(validateSomeWords({ text: 'x'.repeat(4001) }).errors.text, /4000/);
-  assert.ok(validateSomeWords({ text: 'x'.repeat(4000) }).errors.text === undefined);
-  assert.match(validateSomeWords({ text: 42 }).errors.text, /text/);
-  assert.match(validateSomeWords({ text: 'ok', html: '<b>' }).errors._unknown, /html/);
+test('validateSomeWords rejects empty ca, too long, non-text, unknown fields and bad links, per language', () => {
+  assert.match(validateSomeWords(words('   ', 'Hello.')).errors['text.ca'], /\(ca\) is required/);
+  assert.match(validateSomeWords(words('ok', 'x'.repeat(4001))).errors['text.en'], /\(en\).*4000/);
+  assert.deepEqual(validateSomeWords(words('x'.repeat(4000), 'x'.repeat(4000), 'x'.repeat(4000))).errors, {});
+  assert.match(validateSomeWords({ text: 'legacy string' }).errors.text, /ca, en and es/);
+  assert.match(validateSomeWords({ text: { ca: 'ok', en: 'ok', es: 42 } }).errors['text.es'], /text/);
+  assert.match(validateSomeWords({ ...words('ok'), html: '<b>' }).errors._unknown, /html/);
   assert.ok(validateSomeWords(null).errors._body);
-  assert.match(validateSomeWords({ text: 'see [x](javascript:alert(1))' }).errors.text, /javascript:alert\(1\)/);
+  const bad = validateSomeWords(words('ok', '', 'see [x](javascript:alert(1))'));
+  assert.deepEqual(Object.keys(bad.errors), ['text.es']);
+  assert.match(bad.errors['text.es'], /javascript:alert\(1\)/);
+  assert.deepEqual(bad.value, {});
 });
 
 test('someWordsPaths derives both files from the existing DATA_FILE / PUBLIC_FILE dirs', () => {
@@ -45,11 +51,15 @@ beforeEach(async () => {
 
 const readJson = async (file) => JSON.parse(await readFile(file, 'utf8'));
 
-test('writeSomeWordsPublic writes { text } atomically, 0644, no backup or temp files', async () => {
-  await writeSomeWordsPublic(paths.someWordsPublicFile, { text: 'Hi.', extra: 'private' });
-  assert.deepEqual(await readJson(paths.someWordsPublicFile), { text: 'Hi.' });
-  assert.deepEqual(await readdir(path.dirname(paths.someWordsPublicFile)), ['some-words.json']);
-  assert.equal((await stat(paths.someWordsPublicFile)).mode & 0o777, 0o644);
+test('writeSomeWordsPublic writes { text } per language plus the legacy file, atomically, 0644, no backup or temp files', async () => {
+  await writeSomeWordsPublic(paths.someWordsPublicFile, { text: { ca: 'Hola.', en: 'Hi.', es: '' }, extra: 'private' });
+  const web = path.dirname(paths.someWordsPublicFile);
+  assert.deepEqual((await readdir(web)).sort(), ['some-words.ca.json', 'some-words.en.json', 'some-words.es.json', 'some-words.json']);
+  assert.deepEqual(await readJson(path.join(web, 'some-words.ca.json')), { text: 'Hola.' });
+  assert.deepEqual(await readJson(path.join(web, 'some-words.en.json')), { text: 'Hi.' });
+  assert.deepEqual(await readJson(path.join(web, 'some-words.es.json')), { text: 'Hola.' }, 'empty es falls back to ca');
+  assert.deepEqual(await readJson(paths.someWordsPublicFile), { text: 'Hola.' }, 'legacy file = ca');
+  for (const name of await readdir(web)) assert.equal((await stat(path.join(web, name))).mode & 0o777, 0o644, name);
 });
 
 test('prepareSomeWords republishes from an existing private file', async () => {
@@ -58,6 +68,7 @@ test('prepareSomeWords republishes from an existing private file', async () => {
   const { seeded } = await prepareSomeWords(paths);
   assert.equal(seeded, null);
   assert.deepEqual(await readJson(paths.someWordsPublicFile), { text: 'Private.' });
+  assert.deepEqual(await readJson(path.join(dir, 'web', 'some-words.en.json')), { text: 'Private.' }, 'legacy text published to every language');
 });
 
 test('prepareSomeWords seeds the private file from the public one first', async () => {

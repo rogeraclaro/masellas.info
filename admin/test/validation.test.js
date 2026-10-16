@@ -2,11 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { validateProject, slugify, uniqueSlug, isPermutation } from '../lib/validation.js';
 
+const all = (text) => ({ ca: text, en: text, es: text });
 const valid = () => ({
   title: '  Ledger  ',
-  category: 'web app',
+  category: all('web app'),
   year: 2026,
-  description: 'Invoices and hours.',
+  description: all('Invoices and hours.'),
   url: 'https://ledger.example.com',
   visible: true,
   thumbs: ['https://img.example.com/a.png'],
@@ -36,19 +37,19 @@ test('applies defaults for optional fields on create', () => {
   delete input.thumbs;
   const { value, errors } = validateProject(input);
   assert.deepEqual(errors, {});
-  assert.equal(value.description, '');
+  assert.deepEqual(value.description, all(''));
   assert.equal(value.visible, true);
   assert.deepEqual(value.thumbs, []);
-  assert.equal(value.ai, '');
+  assert.deepEqual(value.ai, all(''));
   assert.deepEqual(value.tools, []);
 });
 
 test('ai is trimmed text up to 5000 chars, keeping inner blank lines', () => {
   const ai = '  First paragraph.\n\nSecond one,\nwith a line break.  ';
-  const { value, errors } = validateProject({ ...valid(), ai });
+  const { value, errors } = validateProject({ ...valid(), ai: { ca: ai, en: '', es: ai } });
   assert.deepEqual(errors, {});
-  assert.equal(value.ai, 'First paragraph.\n\nSecond one,\nwith a line break.');
-  assert.deepEqual(validateProject({ ...valid(), ai: 'x'.repeat(5000) }).errors, {});
+  assert.deepEqual(value.ai, { ca: 'First paragraph.\n\nSecond one,\nwith a line break.', en: '', es: 'First paragraph.\n\nSecond one,\nwith a line break.' });
+  assert.deepEqual(validateProject({ ...valid(), ai: all('x'.repeat(5000)) }).errors, {});
 });
 
 test('tools are trimmed, kept as entered, and limited to 12', () => {
@@ -59,15 +60,38 @@ test('tools are trimmed, kept as entered, and limited to 12', () => {
 });
 
 test('partial updates accept ai and tools alone', () => {
-  const { value, errors } = validateProject({ ai: 'Notes.', tools: ['Cursor'] }, { partial: true });
+  const { value, errors } = validateProject({ ai: all('Notes.'), tools: ['Cursor'] }, { partial: true });
   assert.deepEqual(errors, {});
-  assert.deepEqual(value, { ai: 'Notes.', tools: ['Cursor'] });
+  assert.deepEqual(value, { ai: all('Notes.'), tools: ['Cursor'] });
 });
 
-test('lowercases and trims the category', () => {
-  const { value, errors } = validateProject({ ...valid(), category: ' Web App ' });
+test('lowercases and trims the category in every language', () => {
+  const { value, errors } = validateProject({ ...valid(), category: { ca: ' Web App ', en: ' Tool ', es: ' ' } });
   assert.deepEqual(errors, {});
-  assert.equal(value.category, 'web app');
+  assert.deepEqual(value.category, { ca: 'web app', en: 'tool', es: '' });
+});
+
+test('per-language fields: only ca is required; en / es may be empty (they fall back to ca)', () => {
+  const { value, errors } = validateProject({ ...valid(), category: { ca: 'eina', en: '', es: '' }, description: { ca: '', en: 'Only English.', es: '' } });
+  assert.deepEqual(errors, {});
+  assert.deepEqual(value.category, { ca: 'eina', en: '', es: '' });
+  assert.deepEqual(value.description, { ca: '', en: 'Only English.', es: '' });
+});
+
+test('per-language errors are keyed field.lang and name the language', () => {
+  const { errors } = validateProject({ ...valid(), category: { ca: '', en: 'x'.repeat(31), es: 'ok' } });
+  assert.deepEqual(Object.keys(errors).sort(), ['category.ca', 'category.en']);
+  assert.match(errors['category.ca'], /category \(ca\) is required/);
+  assert.match(errors['category.en'], /category \(en\) must be 30 characters or fewer/);
+  assert.match(validateProject({ ...valid(), description: { ...all(''), es: 'x'.repeat(201) } }).errors['description.es'], /\(es\).*200/);
+  assert.match(validateProject({ ...valid(), ai: { ...all(''), en: 'x'.repeat(5001) } }).errors['ai.en'], /\(en\).*5000/);
+});
+
+test('per-language fields need an object with exactly ca, en and es text', () => {
+  for (const bad of ['web app', { ca: 'a', en: 'b' }, { ca: 'a', en: 'b', es: 'c', fr: 'd' }, { ca: 'a', en: 'b', es: 3 }, null, ['a']]) {
+    const { errors } = validateProject({ ...valid(), category: bad });
+    assert.match(errors.category ?? errors['category.es'] ?? '', /ca, en and es|text/, JSON.stringify(bad));
+  }
 });
 
 const invalidCases = [
@@ -75,15 +99,13 @@ const invalidCases = [
   ['title', '   '],
   ['title', 'x'.repeat(81)],
   ['title', 42],
-  ['category', ''],
-  ['category', 'x'.repeat(31)],
+  ['category', 'tool'],
   ['year', ''],
   ['year', '   '],
   ['year', 'x'.repeat(31)],
   ['year', 2025.5],
   ['year', null],
-  ['description', 'x'.repeat(201)],
-  ['description', 5],
+  ['description', 'legacy string'],
   ['url', 'not a url'],
   ['url', 'javascript:alert(1)'],
   ['url', 'ftp://example.com'],
@@ -91,7 +113,6 @@ const invalidCases = [
   ['thumbs', 'https://a.example.com/x.png'],
   ['thumbs', ['https://a.example.com/1.png', 'https://a.example.com/2.png', 'https://a.example.com/3.png', 'https://a.example.com/4.png']],
   ['thumbs', ['data:image/png;base64,AAAA']],
-  ['ai', 'x'.repeat(5001)],
   ['ai', 42],
   ['tools', 'Claude Code, Cursor'],
   ['tools', Array.from({ length: 13 }, (_, i) => `t${i}`)],

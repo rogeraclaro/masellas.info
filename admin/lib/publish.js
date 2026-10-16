@@ -1,22 +1,32 @@
-// Public projection of the private data: only visible projects, without the visible flag.
+// Public projection of the private data: only visible projects, without the visible flag,
+// with the per-language fields flattened for one language (empty -> ca).
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { writeAtomic } from './store.js';
+import { LANGS, DEFAULT_LANG, pick, localizedFile, migrateProjects, migrateSomeWords } from './languages.js';
 
-export function toPublic(data) {
+export function toPublic(data, lang = DEFAULT_LANG) {
   return {
     projects: data.projects
       .filter((p) => p.visible !== false)
       .map(({ id, title, category, year, description, url, thumbs, ai = '', tools = [] }) => ({
-        id, title, category, year, description, url, thumbs, ai, tools,
+        id, title, category: pick(category, lang), year, description: pick(description, lang), url, thumbs, ai: pick(ai, lang), tools,
       })),
   };
 }
 
-// No backup here: the public file lives in the web root and is always rebuilt from DATA_FILE.
+// <name>.<lang>.json for each language, plus the legacy <name>.json (= ca) that pages loaded
+// before the site had languages still fetch. Each file is atomic, 0644, without backup: they live
+// in the web root and are always rebuilt from the private file.
+async function writeLanguages(file, publicFor) {
+  const json = (lang) => `${JSON.stringify(publicFor(lang), null, 2)}\n`;
+  for (const lang of LANGS) await writeAtomic(localizedFile(file, lang), json(lang), 0o644);
+  await writeAtomic(file, json(DEFAULT_LANG), 0o644);
+}
+
 export function writePublic(publicFile, data) {
-  return writeAtomic(publicFile, `${JSON.stringify(toPublic(data), null, 2)}\n`, 0o644);
+  return writeLanguages(publicFile, (lang) => toPublic(data, lang));
 }
 
 // Boot: seed DATA_FILE from PUBLIC_FILE once if needed, then bring PUBLIC_FILE in sync.
@@ -29,7 +39,7 @@ export async function prepareFiles({ dataFile, publicFile }) {
     await writeFile(dataFile, `${JSON.stringify({ projects: projects.map((p) => ({ ...p, visible: true })) }, null, 2)}\n`, { mode: 0o600 });
     seeded = true;
   }
-  const data = JSON.parse(await readFile(dataFile, 'utf8'));
+  const data = migrateProjects(JSON.parse(await readFile(dataFile, 'utf8')));
   await writePublic(publicFile, data);
   return { seeded };
 }
@@ -44,9 +54,9 @@ export function someWordsPaths({ dataFile, publicFile }) {
   };
 }
 
-// Public copy: { text } only, atomic, no backup (it is rebuilt from the private file).
+// Public copies: { text } for one language each (empty -> ca), plus the legacy file (= ca).
 export function writeSomeWordsPublic(publicFile, data) {
-  return writeAtomic(publicFile, `${JSON.stringify({ text: data.text }, null, 2)}\n`, 0o644);
+  return writeLanguages(publicFile, (lang) => ({ text: pick(data.text, lang) }));
 }
 
 // Boot: seed the private file once (from the public copy, else the repo default),
@@ -60,7 +70,7 @@ export async function prepareSomeWords({ someWordsFile, someWordsPublicFile, def
     await mkdir(path.dirname(someWordsFile), { recursive: true });
     await writeFile(someWordsFile, `${JSON.stringify({ text }, null, 2)}\n`, { mode: 0o600 });
   }
-  const data = JSON.parse(await readFile(someWordsFile, 'utf8'));
+  const data = migrateSomeWords(JSON.parse(await readFile(someWordsFile, 'utf8')));
   await writeSomeWordsPublic(someWordsPublicFile, data);
   return { seeded };
 }

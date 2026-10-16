@@ -1,7 +1,8 @@
 /* Fixed brand tab menu, same on every page. */
 
 /* ---------- Menu (brand tab menu) ---------- */
-.menu {
+.menu,
+.lang-menu {
   position: fixed;
   top: 0;
   left: 0;
@@ -12,6 +13,13 @@
   font-family: var(--font-medium);
   font-size: 16px;
   line-height: 26px;
+}
+
+/* Language tabs (ca / en / es): the same tabs, mirrored in the top-right corner. */
+.lang-menu {
+  left: auto;
+  right: 0;
+  padding: 10px 10px 0 0;
 }
 
 .menu__tab {
@@ -45,6 +53,15 @@
 @media (max-width: 640px) {
   .menu__tab .face {
     padding: 6px 12px;
+  }
+
+  :root {
+    --menu-row: 56px; /* taller tabs */
+  }
+
+  /* No room beside the section tabs: the language tabs take a second row. */
+  .lang-menu {
+    top: var(--menu-row);
   }
 }
 

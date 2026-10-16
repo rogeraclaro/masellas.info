@@ -2,12 +2,18 @@
 
 Small back-office for masellas.info: log in with one password, then edit the projects list (add, edit, hide, reorder, delete) or the text of the home's "some words" section (switch at the top).
 
+## Languages
+
+The site is in ca (principal), en and es. Translated fields: a project's `category`, `description` and `ai`, and the "some words" text. They are stored as `{ "ca": …, "en": …, "es": … }`; everything else (id, title, year, url, visible, thumbs, tools) is shared. In the form each translated field has a `ca / en / es` tab strip that shows which languages are empty. Only ca is required where the field is required (category, some words); an empty en / es shows the ca text on the site.
+
+Older files with plain strings are read as the same text in all three languages (`lib/languages.js`, `migrateProjects` / `migrateSomeWords`) and stored in the new shape on the next save; nothing has to be migrated by hand.
+
 It keeps two files:
 
 - `DATA_FILE` — the private, full list (hidden projects included, with `visible`). Lives outside the web root. The API reads, writes and versions only this file.
-- `PUBLIC_FILE` — what `/projects/` fetches (`projects/data/projects.json` in the web root). Rebuilt from `DATA_FILE` after every change and at boot: visible projects only, in order, without the `visible` field. Never edit it by hand; the next change overwrites it.
+- `PUBLIC_FILE` — `projects/data/projects.json` in the web root. Rebuilt from `DATA_FILE` after every change and at boot, together with one file per language next to it: `projects.ca.json`, `projects.en.json`, `projects.es.json` (what `/projects/`, `/en/projects/`, `/es/projects/` fetch). Visible projects only, in order, without the `visible` field, translated fields flattened to plain text for that language (empty -> ca). `projects.json` itself is the ca version. Never edit them by hand; the next change overwrites them.
 
-"Some words" uses the same two-file setup, with no extra configuration: `some-words.json` sits next to each file above (private: `dirname(DATA_FILE)/some-words.json`; public: `dirname(PUBLIC_FILE)/some-words.json`, served at `/projects/data/some-words.json`). Optional overrides: `SOME_WORDS_FILE`, `SOME_WORDS_PUBLIC_FILE` (absolute paths). At boot the private file is seeded once if missing: from the public copy, else from the repo default `projects/data/some-words.json`; the admin refuses to start if none exists.
+"Some words" uses the same two-file setup, with no extra configuration: `some-words.json` sits next to each file above (private: `dirname(DATA_FILE)/some-words.json`; public: `dirname(PUBLIC_FILE)/some-words.json` plus `some-words.ca.json`, `.en.json`, `.es.json`, served at `/projects/data/some-words.<lang>.json`). Optional overrides: `SOME_WORDS_FILE`, `SOME_WORDS_PUBLIC_FILE` (absolute paths). At boot the private file is seeded once if missing: from the public copy, else from the repo default `projects/data/some-words.json`; the admin refuses to start if none exists.
 
 Text format (validated on save, rendered on the home with the same parser, `lib/rich-text.js`):
 
@@ -62,15 +68,16 @@ Environment variables only. `admin/.env` is read at boot if it exists; real envi
 npm test
 ```
 
-Uses `node:test`. Covers validation, slugs, reorder checks, the file store (atomic write, backup, serialized writes, version conflicts), the public projection (regeneration, boot sync, migration, write failures), password hashing, session tokens, the rate limiter, and HTTP integration on an ephemeral port.
+Uses `node:test`. Covers languages (migration, fallback), validation per language, slugs, reorder checks, the file store (atomic write, backup, serialized writes, version conflicts), the public projection (regeneration, boot sync, migration, write failures), password hashing, session tokens, the rate limiter, and HTTP integration on an ephemeral port.
 
 ## How it works
 
 - `server.js` — HTTP server, routes, static files (`public/` at `/`, the repo's `tipos/` at `/tipos/`).
-- `lib/store.js` — reads/writes `DATA_FILE`: temp file + rename, previous version kept as `projects.json.bak`, one write at a time, version = sha256 of the file.
+- `lib/store.js` — reads (migrating older shapes) and writes `DATA_FILE`: temp file + rename, previous version kept as `projects.json.bak`, one write at a time, version = sha256 of the file.
 - `lib/auth.js` — scrypt password check, HMAC-signed 12 h session cookie, in-memory login rate limit (5 failures per IP per 15 min).
 - `lib/publish.js` — public projection (`toPublic`), atomic public write (no backup), boot sync and migration.
-- `lib/validation.js` — field rules, slug ids, reorder permutation check, "some words" text.
+- `lib/validation.js` — field rules (per language where translated), slug ids, reorder permutation check, "some words" text.
+- `lib/languages.js` — the languages (ca, en, es), the `{ ca, en, es }` shape, fallback to ca, migration of older plain-string data, `<name>.<lang>.json` paths.
 - `lib/rich-text.js` — pure parser for the "some words" text (paragraphs, line breaks, links). Also served to the admin UI and bundled into the home page by `scripts/build.sh`.
 - `lib/rich-text-dom.js` — browser renderer for parsed text (admin preview and home).
 - `lib/envfile.js` — the `.env` update behind `hash-password --env`.
@@ -84,18 +91,21 @@ API (JSON, all under `/api`, session required except login, logout and session):
 | POST | `/api/logout` | | clears it |
 | GET | `/api/session` | | `{ loggedIn }`, always 200 |
 | GET | `/api/config` | | `{ publicUrl }` |
-| GET | `/api/projects` | | `{ projects, version }` |
+| GET | `/api/projects` | | `{ projects, version }`; translated fields as `{ ca, en, es }` |
 | POST | `/api/projects` | project fields, optional `position: "top"` | 201 |
 | PUT | `/api/projects/:id` | any project fields | |
 | DELETE | `/api/projects/:id` | | |
 | PUT | `/api/order` | `{ ids }` | exact permutation of current ids |
-| GET | `/api/some-words` | | `{ text, version }` |
-| PUT | `/api/some-words` | `{ text }` | 1–4000 chars; republishes the public copy |
+| GET | `/api/some-words` | | `{ text: { ca, en, es }, version }` |
+| PUT | `/api/some-words` | `{ text: { ca, en, es } }` | ca 1–4000 chars, en / es 0–4000; republishes the public copies |
+
+Translated fields must be sent as an object with exactly `ca`, `en` and `es` text (a plain string is rejected); their errors come back keyed `<field>.<lang>`, e.g. `category.en`.
 
 Mutations need `Content-Type: application/json` and `If-Match: <version>`. A stale version gets 409, a missing one 428. A foreign `Origin` gets 403. If the private save works but the public file cannot be written, the response is 500 with the new `version`; the change is kept and the public file is rebuilt on the next change or restart.
 
 ## Notes
 
+- Later cleanup: the legacy public `projects.json` and `some-words.json` (= ca) are still written so a browser that loaded a page before the languages release keeps working. Once no old page can be open (any later release), stop writing them in `lib/publish.js` (`writeLanguages`), drop them from the deploy smoke check, and delete them from the server.
 - Hidden projects never reach the web root: they exist only in `DATA_FILE` (and its `.bak`), which must stay outside it.
 - The public file is written as a temp dotfile (`.projects.json.tmp-<random>`) in the same directory, then renamed; mode 0644 so nginx can read it. Make sure nginx denies dotfiles (CloudPanel's vhost usually already has `location ~ /\. { deny all; }`; add it if not).
 - The rate limiter and sessions live in memory: a restart clears the limiter, sessions survive (they are signed, not stored).

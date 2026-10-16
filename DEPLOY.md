@@ -4,23 +4,35 @@ Pushing to `main` runs `.github/workflows/deploy.yml`:
 
 1. `test` — `npm test` in `admin/` and `npm test` at the repo root (site logic), on Node 22.
 2. `deploy` (GitHub environment `production`):
-   - builds the bundles with `scripts/build.sh` and versions their URLs with `scripts/cache-bust.sh`.
-   - rsyncs the site to `/home/rogermasellas/htdocs/masellas.info/`. It does not delete anything and does not change ownership or permissions.
-   - copies `projects/data/projects.json` and `projects/data/some-words.json` only if the server has none yet. After that the admin owns them.
+   - builds the pages and bundles with `scripts/build.sh` and versions their URLs with `scripts/cache-bust.sh`.
+   - rsyncs the site to `/home/rogermasellas/htdocs/masellas.info/` (including `en/` and `es/`, never `src/` or `i18n/`). It does not delete anything and does not change ownership or permissions.
+   - copies each `projects/data/*.json` only if the server does not have it yet. After that the admin owns them.
    - rsyncs `admin/` to `/home/rogermasellas/masellas-admin/app/` with `--delete`. `.env` and `data/` are protected.
-   - reloads the app with pm2 under `rogermasellas`, then smoke-checks `/projects/data/projects.json` and `/admin/`.
+   - reloads the app with pm2 under `rogermasellas`, then smoke-checks `/en/`, `/es/projects/`, every `/projects/data/*.json` and `/admin/`.
 
 Server layout:
 
 ```
 /home/rogermasellas/htdocs/masellas.info/             site (web root)
-  projects/data/projects.json                          public list, rebuilt by the admin
-  projects/data/some-words.json                        home "some words" text, rebuilt by the admin
+  index.html, projects/                                ca pages (en/ and es/ hold the others)
+  projects/data/projects.<lang>.json                   public list per language (ca, en, es), rebuilt by the admin
+  projects/data/some-words.<lang>.json                 home "some words" text per language, rebuilt by the admin
+  projects/data/projects.json, some-words.json         legacy copies (= ca), see admin/README.md
 /home/rogermasellas/masellas-admin/app/                admin code (deployed)
   .env                                                 config + secrets (never deployed)
 /home/rogermasellas/masellas-admin/data/projects.json  private list, hidden projects included
 /home/rogermasellas/masellas-admin/data/some-words.json  private copy of the "some words" text
 ```
+
+## Languages
+
+The site is in Catalan (principal, at the root: `/`, `/projects/`), English (`/en/`, `/en/projects/`) and Spanish (`/es/`, `/es/projects/`). There is no redirect by browser language. Each page has `<html lang>`, `hreflang` alternates (x-default = ca), `og:locale` and a `ca / en / es` switcher (top right) that keeps the current section (`#secondPage`) or open project (`?p=`).
+
+- Page HTML lives once per page in `src/pages/home.html` and `src/pages/projects.html`. `{{key}}` is escaped text from the dictionary; `{{{key}}}` is HTML/JSON the build generates (alternates, switcher, the "some words" fallback, the JS strings).
+- Text lives in `i18n/ca.json`, `i18n/en.json`, `i18n/es.json` (flat keys). `home.words` uses the admin's rich-text format. Keys starting with `js.` are injected into the projects page as `<script type="application/json" id="i18n">` and read by `js/shared/i18n.js`.
+- `node scripts/build-pages.mjs` (run by `scripts/build.sh`) writes the six `index.html` files, each starting with a "generated" comment. It fails if any language misses a key another has, a value is empty, a template uses an unknown key, or `home.words` has a bad link. Edit the templates and dictionaries, never the generated pages, and commit the generated pages.
+- Projects and "some words" content are translated in the admin; the pages fetch `/projects/data/projects.<lang>.json` and `/projects/data/some-words.<lang>.json`.
+- Switching language between pages at the same `data-page-x` is a short crossfade (transition type `fade`), not a slide.
 
 ## Front-end build
 
@@ -34,16 +46,16 @@ Both pages load bundled, minified files built from ES module sources by esbuild 
 
 Shared code lives in `js/shared/` and `css/shared/` and is pulled in with `import` / `@import`.
 
-The home bundle also imports `admin/lib/rich-text.js` and `admin/lib/rich-text-dom.js`: one parser for both the admin's validation and the home's rendering. The admin is deployed as-is, so it uses the same files directly. The home loads `/projects/data/some-words.json` at runtime and keeps the paragraphs in `index.html` as the fallback. No new environment variables are needed: the admin derives the some-words paths from `DATA_FILE` and `PUBLIC_FILE`.
+The home bundle also imports `admin/lib/rich-text.js` and `admin/lib/rich-text-dom.js`: one parser for both the admin's validation and the home's rendering. The admin is deployed as-is, so it uses the same files directly. The home loads `/projects/data/some-words.<lang>.json` at runtime and keeps the paragraphs from `i18n/<lang>.json` as the fallback. No new environment variables are needed: the admin derives the some-words paths from `DATA_FILE` and `PUBLIC_FILE`.
 
 ```sh
-npm run build   # = sh scripts/build.sh; CI runs the same script
-npm test        # pure logic: section wrap, gesture gate, page-transition direction
+npm run build   # = sh scripts/build.sh: pages, then bundles; CI runs the same script
+npm test        # section wrap, gesture gate, page-transition direction, page build, language links
 ```
 
-Commit the rebuilt `.min` files too, so the site works when served straight from the repo. CI rebuilds them anyway, then `scripts/cache-bust.sh` appends `?v=<hash>` to their URLs in `index.html` and `projects/index.html`. It rewrites the HTML in place, so only run it in CI.
+Commit the generated pages and rebuilt `.min` files too, so the site works when served straight from the repo. CI rebuilds them anyway, then `scripts/cache-bust.sh` appends `?v=<hash>` to their (root-absolute) URLs in all six pages. It rewrites the HTML in place, so only run it in CI.
 
-Page transitions: each page sets its place on a horizontal axis with `<html data-page-x="…">` (home `0`, projects `-1`). A page with a lower value slides in from the left, a higher one from the right. A new page only needs its own value plus `css/shared/view-transitions.css` and `js/page-transition.min.js`.
+Page transitions: each page sets its place on a horizontal axis with `<html data-page-x="…">` (home `0`, projects `-1`). A page with a lower value slides in from the left, a higher one from the right; the same value (another language) crossfades. A new page only needs its own value plus `css/shared/view-transitions.css` and `js/page-transition.min.js`.
 
 ## One-time setup
 

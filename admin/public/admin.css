@@ -151,8 +151,8 @@ textarea { resize: vertical; }
   font-display: swap;
   unicode-range: U+0000-005A, U+005C, U+005E-FFFF;
 }
-#f-words, #words-hint, #e-words, .preview-problems { font-family: 'agltbook-edit', Helvetica, Arial, sans-serif; }
-#f-words { min-height: 18em; }
+.words-input, #words-hint, #e-words, .preview-problems { font-family: 'agltbook-edit', Helvetica, Arial, sans-serif; }
+.words-input { min-height: 18em; }
 .preview-block { margin-top: 40px; }
 .preview-problems:empty { display: none; }
 .preview-problems { color: var(--coral); }
@@ -183,3 +183,13 @@ textarea { resize: vertical; }
 .preview .link-only a,
 .preview .link-only a:hover,
 .preview .link-only a:focus-visible { padding: 0; }
+
+/* Per-language fields: ca / en / es tabs above the input (one input per language, one shown). */
+.lang-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+.lang-tab { padding: 2px 8px; font-size: 0.8em; }
+.lang-tab__note { color: var(--bone-60); }
+.lang-tab[aria-pressed="true"] { background: var(--coral); border-color: var(--coral); color: var(--charcoal); }
+.lang-tab[aria-pressed="true"] .lang-tab__note { color: var(--charcoal); }
+.lang-tab[aria-pressed="true"]:hover,
+.lang-tab[aria-pressed="true"]:focus-visible { box-shadow: none; }
+.lang-status:empty { display: none; }

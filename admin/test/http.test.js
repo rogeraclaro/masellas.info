@@ -8,6 +8,8 @@ import { createApp } from '../server.js';
 import { hashPassword } from '../lib/auth.js';
 
 const PASSWORD = 'localdev';
+const all = (text) => ({ ca: text, en: text, es: text });
+const only = (ca, en = '', es = '') => ({ ca, en, es });
 const seed = {
   projects: [
     { id: 'ledger', title: 'Ledger', category: 'web app', year: 2026, description: '', url: 'https://ledger.example.com', visible: true, thumbs: [] },
@@ -110,17 +112,22 @@ test('CRUD round-trip with versions', async () => {
   assert.equal(res.status, 200);
   let json = await res.json();
   assert.equal(json.projects.length, 2);
+  assert.deepEqual(json.projects[0].category, all('web app'), 'legacy strings are read as { ca, en, es }');
+  assert.deepEqual(json.projects[0].description, all(''));
   let { version } = json;
 
-  res = await call(base, 'POST', '/api/projects', { cookie, version, body: { title: 'Ledger', category: 'Tool', year: 2025, url: 'https://x.example.com', position: 'top' } });
+  res = await call(base, 'POST', '/api/projects', { cookie, version, body: { title: 'Ledger', category: 'Tool', year: 2025, url: 'https://x.example.com' } });
+  assert.equal(res.status, 400, 'a plain string is not accepted for a per-language field');
+
+  res = await call(base, 'POST', '/api/projects', { cookie, version, body: { title: 'Ledger', category: only('Tool'), year: 2025, url: 'https://x.example.com', position: 'top' } });
   assert.equal(res.status, 201);
   json = await res.json();
   assert.equal(json.projects[0].id, 'ledger-2', 'unique slug, inserted at top');
-  assert.equal(json.projects[0].category, 'tool');
+  assert.deepEqual(json.projects[0].category, only('tool'));
   assert.equal(json.projects[0].visible, true);
   version = json.version;
 
-  res = await call(base, 'POST', '/api/projects', { cookie, version, body: { title: 'Seat Map', category: 'web app', year: 2025, url: 'https://seat.example.com' } });
+  res = await call(base, 'POST', '/api/projects', { cookie, version, body: { title: 'Seat Map', category: only('web app'), year: 2025, url: 'https://seat.example.com' } });
   json = await res.json();
   assert.equal(json.projects.at(-1).id, 'seat-map', 'appended at the end by default');
   version = json.version;
@@ -157,6 +164,7 @@ test('CRUD round-trip with versions', async () => {
   const onDisk = JSON.parse(await readFile(dataFile, 'utf8'));
   assert.deepEqual(Object.keys(onDisk), ['projects']);
   assert.equal(onDisk.projects.length, 3);
+  assert.deepEqual(onDisk.projects.find((p) => p.id === 'ledger').category, all('web app'), 'the write stored the migrated shape');
 });
 
 test('stale If-Match returns 409 with the current version', async () => {
@@ -291,7 +299,7 @@ test('public file is regenerated after every mutation, without hidden projects',
     ({ version } = await res.json());
   };
 
-  await step('POST', '/api/projects', { title: 'Public Check', category: 'tool', year: 2026, url: 'https://pc.example.com' });
+  await step('POST', '/api/projects', { title: 'Public Check', category: only('tool'), year: 2026, url: 'https://pc.example.com' });
   assert.ok((await publicIds()).includes('public-check'), 'create');
 
   await step('PUT', '/api/projects/public-check', { visible: false });
@@ -309,7 +317,29 @@ test('public file is regenerated after every mutation, without hidden projects',
   await step('DELETE', '/api/projects/public-check');
   assert.ok(!(await publicIds()).includes('public-check'), 'delete');
 
-  assert.deepEqual(await readdir(path.dirname(publicFile)), ['projects.json'], 'no .bak or temp files in the public dir');
+  assert.deepEqual(
+    (await readdir(path.dirname(publicFile))).sort(),
+    ['projects.ca.json', 'projects.en.json', 'projects.es.json', 'projects.json'],
+    'no .bak or temp files in the public dir',
+  );
+});
+
+test('editing one language publishes it only there; other languages keep (or fall back to) ca', async () => {
+  const web = path.dirname(publicFile);
+  const published = async (lang) => JSON.parse(await readFile(path.join(web, `projects.${lang}.json`), 'utf8')).projects.find((p) => p.id === 'rollcall');
+  let { version } = await (await call(base, 'GET', '/api/projects', { cookie })).json();
+  let res = await call(base, 'PUT', '/api/projects/rollcall', { cookie, version, body: { description: only('Text en català.', 'English only.', ''), category: only('eina', 'tool', '') } });
+  assert.equal(res.status, 200);
+  ({ version } = await res.json());
+  assert.equal((await published('en')).description, 'English only.');
+  assert.equal((await published('ca')).description, 'Text en català.');
+  assert.equal((await published('es')).description, 'Text en català.', 'empty es falls back to ca');
+  assert.equal((await published('es')).category, 'eina', 'empty es category falls back to ca');
+  assert.equal((await published('en')).category, 'tool');
+
+  res = await call(base, 'PUT', '/api/projects/rollcall', { cookie, version, body: { category: only('', 'tool', '') } });
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).errors['category.ca'], /category \(ca\) is required/);
 });
 
 test('public write failure returns 500, keeps the private change, and is retried on the next mutation', async () => {
@@ -350,32 +380,36 @@ test('some words: GET returns text and version; PUT validates, saves, publishes 
   let res = await call(base, 'GET', '/api/some-words', { cookie });
   assert.equal(res.status, 200);
   let json = await res.json();
-  assert.equal(json.text, 'Hello.');
+  assert.deepEqual(json.text, all('Hello.'), 'legacy { text } is read per language');
   assert.match(json.version, /^[0-9a-f]{64}$/);
   const { version } = json;
 
-  res = await call(base, 'PUT', '/api/some-words', { cookie, body: { text: 'No version.' } });
+  res = await call(base, 'PUT', '/api/some-words', { cookie, body: { text: all('No version.') } });
   assert.equal(res.status, 428);
 
-  res = await call(base, 'PUT', '/api/some-words', { cookie, version, body: { text: 'Bad [x](javascript:alert(1)).' } });
+  res = await call(base, 'PUT', '/api/some-words', { cookie, version, body: { text: only('Ok.', 'Bad [x](javascript:alert(1)).') } });
   assert.equal(res.status, 400);
-  assert.match((await res.json()).errors.text, /javascript:alert\(1\)/);
+  assert.match((await res.json()).errors['text.en'], /javascript:alert\(1\)/);
 
   const text = 'First paragraph with [a link](https://example.com).\n\n[roger at lamosca.com](mailto:roger@lamosca.com)';
-  res = await call(base, 'PUT', '/api/some-words', { cookie, version, body: { text: `  ${text}  ` } });
+  res = await call(base, 'PUT', '/api/some-words', { cookie, version, body: { text: only(`  ${text}  `, 'English words.', '') } });
   assert.equal(res.status, 200);
   json = await res.json();
-  assert.equal(json.text, text);
+  assert.deepEqual(json.text, only(text, 'English words.', ''));
   assert.notEqual(json.version, version);
 
   const web = path.dirname(publicFile);
-  assert.deepEqual(JSON.parse(await readFile(path.join(web, 'some-words.json'), 'utf8')), { text });
+  const pub = async (name) => JSON.parse(await readFile(path.join(web, name), 'utf8'));
+  assert.deepEqual(await pub('some-words.json'), { text }, 'legacy file = ca');
+  assert.deepEqual(await pub('some-words.ca.json'), { text });
+  assert.deepEqual(await pub('some-words.en.json'), { text: 'English words.' });
+  assert.deepEqual(await pub('some-words.es.json'), { text }, 'empty es falls back to ca');
   const priv = path.dirname(dataFile);
-  assert.equal(JSON.parse(await readFile(path.join(priv, 'some-words.json'), 'utf8')).text, text);
+  assert.deepEqual(JSON.parse(await readFile(path.join(priv, 'some-words.json'), 'utf8')).text, only(text, 'English words.', ''));
   assert.equal(JSON.parse(await readFile(path.join(priv, 'some-words.json.bak'), 'utf8')).text, 'Hello.');
   assert.ok(!(await readdir(web)).some((name) => name.endsWith('.bak')), 'no backup in the public dir');
 
-  res = await call(base, 'PUT', '/api/some-words', { cookie, version, body: { text: 'Stale tab.' } });
+  res = await call(base, 'PUT', '/api/some-words', { cookie, version, body: { text: all('Stale tab.') } });
   assert.equal(res.status, 409, 'old version is rejected');
   assert.equal((await res.json()).version, json.version);
 });

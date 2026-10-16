@@ -1,8 +1,11 @@
 #!/bin/sh
-# Bundles the page sources into the .min files the HTML loads. CI runs this same script.
+# Generates the pages (ca at the root, en/, es/) from src/pages + i18n, then bundles the
+# sources into the .min files they load. CI runs this same script.
 # Usage: sh scripts/build.sh   (or: npm run build)
 set -eu
 cd "$(dirname "$0")/.."
+
+node scripts/build-pages.mjs
 
 ESBUILD="npx --yes esbuild@0.24.0"
 JS="--bundle --minify --format=iife --log-level=warning"

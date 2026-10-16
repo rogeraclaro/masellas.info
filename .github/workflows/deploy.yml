@@ -50,8 +50,8 @@ jobs:
         with:
           node-version: 22
 
-      # The sources are the truth; always ship bundles built from them (same script as locally).
-      - name: Build bundles
+      # The sources are the truth; always ship pages and bundles built from them (same script as locally).
+      - name: Build pages and bundles
         run: sh scripts/build.sh
 
       # nginx caches css/js for 10 years, so version the URLs by content hash (fails if one is missing).
@@ -81,20 +81,11 @@ jobs:
           EOF
           chmod 600 ~/.ssh/config
 
-      - name: Sync site (no perms, no delete)
-        run: |
-          # --checksum: CI checkouts have fresh mtimes, so compare content instead;
-          # identical files (e.g. the root-owned christian/) are left alone.
-          # No -t either: setting mtimes on files we don't own fails.
-          rsync -rlz --checksum \
-            --exclude='.git/' --exclude='.github/' --exclude='.gitignore' --exclude='.claude/' \
-            --exclude='/admin/' --exclude='/scripts/' --exclude='.playwright-mcp/' --exclude='.DS_Store' \
-            --exclude='/package.json' \
-            --exclude='/projects/data/projects.json' --exclude='/projects/data/some-words.json' --exclude='*.md' \
-            ./ "deploy-target:$SITE_DIR"
+      # Order matters: the admin is updated and restarted BEFORE the pages, so the
+      # per-language data files already hold the live content when new pages go out.
 
-      # The admin owns these files after the first deploy; only create them if missing.
-      - name: Seed public data files (first deploy only)
+      # Fresh server only: the admin seeds its private data from these legacy files.
+      - name: Seed legacy public data (fresh server only)
         run: |
           rsync -rltz --ignore-existing projects/data/projects.json projects/data/some-words.json \
             "deploy-target:${SITE_DIR}projects/data/"
@@ -118,12 +109,44 @@ jobs:
           fi
           pm2 startOrReload ecosystem.config.cjs --update-env
           pm2 save
+          # Wait for the restarted admin to publish the per-language files from live data.
+          for i in $(seq 1 20); do
+            [ -f ~/htdocs/masellas.info/projects/data/projects.ca.json ] && exit 0
+            sleep 0.5
+          done
+          echo "::error::admin did not publish projects.ca.json within 10s"
+          exit 1
           EOF
+
+      # Anything the admin did not publish (should be nothing) gets the repo default.
+      - name: Seed remaining public data files (fresh server only)
+        run: |
+          rsync -rltz --ignore-existing projects/data/*.json \
+            "deploy-target:${SITE_DIR}projects/data/"
+
+      - name: Sync site (no perms, no delete)
+        run: |
+          # --checksum: CI checkouts have fresh mtimes, so compare content instead;
+          # identical files (e.g. the root-owned christian/) are left alone.
+          # No -t either: setting mtimes on files we don't own fails.
+          # Pages: index.html, projects/ (ca) plus en/ and es/; their sources (src/, i18n/) stay here.
+          # projects/data/*.json (every language + the legacy files) belong to the admin.
+          rsync -rlz --checksum \
+            --exclude='.git/' --exclude='.github/' --exclude='.gitignore' --exclude='.claude/' \
+            --exclude='/admin/' --exclude='/scripts/' --exclude='/src/' --exclude='/i18n/' \
+            --exclude='.playwright-mcp/' --exclude='.DS_Store' --exclude='/package.json' \
+            --exclude='/projects/data/*.json' --exclude='*.md' \
+            ./ "deploy-target:$SITE_DIR"
 
       - name: Smoke check
         run: |
-          curl -fsS --retry 5 --retry-delay 2 --retry-all-errors https://masellas.info/projects/data/projects.json > /dev/null
-          curl -fsS --retry 5 --retry-delay 2 --retry-all-errors https://masellas.info/projects/data/some-words.json > /dev/null
+          for path in /en/ /es/projects/ \
+            /projects/data/projects.json /projects/data/some-words.json \
+            /projects/data/projects.ca.json /projects/data/projects.en.json /projects/data/projects.es.json \
+            /projects/data/some-words.ca.json /projects/data/some-words.en.json /projects/data/some-words.es.json; do
+            curl -fsS --retry 5 --retry-delay 2 --retry-all-errors "https://masellas.info$path" > /dev/null
+            echo "ok: $path"
+          done
           code=$(curl -sS --retry 5 --retry-delay 2 --retry-all-errors -o /dev/null -w '%{http_code}' https://masellas.info/admin/)
           echo "admin: HTTP $code"
           test "$code" = 200

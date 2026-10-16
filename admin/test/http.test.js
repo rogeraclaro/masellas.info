@@ -420,11 +420,14 @@ test('some words: rejects foreign origins and non-JSON like the rest of the API'
 });
 
 test('the shared rich-text modules are served for the UI, nothing else from lib/', async () => {
-  for (const name of ['rich-text.js', 'rich-text-dom.js']) {
+  for (const name of ['rich-text.js', 'rich-text-dom.js', 'rich-text-help.js']) {
     const res = await fetch(`${base}/${name}`);
     assert.equal(res.status, 200, name);
     assert.match(res.headers.get('content-type'), /javascript/);
   }
+  const css = await fetch(`${base}/rich-text.css`);
+  assert.equal(css.status, 200, 'rich-text.css (shared with the site)');
+  assert.match(css.headers.get('content-type'), /text\/css/);
   for (const p of ['/lib/store.js', '/store.js', '/lib/rich-text.js', '/config.js']) {
     assert.equal((await fetch(base + p)).status, 404, p);
   }

@@ -7,6 +7,7 @@
 @import "../../css/shared/title.css";
 @import "../../css/shared/wipe-link.css";
 @import "../../css/shared/view-transitions.css";
+@import "../../admin/lib/rich-text.css";
 
 
 /* Lenis (inline instead of loading lenis.css) */
@@ -434,13 +435,14 @@ html.detail-open {
 }
 
 .detail__close:focus-visible,
-.detail a:focus-visible,
-.detail__title:focus-visible {
+.detail a:focus-visible {
   outline: 2px solid var(--charcoal);
   outline-offset: 2px;
 }
 
-.detail__title:focus:not(:focus-visible) {
+/* The title only receives programmatic focus (tabindex -1) so screen readers announce it;
+   it is not interactive, and on a deep link Chrome would otherwise draw a ring around it. */
+.detail__title:focus {
   outline: none;
 }
 
@@ -502,6 +504,13 @@ html.detail-open {
 
 .detail__body p {
   margin: 0 0 1em;
+}
+
+/* Rich text links in the coral body: body text is charcoal too, so links keep the underline of
+   "visit site" (.detail-link) but no side padding, so they sit flush in running text. */
+.detail-link.detail-link--inline {
+  margin-left: 0;
+  padding: 0;
 }
 
 .detail__tools {

@@ -15,10 +15,16 @@ It keeps two files:
 
 "Some words" uses the same two-file setup, with no extra configuration: `some-words.json` sits next to each file above (private: `dirname(DATA_FILE)/some-words.json`; public: `dirname(PUBLIC_FILE)/some-words.json` plus `some-words.ca.json`, `.en.json`, `.es.json`, served at `/projects/data/some-words.<lang>.json`). Optional overrides: `SOME_WORDS_FILE`, `SOME_WORDS_PUBLIC_FILE` (absolute paths). At boot the private file is seeded once if missing: from the public copy, else from the repo default `projects/data/some-words.json`; the admin refuses to start if none exists.
 
-Text format (validated on save, rendered on the home with the same parser, `lib/rich-text.js`):
+Text format for "some words" and a project's "how I used AI" (validated on save; rendered on the home, the project detail, the static fallback and the admin previews with the same parser, `lib/rich-text.js`, and styles, `lib/rich-text.css`). The admin shows the same as a "formatting help" table under both fields.
 
-- a blank line starts a new paragraph; a single newline is a line break
-- links only as `[text](https://…)`, `[text](http://…)` or `[text](mailto:…)`; any other scheme, relative URL or stray bracket is rejected with a message that quotes the link
+- a blank line starts a new block (paragraph); a single newline is a line break
+- `## text` on a block of its own: subheading
+- every line of a block starting with `- `: list (a block mixing `- ` lines with other lines is rejected: add a blank line before the list, or write `\-`)
+- every line of a block starting with `> `: quote
+- `**bold**`, `~~strikethrough~~`, `` `code` `` (taken literally), on one line; bold and strikethrough may contain each other, links and code
+- links only as `[text](https://…)`, `[text](http://…)` or `[text](mailto:…)`; the text may contain bold, strikethrough and code; any other scheme, relative URL or stray bracket is rejected with a message that quotes the link
+- a backslash makes the next character literal when it is one of `*` `~` `\` `` ` `` `[` `]` `(` `)` `>` `-` `#` (e.g. `\*not bold\*`, `\- not a list`)
+- unclosed `**`, `~~` or `` ` `` is rejected with a message that quotes where; a lone `*` or `~` is plain text
 - a paragraph that is only a link renders flush (no side padding)
 
 Node 22, zero npm dependencies.
@@ -78,8 +84,10 @@ Uses `node:test`. Covers languages (migration, fallback), validation per languag
 - `lib/publish.js` — public projection (`toPublic`), atomic public write (no backup), boot sync and migration.
 - `lib/validation.js` — field rules (per language where translated), slug ids, reorder permutation check, "some words" text.
 - `lib/languages.js` — the languages (ca, en, es), the `{ ca, en, es }` shape, fallback to ca, migration of older plain-string data, `<name>.<lang>.json` paths.
-- `lib/rich-text.js` — pure parser for the "some words" text (paragraphs, line breaks, links). Also served to the admin UI and bundled into the home page by `scripts/build.sh`.
-- `lib/rich-text-dom.js` — browser renderer for parsed text (admin preview and home).
+- `lib/rich-text.js` — pure parser for "some words" and "how I used AI" (blocks, styles, links, escapes). Also served to the admin UI and bundled into the home and projects pages by `scripts/build.sh`.
+- `lib/rich-text-dom.js` — browser renderer for parsed text (admin previews and help, home, project detail).
+- `lib/rich-text.css` — styles for rendered rich text; bundled into the site, served to the admin at `/rich-text.css`.
+- `public/rich-text-help.js` — the "formatting help" table (open / closed remembered in localStorage).
 - `lib/envfile.js` — the `.env` update behind `hash-password --env`.
 - `ecosystem.config.cjs` — pm2 process file (`masellas-admin`, one instance).
 

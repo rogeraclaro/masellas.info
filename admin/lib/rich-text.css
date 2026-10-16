@@ -1,0 +1,76 @@
+/* Rich text styles (admin/lib/rich-text.js), shared by the home's "some words", the project detail
+   ("how I used AI") and the admin previews: the site bundles this file, the admin serves it.
+   Put .rich-text on the container. Colours follow the text (currentColor), so it works on charcoal
+   and on coral. A context sets --rich-gap to its own paragraph spacing; paragraphs keep their rules. */
+
+.rich-text strong {
+  font-family: var(--font-bold);
+  font-weight: 400; /* the real bold face, never faux bold */
+}
+
+.rich-text s {
+  text-decoration: line-through;
+}
+
+/* Same face as the text (the brand has no monospace). Inline-block keeps short code on one line
+   and lets only code wider than the column wrap. */
+.rich-text code {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0 0.3em;
+  border: 1px solid currentColor;
+  border-radius: 0;
+  font: inherit;
+  overflow-wrap: anywhere;
+}
+
+.rich-text h3,
+.rich-text h4 {
+  margin: 1.2em 0 0.5em;
+  font-family: var(--font-bold);
+  font-weight: 400;
+  font-size: 1.4em;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  text-decoration: underline;
+  text-decoration-thickness: 0.07em;
+  text-underline-offset: 0.12em;
+}
+
+.rich-text > h3:first-child,
+.rich-text > h4:first-child {
+  margin-top: 0;
+}
+
+.rich-text ul {
+  margin: 0 0 var(--rich-gap, 1em);
+  padding: 0;
+  list-style: none;
+}
+
+/* Em dash instead of a bullet, hanging so wrapped lines align with the text. */
+.rich-text li {
+  position: relative;
+  padding-left: 1.3em;
+}
+
+.rich-text li + li {
+  margin-top: 0.25em;
+}
+
+.rich-text li::before {
+  content: '—';
+  content: '—' / ''; /* decorative: screen readers already announce the list */
+  position: absolute;
+  left: 0;
+}
+
+.rich-text blockquote {
+  margin: 0 0 var(--rich-gap, 1em);
+  padding-left: 1em;
+  border-left: 2px solid currentColor;
+}
+
+.rich-text blockquote p {
+  margin: 0;
+}

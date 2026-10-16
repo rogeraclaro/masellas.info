@@ -6,6 +6,7 @@
 	<meta name="robots" content="noindex, nofollow">
 	<title>Projects admin — Roger Masellas</title>
 	<link rel="icon" href="data:,">
+	<link rel="stylesheet" href="rich-text.css">
 	<link rel="stylesheet" href="admin.css">
 	<script type="module" src="admin.js"></script>
 </head>
@@ -72,9 +73,13 @@
 				</div>
 				<div class="field">
 					<label for="f-ai">how I used AI</label>
-					<textarea id="f-ai" name="ai" rows="10" maxlength="5000" aria-describedby="ai-hint e-ai" data-langs></textarea>
-					<p id="ai-hint" class="hint"><span id="ai-count">0 / 5000</span>. blank line = new paragraph.</p>
+					<textarea id="f-ai" class="rich-input" name="ai" rows="10" maxlength="5000" aria-describedby="ai-hint e-ai" data-langs></textarea>
+					<p id="ai-hint" class="hint"><span id="ai-count">0 / 5000</span> · blank line = new paragraph · styles and links: see formatting help</p>
 					<p id="e-ai" class="field-error"></p>
+					<div data-format-help></div>
+					<p class="hint preview-label">preview (as on the project page)</p>
+					<p id="ai-problems" class="hint preview-problems"></p>
+					<div id="ai-preview" class="preview preview--coral rich-text"></div>
 				</div>
 				<div class="field">
 					<label for="f-tools">tools</label>
@@ -114,9 +119,10 @@
 			<form id="words-form" class="form" novalidate>
 				<div class="field">
 					<label for="f-words">text</label>
-					<textarea id="f-words" class="words-input" name="text" rows="16" maxlength="4000" required aria-describedby="words-hint e-words" data-langs></textarea>
-					<p id="words-hint" class="hint"><span id="words-count">0 / 4000</span> · blank line = new paragraph · links: [text](https://…) or [text](mailto:…)</p>
+					<textarea id="f-words" class="words-input rich-input" name="text" rows="16" maxlength="4000" required aria-describedby="words-hint e-words" data-langs></textarea>
+					<p id="words-hint" class="hint"><span id="words-count">0 / 4000</span> · blank line = new paragraph · styles and links: see formatting help</p>
 					<p id="e-words" class="field-error" aria-live="assertive"></p>
+					<div data-format-help></div>
 				</div>
 				<div class="form__actions">
 					<button type="submit" class="btn btn--primary">save</button>
@@ -127,7 +133,7 @@
 		<section class="preview-block" aria-labelledby="preview-title">
 			<h2 id="preview-title" class="heading heading--small">preview</h2>
 			<p id="preview-problems" class="hint preview-problems"></p>
-			<div id="words-preview" class="preview"></div>
+			<div id="words-preview" class="preview rich-text"></div>
 		</section>
 	</main>
 </div>

@@ -175,3 +175,13 @@ test('isPermutation accepts only an exact permutation', () => {
   assert.equal(isPermutation('abc', ['a', 'b', 'c']), false);
   assert.equal(isPermutation([1, 2], ['1', '2']), false);
 });
+
+test('"how I used AI" uses the rich-text format: styles are fine, its errors block saving per language', () => {
+  const styled = '## Approach\n\n- **Claude** drafted\n- I ~~kept~~ fixed it\n\n> Make it `boring`.\n\nSee [the repo](https://example.com).';
+  assert.deepEqual(validateProject({ ...valid(), ai: all(styled) }).errors, {});
+  const { errors } = validateProject({ ...valid(), ai: { ca: 'Fine.', en: 'Tools:\n- Claude', es: 'a **bold' } });
+  assert.deepEqual(Object.keys(errors).sort(), ['ai.en', 'ai.es']);
+  assert.match(errors['ai.en'], /how I used AI \(en\).*list/);
+  assert.match(errors['ai.es'], /how I used AI \(es\).*unclosed "\*\*"/);
+  assert.match(validateProject({ ...valid(), ai: { ...all(''), ca: 'see [x](javascript:alert(1))' } }).errors['ai.ca'], /javascript/);
+});

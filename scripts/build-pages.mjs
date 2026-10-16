@@ -65,20 +65,31 @@ export function checkDictionaries(dicts) {
   if (problems.length) throw new Error(`dictionaries are incomplete:\n  ${problems.join('\n  ')}`);
 }
 
-// The "some words" fallback, rendered with the same parser and markup as the home's runtime text.
-export function richTextHtml(text, { paragraphClass = '', linkClass = 'wipe-link' } = {}) {
+// The "some words" fallback: the same parser, and the same markup as admin/lib/rich-text-dom.js.
+function inlineHtml(parts, linkClass) {
+  return parts.map((part) => {
+    if (part.type === 'br') return '<br>';
+    if (part.type === 'text') return escapeHtml(part.value);
+    if (part.type === 'code') return `<code>${escapeHtml(part.value)}</code>`;
+    if (part.type === 'strong' || part.type === 's') return `<${part.type}>${inlineHtml(part.parts, linkClass)}</${part.type}>`;
+    const external = /^https?:/i.test(part.href) ? ' target="_blank" rel="noopener"' : '';
+    return `<a class="${linkClass}" href="${escapeHtml(part.href)}"${external}>${inlineHtml(part.parts, linkClass)}</a>`;
+  }).join('');
+}
+
+export function richTextHtml(text, { paragraphClass = '', linkClass = 'wipe-link', headingTag = 'h3' } = {}) {
   const { blocks, errors } = parseRichText(text);
   if (errors.length) throw new Error(errors.join(' '));
+  const open = (tag, extra = '') => {
+    const classes = [paragraphClass, extra].filter(Boolean).join(' ');
+    return `<${tag}${classes ? ` class="${classes}"` : ''}>`;
+  };
   return blocks.map((block) => {
+    if (block.type === 'h') return `${open(headingTag)}${inlineHtml(block.parts, linkClass)}</${headingTag}>`;
+    if (block.type === 'ul') return `${open('ul')}${block.items.map((item) => `<li>${inlineHtml(item, linkClass)}</li>`).join('')}</ul>`;
+    if (block.type === 'quote') return `${open('blockquote')}<p>${inlineHtml(block.parts, linkClass)}</p></blockquote>`;
     const linkOnly = block.parts.length === 1 && block.parts[0].type === 'link';
-    const classes = [paragraphClass, linkOnly ? 'link-only' : ''].filter(Boolean).join(' ');
-    const inner = block.parts.map((part) => {
-      if (part.type === 'br') return '<br>';
-      if (part.type === 'text') return escapeHtml(part.value);
-      const external = /^https?:/i.test(part.href) ? ' target="_blank" rel="noopener"' : '';
-      return `<a class="${linkClass}" href="${escapeHtml(part.href)}"${external}>${escapeHtml(part.label)}</a>`;
-    }).join('');
-    return `<p${classes ? ` class="${classes}"` : ''}>${inner}</p>`;
+    return `${open('p', linkOnly ? 'link-only' : '')}${inlineHtml(block.parts, linkClass)}</p>`;
   }).join('\n');
 }
 

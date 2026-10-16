@@ -2,6 +2,7 @@
    textContent, never innerHTML. The rich-text parser is the same file the server validates with. */
 import { parseRichText, RICH_TEXT_MAX } from './rich-text.js';
 import { renderRichText } from './rich-text-dom.js';
+import { formattingHelp } from './rich-text-help.js';
 
 (() => {
   'use strict';
@@ -207,6 +208,16 @@ import { renderRichText } from './rich-text-dom.js';
     return { field, input: group.inputs[lang || 'ca'] };
   }
 
+  // Live preview of one language of a rich-text field, with the parser and renderer the site uses.
+  // Problems are listed above it; the server rejects the same ones on save.
+  function renderPreview(source, preview, problems, options) {
+    const { blocks, errors } = parseRichText(source);
+    preview.replaceChildren(...renderRichText(blocks, options));
+    problems.textContent = errors.length ? `not saved like this: ${errors.join(' ')}` : '';
+  }
+
+  for (const slot of document.querySelectorAll('[data-format-help]')) slot.replaceWith(formattingHelp());
+
   const langFields = {};
   for (const name of ['category', 'description', 'ai']) {
     langFields[name] = langField($(`f-${name}`), { onChange: () => updateCount() });
@@ -369,11 +380,13 @@ import { renderRichText } from './rich-text-dom.js';
     form.querySelectorAll('[aria-invalid]').forEach((input) => input.removeAttribute('aria-invalid'));
   }
 
-  // Counts the language on show.
+  // Counts (and previews) the language on show.
   function updateCount() {
-    const shown = (name) => langFields[name].inputs[langFields[name].current()].value.length;
-    $('description-count').textContent = `${shown('description')} / 200`;
-    $('ai-count').textContent = `${shown('ai')} / 5000`;
+    const shown = (name) => langFields[name].inputs[langFields[name].current()].value;
+    $('description-count').textContent = `${shown('description').length} / 200`;
+    $('ai-count').textContent = `${shown('ai').length} / 5000`;
+    // As in the project detail: subheadings sit under its "how I used AI" heading.
+    renderPreview(shown('ai'), $('ai-preview'), $('ai-problems'), { linkClass: '', headingTag: 'h4' });
   }
 
   function openForm(project, trigger) {
@@ -471,7 +484,7 @@ import { renderRichText } from './rich-text-dom.js';
 
   /* ---------- Some words ---------- */
 
-  const words = langField($('f-words'), { onChange: () => renderPreview() });
+  const words = langField($('f-words'), { onChange: () => renderWordsPreview() });
   let wordsVersion = null;
   let wordsTimer = 0;
 
@@ -482,19 +495,17 @@ import { renderRichText } from './rich-text-dom.js';
   }
 
   // Live preview of the language on show, with the same parser and renderer as the home page.
-  function renderPreview() {
+  function renderWordsPreview() {
     const text = words.inputs[words.current()].value;
     $('words-count').textContent = `${text.length} / ${RICH_TEXT_MAX}`;
-    const { blocks, errors } = parseRichText(text);
-    $('words-preview').replaceChildren(...renderRichText(blocks));
-    $('preview-problems').textContent = errors.length ? `not saved like this: ${errors.join(' ')}` : '';
+    renderPreview(text, $('words-preview'), $('preview-problems'));
   }
 
   async function loadWords({ keepDraft = false } = {}) {
     const data = await api('GET', 'api/some-words', undefined, { track: false });
     wordsVersion = data.version;
     if (!keepDraft) words.set(data.text);
-    renderPreview();
+    renderWordsPreview();
   }
 
   function wordsFailed(err, message) {

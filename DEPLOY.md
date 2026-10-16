@@ -46,7 +46,7 @@ Both pages load bundled, minified files built from ES module sources by esbuild 
 
 Shared code lives in `js/shared/` and `css/shared/` and is pulled in with `import` / `@import`.
 
-The home bundle also imports `admin/lib/rich-text.js` and `admin/lib/rich-text-dom.js`: one parser for both the admin's validation and the home's rendering. The admin is deployed as-is, so it uses the same files directly. The home loads `/projects/data/some-words.<lang>.json` at runtime and keeps the paragraphs from `i18n/<lang>.json` as the fallback. No new environment variables are needed: the admin derives the some-words paths from `DATA_FILE` and `PUBLIC_FILE`.
+The home and projects bundles also import `admin/lib/rich-text.js`, `admin/lib/rich-text-dom.js` and `admin/lib/rich-text.css`: one parser and one set of styles for the admin's validation and previews, the home's "some words" and the projects' "how I used AI" (format: `admin/README.md`). The admin is deployed as-is, so it uses the same files directly. The home loads `/projects/data/some-words.<lang>.json` at runtime and keeps the paragraphs from `i18n/<lang>.json` as the fallback. No new environment variables are needed: the admin derives the some-words paths from `DATA_FILE` and `PUBLIC_FILE`.
 
 ```sh
 npm run build   # = sh scripts/build.sh: pages, then bundles; CI runs the same script

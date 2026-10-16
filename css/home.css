@@ -7,6 +7,7 @@
 @import "./shared/title.css";
 @import "./shared/wipe-link.css";
 @import "./shared/view-transitions.css";
+@import "../admin/lib/rich-text.css";
 
 *,
 *::before,
@@ -156,6 +157,15 @@ ul {
 
 .intro p {
   margin: 0 0 20px; /* original: padding-top 20px between paragraphs */
+}
+
+/* Lists, quotes and subheadings (admin/lib/rich-text.css) keep the paragraph spacing. */
+.intro {
+  --rich-gap: 20px;
+}
+
+.intro > :last-child {
+  margin-bottom: 0;
 }
 
 /* Original "p a": 10px side padding growing to 22px on hover; a paragraph that is only a link

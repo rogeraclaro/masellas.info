@@ -7,6 +7,9 @@ import { buildCube, measureCube as measureShared, bindCube as bindShared, clearL
 import { pageReady } from '../../js/shared/page-ready.js';
 import { loadStrings, pageLang } from '../../js/shared/i18n.js';
 import { bindLangLinks } from '../../js/shared/lang-links.js';
+// "how I used AI" uses the same rich-text format as the home's "some words" (validated by the admin).
+import { parseRichText } from '../../admin/lib/rich-text.js';
+import { renderRichText } from '../../admin/lib/rich-text-dom.js';
 
 (() => {
   'use strict';
@@ -264,16 +267,10 @@ import { bindLangLinks } from '../../js/shared/lang-links.js';
     detail.prepend(closeBtn); // first in tab order inside the dialog
   }
 
-  // Blank lines split paragraphs; single newlines become <br>. DOM only, never innerHTML.
-  function aiParagraphs(text) {
-    return text.split(/\n\s*\n/).map((paragraph) => {
-      const p = el('p');
-      paragraph.trim().split('\n').forEach((line, index) => {
-        if (index) p.append(el('br'));
-        p.append(document.createTextNode(line));
-      });
-      return p;
-    });
+  // Rich text, DOM only (never innerHTML). Subheadings are h4, under the section's "how I used AI" h3.
+  // Anything the parser cannot read is rendered as the text it is.
+  function aiBlocks(text) {
+    return renderRichText(parseRichText(text).blocks, { linkClass: 'detail-link detail-link--inline', headingTag: 'h4' });
   }
 
   function renderDetail(project) {
@@ -287,7 +284,7 @@ import { bindLangLinks } from '../../js/shared/lang-links.js';
     const ai = typeof project.ai === 'string' ? project.ai.trim() : '';
     const aiSection = detail.querySelector('.detail__ai');
     aiSection.hidden = !ai;
-    aiSection.querySelector('.detail__body').replaceChildren(...(ai ? aiParagraphs(ai) : []));
+    aiSection.querySelector('.detail__body').replaceChildren(...(ai ? aiBlocks(ai) : []));
 
     const tools = Array.isArray(project.tools) ? project.tools : [];
     const toolList = detail.querySelector('.detail__tools');

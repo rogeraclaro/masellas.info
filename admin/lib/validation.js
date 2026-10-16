@@ -59,8 +59,8 @@ const CHECKS = {
     if (!v.every(isHttpUrl)) return { error: 'each thumb must be an http:// or https:// url' };
     return { value: v.map((url) => url.trim()) };
   },
-  // Paragraphs are separated by blank lines; the front end splits them.
-  ai: (v) => perLanguage(v, 'ai', (item, opts) => text(item, { ...opts, max: 5000 }), { label: 'how I used AI' }),
+  // Same rich-text format as "some words" (lib/rich-text.js); the project detail renders it.
+  ai: (v) => perLanguage(v, 'ai', (item, opts) => richText(item, { ...opts, max: 5000 }), { label: 'how I used AI' }),
   tools: (v) => {
     if (!Array.isArray(v)) return { error: 'tools must be a list' };
     if (v.length > 12) return { error: 'up to 12 tools' };
@@ -127,9 +127,9 @@ export function isPermutation(ids, currentIds) {
   return set.size === ids.length && currentIds.every((id) => set.has(id));
 }
 
-// One language of "some words": up to 4000 chars after trimming, links checked by the shared parser.
-function richText(v, opts) {
-  const check = text(v, { ...opts, max: RICH_TEXT_MAX });
+// Rich text (lib/rich-text.js): length after trimming, then the parser's errors (links, styles, lists).
+function richText(v, { max = RICH_TEXT_MAX, ...opts }) {
+  const check = text(v, { ...opts, max });
   if (check.error) return check;
   const { errors } = parseRichText(check.value);
   return errors.length ? { error: `${opts.label}: ${errors.join(' ')}` } : check;

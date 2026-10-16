@@ -13,10 +13,12 @@ import { migrateProjects, migrateSomeWords } from './lib/languages.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const STATIC_ROOTS = { '/tipos/': path.resolve(HERE, '../tipos'), '/': path.join(HERE, 'public') };
-// The UI imports the same parser the server validates with; only these two files leave lib/.
+// The UI imports the same parser the server validates with, and the styles the site bundles;
+// only these files leave lib/.
 const SHARED_FILES = {
   '/rich-text.js': path.join(HERE, 'lib/rich-text.js'),
   '/rich-text-dom.js': path.join(HERE, 'lib/rich-text-dom.js'),
+  '/rich-text.css': path.join(HERE, 'lib/rich-text.css'),
 };
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -93,7 +95,7 @@ async function sendFile(res, file, type) {
 }
 
 async function serveStatic(res, pathname) {
-  if (Object.hasOwn(SHARED_FILES, pathname)) return sendFile(res, SHARED_FILES[pathname], MIME['.js']);
+  if (Object.hasOwn(SHARED_FILES, pathname)) return sendFile(res, SHARED_FILES[pathname], MIME[path.extname(pathname)]);
   let decoded;
   try {
     decoded = decodeURIComponent(pathname);

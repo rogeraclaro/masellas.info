@@ -91,3 +91,10 @@ test('prepareSomeWords falls back to the repo default and publishes it', async (
 test('prepareSomeWords fails when nothing is available', async () => {
   await assert.rejects(prepareSomeWords(paths), /some-words/);
 });
+
+test('validateSomeWords reports unclosed styles and mixed lists in the language they are in', () => {
+  const { errors } = validateSomeWords(words('**Hola', 'Intro\n- item', ''));
+  assert.match(errors['text.ca'], /text \(ca\).*unclosed "\*\*"/);
+  assert.match(errors['text.en'], /text \(en\).*list/);
+  assert.deepEqual(validateSomeWords(words('## Hola\n\n- **a**\n- ~~b~~\n\n> `c`')).errors, {});
+});

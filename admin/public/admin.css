@@ -151,7 +151,7 @@ textarea { resize: vertical; }
   font-display: swap;
   unicode-range: U+0000-005A, U+005C, U+005E-FFFF;
 }
-.words-input, #words-hint, #e-words, .preview-problems { font-family: 'agltbook-edit', Helvetica, Arial, sans-serif; }
+.rich-input, .hint, .field-error, .format-help__source { font-family: 'agltbook-edit', Helvetica, Arial, sans-serif; }
 .words-input { min-height: 18em; }
 .preview-block { margin-top: 40px; }
 .preview-problems:empty { display: none; }
@@ -193,3 +193,28 @@ textarea { resize: vertical; }
 .lang-tab[aria-pressed="true"]:hover,
 .lang-tab[aria-pressed="true"]:focus-visible { box-shadow: none; }
 .lang-status:empty { display: none; }
+
+/* Rich text in the previews and the help (shared styles: rich-text.css) */
+.preview { --rich-gap: 20px; }
+.preview > :last-child { margin-bottom: 0; }
+.preview-label { margin-top: 16px; }
+.preview-label + .preview-problems + .preview { margin-top: 8px; }
+/* "how I used AI" as on the project page: charcoal on coral. */
+.preview--coral { background: var(--coral); border-color: var(--coral); color: var(--charcoal); line-height: 1.45; letter-spacing: normal; }
+.preview--coral a { color: var(--charcoal); text-decoration: underline; }
+.preview--coral p { margin-bottom: 1em; }
+.preview--coral { --rich-gap: 1em; }
+
+/* formatting help */
+.format-help { margin-top: 12px; border: 1px solid var(--hairline); }
+.format-help summary { padding: 8px 12px; color: var(--coral); cursor: pointer; }
+.format-help__scroller { overflow-x: auto; }
+.format-help__table { width: 100%; border-collapse: collapse; font-family: var(--font-book); font-size: 0.9em; }
+.format-help__table th, .format-help__table td { padding: 8px 12px; border-top: 1px solid var(--hairline); text-align: left; vertical-align: top; font-weight: normal; }
+.format-help__table thead th { color: var(--bone-60); }
+.format-help__table tbody th { color: var(--bone-60); }
+.format-help__source { white-space: pre; }
+.format-help__result p { margin: 0 0 0.5em; }
+.format-help__result > :last-child { margin-bottom: 0; }
+.format-help__result { --rich-gap: 0.5em; }
+.format-help__result a { color: var(--coral); }

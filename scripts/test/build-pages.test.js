@@ -67,6 +67,16 @@ test('richTextHtml renders paragraphs and links like the home does, and rejects 
   assert.throws(() => richTextHtml('see [x](javascript:alert(1))'), /javascript/);
 });
 
+test('richTextHtml renders every style, escaped, with the block class on each block', () => {
+  const html = richTextHtml('## Sub & co\n\n- one **<b>**\n- ~~two~~ `<i>`\n\n> quoted\n> [**bold** link](https://q.example)', { paragraphClass: 'home-animate' });
+  assert.equal(html, [
+    '<h3 class="home-animate">Sub &amp; co</h3>',
+    '<ul class="home-animate"><li>one <strong>&lt;b&gt;</strong></li><li><s>two</s> <code>&lt;i&gt;</code></li></ul>',
+    '<blockquote class="home-animate"><p>quoted<br><a class="wipe-link" href="https://q.example" target="_blank" rel="noopener"><strong>bold</strong> link</a></p></blockquote>',
+  ].join('\n'));
+  assert.throws(() => richTextHtml('a **b'), /unclosed/);
+});
+
 test('the repo sources build six pages with lang, hreflang, og:locale and the switcher', async () => {
   const pages = await buildPages({ root: REPO, write: false });
   assert.deepEqual(pages.map((p) => p.file).sort(), [

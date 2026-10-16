@@ -1,8 +1,12 @@
 // Pure validation helpers for project records and the home's "some words". No I/O.
 import { parseRichText, RICH_TEXT_MAX } from './rich-text.js';
 import { LANGS, DEFAULT_LANG } from './languages.js';
+import { slugify, checkSlug } from './slug.js';
 
-const FIELDS = ['title', 'category', 'year', 'description', 'url', 'visible', 'thumbs', 'ai', 'tools'];
+export { slugify };
+
+// id (the url slug) is optional: without it the server derives a unique one from the title.
+const FIELDS = ['id', 'title', 'category', 'year', 'description', 'url', 'visible', 'thumbs', 'ai', 'tools'];
 const REQUIRED = ['title', 'category', 'year', 'url'];
 const emptyText = () => Object.fromEntries(LANGS.map((lang) => [lang, '']));
 const DEFAULTS = { description: emptyText(), visible: true, thumbs: [], ai: emptyText(), tools: [] };
@@ -46,6 +50,7 @@ function perLanguage(v, field, check, { min = 0, label = field } = {}) {
 }
 
 const CHECKS = {
+  id: checkSlug,
   title: (v) => text(v, { min: 1, max: 80, label: 'title' }),
   category: (v) => perLanguage(v, 'category', (item, opts) => text(item, { ...opts, max: 30, lower: true }), { min: 1 }),
   description: (v) => perLanguage(v, 'description', (item, opts) => text(item, { ...opts, max: 200 })),
@@ -88,7 +93,7 @@ export function validateProject(input, { partial = false } = {}) {
 
   for (const field of FIELDS) {
     if (!(field in input)) {
-      if (partial) continue;
+      if (partial || field === 'id') continue;
       if (REQUIRED.includes(field)) errors[field] = `${field} is required`;
       else value[field] = structuredClone(DEFAULTS[field]);
       continue;
@@ -101,23 +106,17 @@ export function validateProject(input, { partial = false } = {}) {
   return { value, errors };
 }
 
-export function slugify(title) {
-  const slug = String(title)
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .slice(0, 60)
-    .replace(/^-+|-+$/g, '');
-  return slug || 'project';
-}
-
 export function uniqueSlug(title, existingIds) {
   const base = slugify(title);
   const taken = new Set(existingIds);
   let candidate = base;
   for (let n = 2; taken.has(candidate); n += 1) candidate = `${base}-${n}`;
   return candidate;
+}
+
+// The other project already using `slug` (null if none). `exceptId`: the project being edited.
+export function slugOwner(projects, slug, exceptId = null) {
+  return projects.find((p) => p.id === slug && p.id !== exceptId) || null;
 }
 
 export function isPermutation(ids, currentIds) {

@@ -82,6 +82,7 @@ Uses `node:test`. Covers languages (migration, fallback), validation per languag
 - `lib/store.js` — reads (migrating older shapes) and writes `DATA_FILE`: temp file + rename, previous version kept as `projects.json.bak`, one write at a time, version = sha256 of the file.
 - `lib/auth.js` — scrypt password check, HMAC-signed 12 h session cookie, in-memory login rate limit (5 failures per IP per 15 min).
 - `lib/publish.js` — public projection (`toPublic`), atomic public write (no backup), boot sync and migration.
+- `lib/slug.js` — url slug rules and `slugify` (served to the UI too).
 - `lib/validation.js` — field rules (per language where translated), slug ids, reorder permutation check, "some words" text.
 - `lib/languages.js` — the languages (ca, en, es), the `{ ca, en, es }` shape, fallback to ca, migration of older plain-string data, `<name>.<lang>.json` paths.
 - `lib/rich-text.js` — pure parser for "some words" and "how I used AI" (blocks, styles, links, escapes). Also served to the admin UI and bundled into the home and projects pages by `scripts/build.sh`.
@@ -100,12 +101,14 @@ API (JSON, all under `/api`, session required except login, logout and session):
 | GET | `/api/session` | | `{ loggedIn }`, always 200 |
 | GET | `/api/config` | | `{ publicUrl }` |
 | GET | `/api/projects` | | `{ projects, version }`; translated fields as `{ ca, en, es }` |
-| POST | `/api/projects` | project fields, optional `position: "top"` | 201 |
-| PUT | `/api/projects/:id` | any project fields | |
+| POST | `/api/projects` | project fields, optional `position: "top"`, optional `id` | 201; without `id` one is made from the title |
+| PUT | `/api/projects/:id` | any project fields, including a new `id` | a new `id` keeps the position; the old address is not redirected |
 | DELETE | `/api/projects/:id` | | |
 | PUT | `/api/order` | `{ ids }` | exact permutation of current ids |
 | GET | `/api/some-words` | | `{ text: { ca, en, es }, version }` |
 | PUT | `/api/some-words` | `{ text: { ca, en, es } }` | ca 1–4000 chars, en / es 0–4000; republishes the public copies |
+
+`id` is the url slug (`/projects/?p=<id>`): lowercase a-z, 0-9 and single hyphens, 1-60 characters, no hyphen at either end (`lib/slug.js`, also used by the form to pre-fill it from the title). An id another project uses is rejected with a 400 field error, `already used by <title>`.
 
 Translated fields must be sent as an object with exactly `ca`, `en` and `es` text (a plain string is rejected); their errors come back keyed `<field>.<lang>`, e.g. `category.en`.
 

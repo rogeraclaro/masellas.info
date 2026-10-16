@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createStore, ConflictError } from './lib/store.js';
 import { verifyPassword, signSession, verifySession, createRateLimiter } from './lib/auth.js';
-import { validateProject, validateSomeWords, uniqueSlug, isPermutation } from './lib/validation.js';
+import { validateProject, validateSomeWords, uniqueSlug, isPermutation, slugOwner } from './lib/validation.js';
 import { parseEnv, loadConfig } from './lib/config.js';
 import { writePublic, prepareFiles, someWordsPaths, writeSomeWordsPublic, prepareSomeWords } from './lib/publish.js';
 import { migrateProjects, migrateSomeWords } from './lib/languages.js';
@@ -19,6 +19,7 @@ const SHARED_FILES = {
   '/rich-text.js': path.join(HERE, 'lib/rich-text.js'),
   '/rich-text-dom.js': path.join(HERE, 'lib/rich-text-dom.js'),
   '/rich-text.css': path.join(HERE, 'lib/rich-text.css'),
+  '/slug.js': path.join(HERE, 'lib/slug.js'),
 };
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -176,6 +177,11 @@ export function createApp({
     return index;
   };
   const invalid = (errors) => new HttpError(400, { error: 'validation failed', errors });
+  // Checked inside the mutation, against the data it is about to change.
+  const assertSlugFree = (projects, slug, exceptId) => {
+    const owner = slugOwner(projects, slug, exceptId);
+    if (owner) throw invalid({ id: `already used by ${owner.title}` });
+  };
 
   async function api(req, res, pathname) {
     const { method } = req;
@@ -212,7 +218,8 @@ export function createApp({
       const { value, errors } = validateProject(fields);
       if (Object.keys(errors).length) throw invalid(errors);
       return mutate(req, res, 201, (data) => {
-        const project = { id: uniqueSlug(value.title, data.projects.map((p) => p.id)), ...value };
+        if (value.id) assertSlugFree(data.projects, value.id);
+        const project = { id: value.id || uniqueSlug(value.title, data.projects.map((p) => p.id)), ...value };
         if (position === 'top') data.projects.unshift(project);
         else data.projects.push(project);
         return data;
@@ -250,6 +257,8 @@ export function createApp({
       if (Object.keys(errors).length) throw invalid(errors);
       return mutate(req, res, 200, (data) => {
         const index = findIndex(data.projects, id);
+        if (value.id) assertSlugFree(data.projects, value.id, id);
+        // A new id replaces the old one in place: same position, no alias for the old address.
         data.projects[index] = { ...data.projects[index], ...value };
         return data;
       });

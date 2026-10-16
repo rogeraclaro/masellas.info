@@ -50,6 +50,12 @@
 					<input id="f-title" name="title" maxlength="80" required aria-describedby="e-title">
 					<p id="e-title" class="field-error"></p>
 				</div>
+				<div class="field">
+					<label for="f-id">url slug</label>
+					<input id="f-id" name="id" maxlength="60" autocapitalize="none" autocomplete="off" spellcheck="false" aria-describedby="id-hint e-id">
+					<p id="id-hint" class="hint">used in the address: /projects/?p=<span id="id-preview"></span></p>
+					<p id="e-id" class="field-error"></p>
+				</div>
 				<div class="field field--half">
 					<label for="f-category">category</label>
 					<input id="f-category" name="category" list="categories" maxlength="30" required aria-describedby="e-category" data-langs>

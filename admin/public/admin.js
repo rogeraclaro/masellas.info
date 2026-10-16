@@ -3,6 +3,7 @@
 import { parseRichText, RICH_TEXT_MAX } from './rich-text.js';
 import { renderRichText } from './rich-text-dom.js';
 import { formattingHelp } from './rich-text-help.js';
+import { slugify } from './slug.js';
 
 (() => {
   'use strict';
@@ -14,7 +15,8 @@ import { formattingHelp } from './rich-text-help.js';
   const statusEl = $('status');
   const editor = $('editor');
   const form = $('project-form');
-  const fields = ['title', 'year', 'url']; // shared by every language
+  const fields = ['id', 'title', 'year', 'url']; // shared by every language
+  let slugTouched = false; // new project: the slug follows the title until it is edited by hand
   const thumbInputs = [...document.querySelectorAll('.thumb')];
   const LANGS = ['ca', 'en', 'es']; // ca: principal; an empty en / es shows the ca text on the site
 
@@ -395,6 +397,8 @@ import { formattingHelp } from './rich-text-help.js';
     clearErrors();
     $('editor-title').textContent = project ? `edit ${project.title}` : 'new project';
     for (const name of fields) $(`f-${name}`).value = project ? project[name] ?? '' : '';
+    slugTouched = Boolean(project);
+    updateSlugHint();
     for (const [name, group] of Object.entries(langFields)) group.set(project ? project[name] : null);
     if (!project) $('f-year').value = String(new Date().getFullYear());
     $('f-visible').checked = project ? project.visible !== false : true;
@@ -411,9 +415,26 @@ import { formattingHelp } from './rich-text-help.js';
     (focusTarget && focusTarget.isConnected ? focusTarget : $('new-project')).focus();
   }
 
+  function updateSlugHint() {
+    $('id-preview').textContent = $('f-id').value.trim() || '…';
+  }
+
+  $('f-title').addEventListener('input', () => {
+    if (editingId || slugTouched) return;
+    $('f-id').value = $('f-title').value.trim() ? slugify($('f-title').value) : '';
+    updateSlugHint();
+  });
+  $('f-id').addEventListener('input', () => {
+    slugTouched = $('f-id').value.trim() !== ''; // emptied again: back to following the title
+    updateSlugHint();
+  });
+
+  // A new project with no slug gets one from the server (title-based, made unique).
   function collect() {
     const year = $('f-year').value.trim();
+    const id = $('f-id').value.trim();
     return {
+      ...(id || editingId ? { id } : {}),
       title: $('f-title').value,
       category: langFields.category.value(),
       year,
@@ -445,13 +466,15 @@ import { formattingHelp } from './rich-text-help.js';
     event.preventDefault();
     clearErrors();
     const wasEditing = editingId;
+    const body = collect();
     try {
       const data = wasEditing
-        ? await api('PUT', `api/projects/${encodeURIComponent(wasEditing)}`, collect())
-        : await api('POST', 'api/projects', collect());
+        ? await api('PUT', `api/projects/${encodeURIComponent(wasEditing)}`, body)
+        : await api('POST', 'api/projects', body);
       projects = data.projects;
       render();
-      closeForm(wasEditing ? rowButton(wasEditing, 'edit') : $('new-project'));
+      // A rename moves the row to its new id (same position).
+      closeForm(wasEditing ? rowButton(body.id || wasEditing, 'edit') : $('new-project'));
       setStatus('saved');
     } catch (err) {
       if (err.status === 400 && err.body.errors) showErrors(err.body.errors);

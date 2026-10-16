@@ -324,6 +324,54 @@ test('public file is regenerated after every mutation, without hidden projects',
   );
 });
 
+test('renaming a project id keeps its position, republishes, and refuses an id in use', async () => {
+  let res = await call(base, 'GET', '/api/projects', { cookie });
+  let json = await res.json();
+  let { version } = json;
+  const before = json.projects.map((p) => p.id);
+  const at = before.indexOf('rollcall');
+
+  res = await call(base, 'PUT', '/api/projects/rollcall', { cookie, version, body: { id: before.find((id) => id !== 'rollcall') } });
+  assert.equal(res.status, 400);
+  const taken = await res.json();
+  assert.match(taken.errors.id, /already used by /);
+
+  res = await call(base, 'PUT', '/api/projects/rollcall', { cookie, version, body: { id: 'Not Valid' } });
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).errors.id, /url slug/);
+
+  res = await call(base, 'PUT', '/api/projects/rollcall', { cookie, version: 'stale', body: { id: 'roll-call' } });
+  assert.equal(res.status, 409, 'If-Match still applies to a rename');
+
+  res = await call(base, 'PUT', '/api/projects/rollcall', { cookie, version, body: { id: 'roll-call', title: 'Rollcall' } });
+  assert.equal(res.status, 200);
+  json = await res.json();
+  assert.deepEqual(json.projects.map((p) => p.id), before.map((id) => (id === 'rollcall' ? 'roll-call' : id)), 'same position');
+  assert.deepEqual(Object.keys(json.projects[at])[0], 'id');
+  for (const name of ['projects.json', 'projects.ca.json', 'projects.en.json', 'projects.es.json']) {
+    const ids = JSON.parse(await readFile(path.join(path.dirname(publicFile), name), 'utf8')).projects.map((p) => p.id);
+    assert.ok(ids.includes('roll-call') && !ids.includes('rollcall'), name);
+  }
+  assert.equal((await call(base, 'PUT', '/api/projects/rollcall', { cookie, version: json.version, body: { title: 'x' } })).status, 404, 'the old id is gone');
+
+  res = await call(base, 'PUT', '/api/projects/roll-call', { cookie, version: json.version, body: { id: 'rollcall' } });
+  assert.equal(res.status, 200, 'and back');
+});
+
+test('creating with an explicit id uses it; an id in use is refused', async () => {
+  let { version } = await (await call(base, 'GET', '/api/projects', { cookie })).json();
+  const body = { title: 'Fenya', category: only('tool'), year: 2026, url: 'https://fenya.example.com' };
+  let res = await call(base, 'POST', '/api/projects', { cookie, version, body: { ...body, id: 'ledger' } });
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).errors.id, /already used by Ledger/);
+  res = await call(base, 'POST', '/api/projects', { cookie, version, body: { ...body, id: 'fenya-studio' } });
+  assert.equal(res.status, 201);
+  const json = await res.json();
+  assert.ok(json.projects.some((p) => p.id === 'fenya-studio' && p.title === 'Fenya'));
+  ({ version } = json);
+  assert.equal((await call(base, 'DELETE', '/api/projects/fenya-studio', { cookie, version })).status, 200);
+});
+
 test('editing one language publishes it only there; other languages keep (or fall back to) ca', async () => {
   const web = path.dirname(publicFile);
   const published = async (lang) => JSON.parse(await readFile(path.join(web, `projects.${lang}.json`), 'utf8')).projects.find((p) => p.id === 'rollcall');
@@ -420,7 +468,7 @@ test('some words: rejects foreign origins and non-JSON like the rest of the API'
 });
 
 test('the shared rich-text modules are served for the UI, nothing else from lib/', async () => {
-  for (const name of ['rich-text.js', 'rich-text-dom.js', 'rich-text-help.js']) {
+  for (const name of ['rich-text.js', 'rich-text-dom.js', 'rich-text-help.js', 'slug.js']) {
     const res = await fetch(`${base}/${name}`);
     assert.equal(res.status, 200, name);
     assert.match(res.headers.get('content-type'), /javascript/);

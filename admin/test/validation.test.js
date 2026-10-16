@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateProject, slugify, uniqueSlug, isPermutation } from '../lib/validation.js';
+import { validateProject, slugify, uniqueSlug, isPermutation, slugOwner } from '../lib/validation.js';
+import { checkSlug } from '../lib/slug.js';
 
 const all = (text) => ({ ca: text, en: text, es: text });
 const valid = () => ({
@@ -135,10 +136,46 @@ test('rejects missing required fields on create', () => {
   assert.deepEqual(Object.keys(errors).sort(), ['category', 'title', 'url', 'year']);
 });
 
-test('rejects unknown fields, including id', () => {
-  const { errors } = validateProject({ ...valid(), id: 'x', admin: true });
-  assert.match(errors._unknown, /id/);
+test('rejects unknown fields', () => {
+  const { errors } = validateProject({ ...valid(), admin: true, slug: 'x' });
   assert.match(errors._unknown, /admin/);
+  assert.match(errors._unknown, /slug/);
+});
+
+test('id (the url slug) is optional and validated when given', () => {
+  assert.equal(validateProject(valid()).value.id, undefined, 'no id: the server derives one from the title');
+  assert.deepEqual(validateProject({ ...valid(), id: ' fenya ' }).value.id, 'fenya');
+  assert.deepEqual(validateProject({ id: 'fenya-2' }, { partial: true }), { value: { id: 'fenya-2' }, errors: {} });
+  assert.match(validateProject({ ...valid(), id: 'Fenya' }).errors.id, /url slug/);
+});
+
+const goodSlugs = ['a', 'fenya', 'olive-mill', 'web-app-2', '2026', 'x'.repeat(60)];
+const badSlugs = ['', '   ', 'Fenya', 'olive mill', 'olive--mill', '-fenya', 'fenya-', 'café', 'olive_mill', 'a/b', 'x'.repeat(61), 42, null];
+
+for (const slug of goodSlugs) {
+  test(`checkSlug accepts ${JSON.stringify(slug).slice(0, 20)}`, () => {
+    assert.deepEqual(checkSlug(slug), { value: slug });
+  });
+}
+
+for (const slug of badSlugs) {
+  test(`checkSlug rejects ${JSON.stringify(slug).slice(0, 20)}`, () => {
+    assert.match(checkSlug(slug).error, /url slug/);
+  });
+}
+
+test('slugify output always passes checkSlug', () => {
+  for (const title of ['Olive Mill', '  Café & Crème!  ', '***', 'a'.repeat(200), 'Fenya — 2026']) {
+    assert.deepEqual(checkSlug(slugify(title)).error, undefined, title);
+  }
+});
+
+test('slugOwner finds another project using a slug, ignoring the one being edited', () => {
+  const projects = [{ id: 'ledger', title: 'Ledger' }, { id: 'olive-mill', title: 'Olive Mill' }];
+  assert.equal(slugOwner(projects, 'olive-mill', 'ledger').title, 'Olive Mill');
+  assert.equal(slugOwner(projects, 'ledger', 'ledger'), null, 'keeping its own slug is fine');
+  assert.equal(slugOwner(projects, 'fenya', 'ledger'), null);
+  assert.equal(slugOwner(projects, 'ledger').title, 'Ledger', 'on create every project counts');
 });
 
 test('rejects a non-object body', () => {

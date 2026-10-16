@@ -33,8 +33,8 @@ body {
   font-family: var(--font-medium);
   font-size: 16px;
   line-height: 1.3;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* No font-smoothing override: the original renders aglt with default
+     (subpixel) smoothing, which is visibly heavier on macOS. */
 }
 
 a {
@@ -123,12 +123,14 @@ ul {
   color: var(--charcoal);
 }
 
+/* Original: bone text, charcoal links, paragraphs stacked tight. */
 .section--coral p {
-  margin: clamp(16px, 2.4vw, 32px) 0 0;
+  margin: 0;
   font-family: var(--font-book);
   font-size: var(--fs-bar);
   line-height: 1.4;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.03em; /* original -1px at 33px, kept proportional */
+  color: var(--bone);
 }
 
 .home-title + p {
@@ -142,11 +144,26 @@ ul {
   margin: 0 auto;
   font-family: var(--font-book);
   font-size: var(--fs-body);
-  line-height: var(--lh-body);
+  line-height: 1.2; /* original .intro p */
+  letter-spacing: -0.035em; /* original -1px at 28.6px, kept proportional */
 }
 
 .intro p {
-  margin: 0 0 1em;
+  margin: 0 0 20px; /* original: padding-top 20px between paragraphs */
+}
+
+/* Original "p a": 10px side padding growing to 22px on hover; .nopadding opts out. */
+.intro .wipe-link {
+  padding: 0 10px;
+}
+
+.intro .wipe-link:hover,
+.intro .wipe-link:focus-visible {
+  padding: 0 22px;
+}
+
+.intro .nopadding .wipe-link {
+  padding: 0;
 }
 
 .intro p:last-child {

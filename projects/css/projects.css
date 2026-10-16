@@ -50,8 +50,7 @@ body {
   font-family: var(--font-medium);
   font-size: 16px;
   line-height: 1.3;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* No font-smoothing override, to match the original home's weight. */
   overflow-x: hidden;
 }
 

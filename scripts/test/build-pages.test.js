@@ -62,7 +62,7 @@ test('richTextHtml renders paragraphs and links like the home does, and rejects 
   const html = richTextHtml('A [b](https://b.example) & c.\nnext\n\n[mail me](mailto:a@b.c)', { paragraphClass: 'home-animate' });
   assert.equal(html, [
     '<p class="home-animate">A <a class="wipe-link" href="https://b.example" target="_blank" rel="noopener">b</a> &amp; c.<br>next</p>',
-    '<p class="home-animate link-only"><a class="wipe-link" href="mailto:a@b.c">mail me</a></p>',
+    '<p class="home-animate"><a class="wipe-link" href="mailto:a@b.c">mail me</a></p>',
   ].join('\n'));
   assert.throws(() => richTextHtml('see [x](javascript:alert(1))'), /javascript/);
 });

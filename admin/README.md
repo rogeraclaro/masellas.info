@@ -25,7 +25,6 @@ Text format for "some words" and a project's "how I used AI" (validated on save;
 - links only as `[text](https://…)`, `[text](http://…)` or `[text](mailto:…)`; the text may contain bold, strikethrough and code; any other scheme, relative URL or stray bracket is rejected with a message that quotes the link
 - a backslash makes the next character literal when it is one of `*` `~` `\` `` ` `` `[` `]` `(` `)` `>` `-` `#` (e.g. `\*not bold\*`, `\- not a list`)
 - unclosed `**`, `~~` or `` ` `` is rejected with a message that quotes where; a lone `*` or `~` is plain text
-- a paragraph that is only a link renders flush (no side padding)
 - `{{term}}`: a term explained by the glossary; `{{term|explanation}}`: with its own explanation (plain text, 1–300 characters; everything after the first `|`). The term is plain text, 1–60 characters, allowed inside bold / strikethrough, not inside a link label (and literal inside code); `\{` `\}` are literal braces. A `{{term}}` the glossary does not have blocks saving. On the site a term is a button with a dotted underline; hover, focus or tap shows the explanation (`lib/term-tooltip.js`).
 
 ## Glossary

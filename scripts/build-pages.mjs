@@ -88,16 +88,12 @@ export function richTextHtml(text, { paragraphClass = '', linkClass = 'wipe-link
   if (errors.length) throw new Error(errors.join(' '));
   const ids = { count: 0 };
   const inline = (parts) => inlineHtml(parts, linkClass, ids);
-  const open = (tag, extra = '') => {
-    const classes = [paragraphClass, extra].filter(Boolean).join(' ');
-    return `<${tag}${classes ? ` class="${classes}"` : ''}>`;
-  };
+  const open = (tag) => `<${tag}${paragraphClass ? ` class="${paragraphClass}"` : ''}>`;
   return blocks.map((block) => {
     if (block.type === 'h') return `${open(headingTag)}${inline(block.parts)}</${headingTag}>`;
     if (block.type === 'ul') return `${open('ul')}${block.items.map((item) => `<li>${inline(item)}</li>`).join('')}</ul>`;
     if (block.type === 'quote') return `${open('blockquote')}<p>${inline(block.parts)}</p></blockquote>`;
-    const linkOnly = block.parts.length === 1 && block.parts[0].type === 'link';
-    return `${open('p', linkOnly ? 'link-only' : '')}${inline(block.parts)}</p>`;
+    return `${open('p')}${inline(block.parts)}</p>`;
   }).join('\n');
 }
 

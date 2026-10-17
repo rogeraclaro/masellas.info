@@ -7,7 +7,6 @@
 //                resolved; the admin previews pass the glossary). A term with no explanation is plain text.
 // A term is <button class="term" aria-describedby> plus a hidden element with the explanation;
 // term-tooltip.js shows it.
-// A paragraph that is just one link gets "link-only" so it sits flush (no side padding on the link).
 
 let termCount = 0;
 
@@ -68,8 +67,6 @@ export function renderRichText(blocks, { linkClass = 'wipe-link', paragraphClass
       return element('ul', blockClass, block.items.map((item) => element('li', '', renderInline(item, linkClass, lookup))));
     }
     if (block.type === 'quote') return element('blockquote', blockClass, [element('p', '', renderInline(block.parts, linkClass, lookup))]);
-    const p = element('p', blockClass, renderInline(block.parts, linkClass, lookup));
-    if (block.parts.length === 1 && block.parts[0].type === 'link') p.classList.add('link-only');
-    return p;
+    return element('p', blockClass, renderInline(block.parts, linkClass, lookup));
   });
 }

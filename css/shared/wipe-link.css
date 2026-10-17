@@ -1,30 +1,49 @@
-/* Brand wipe link: a solid block floods in behind the text on hover. */
+/* Brand wipe link: a solid block floods in behind the text on hover.
+   No padding at rest, so a link sits in running text like any word. On hover the block reaches
+   --wipe-pad past the text; the negative margin cancels the padding, so nothing moves. */
 
-.wipe-link {
+.wipe-link,
+.detail-link {
+  padding: 0;
+  margin: 0;
   color: var(--coral);
   box-shadow: inset 0 0 0 0 var(--bone);
   transition: var(--dur-link) var(--ease);
 }
 
 .wipe-link:hover,
-.wipe-link:focus-visible {
+.wipe-link:focus-visible,
+.detail-link:hover,
+.detail-link:focus-visible {
+  padding: 0 var(--wipe-pad);
+  margin: 0 calc(-1 * var(--wipe-pad));
   color: var(--charcoal);
   box-shadow: inset var(--wipe-distance) 0 0 0 var(--bone);
   outline: none;
 }
 
-
-
-/* On coral: charcoal text, a charcoal block with bone text floods in; padding grows 10 -> 22px. */
-.wipe-link--on-coral {
-  padding: 0 10px;
+/* On coral (home links, project detail links): charcoal text with a thin underline;
+   a charcoal block with bone text floods in on hover. */
+.wipe-link--on-coral,
+.detail-link {
   color: var(--charcoal);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
   box-shadow: inset 0 0 0 0 var(--charcoal);
 }
 
 .wipe-link--on-coral:hover,
-.wipe-link--on-coral:focus-visible {
-  padding: 0 22px;
+.wipe-link--on-coral:focus-visible,
+.detail-link:hover,
+.detail-link:focus-visible {
   color: var(--bone);
   box-shadow: inset var(--wipe-distance) 0 0 0 var(--charcoal);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wipe-link,
+  .detail-link {
+    transition: none;
+  }
 }

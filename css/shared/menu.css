@@ -8,18 +8,19 @@
   left: 0;
   z-index: var(--z-menu);
   display: flex;
-  gap: 10px;
-  padding: 10px 0 0 10px;
+  gap: var(--chrome-inset);
+  padding: var(--chrome-inset) 0 0 var(--chrome-inset);
   font-family: var(--font-medium);
-  font-size: 16px;
-  line-height: 26px;
+  font-size: var(--fs-tab);
+  line-height: var(--lh-tab);
 }
 
-/* Language tabs (ca / en / es): the same tabs, mirrored in the top-right corner. */
+/* Language tabs (ca / en / es): the same tabs, mirrored in the top-right corner.
+   The project detail's "close" (.detail__close) is the same tab too. */
 .lang-menu {
   left: auto;
   right: 0;
-  padding: 10px 10px 0 0;
+  padding: var(--chrome-inset) var(--chrome-inset) 0 0;
 }
 
 .menu__tab {
@@ -28,20 +29,20 @@
 }
 
 .menu__tab .face {
-  padding: 1px 8px;
-  color: #000;
+  padding: 1px var(--space-2);
+  color: var(--tab-fg);
   background: var(--menu-idle);
 }
 
 .menu__tab[aria-current] .face--front {
   background: var(--menu-active);
-  color: #fff;
+  color: var(--tab-fg-active);
 }
 
 .menu__tab .face--before,
 .menu__tab .face--after {
   background: var(--menu-hover);
-  color: #000;
+  color: var(--tab-fg);
 }
 
 .menu__tab:focus-visible {
@@ -65,18 +66,18 @@
 @media (max-width: 640px) {
   .menu-toggle {
     position: fixed;
-    top: 10px;
-    left: 10px;
+    top: var(--chrome-inset);
+    left: var(--chrome-inset);
     z-index: calc(var(--z-menu) + 1); /* above the open panel */
     display: grid;
     place-items: center;
-    width: 44px;
-    height: 44px;
+    width: var(--tap);
+    height: var(--tap);
     padding: 0;
     border: 0;
     border-radius: 0;
     background: var(--menu-idle);
-    color: #000;
+    color: var(--tab-fg);
     cursor: pointer;
     view-transition-name: site-menu-toggle;
   }
@@ -136,8 +137,8 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 30px;
-    padding: 64px 10px 10px; /* under the toggle */
+    gap: var(--space-6);
+    padding: calc(var(--tap) + 2 * var(--chrome-inset)) var(--chrome-inset) var(--chrome-inset); /* under the toggle */
     overflow-y: auto;
     overscroll-behavior: contain;
     background: var(--charcoal);
@@ -172,8 +173,14 @@
     align-items: flex-start;
   }
 
+  /* Panel tabs: bigger type, still 44px tall (26px line + 9px padding). */
+  .site-menu .menu,
+  .site-menu .lang-menu {
+    font-size: var(--fs-tab-panel);
+  }
+
   .menu__tab .face {
-    padding: 9px 12px; /* 44px tall tap targets */
+    padding: calc((var(--tap) - var(--lh-tab)) / 2) var(--space-3); /* 44px tall tap targets */
   }
 }
 
@@ -196,6 +203,6 @@
 @media (hover: hover) and (pointer: fine) {
   .no-motion .menu__tab:hover .face--front {
     background: var(--menu-hover);
-    color: #000;
+    color: var(--tab-fg);
   }
 }

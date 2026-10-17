@@ -1,4 +1,5 @@
-/* Design tokens shared by every page (values from the masellas-design system). */
+/* Design tokens shared by every page (values from the masellas-design system).
+   One type scale, one spacing scale: components use these, never their own sizes. */
 
 :root {
   /* Brand palette (from the masellas-design tokens) */
@@ -7,28 +8,78 @@
   --bone: #e4e1ce;
   --bone-60: rgba(228, 225, 206, 0.6);
   --hairline: rgba(228, 225, 206, 0.2);
+  --hairline-on-coral: rgba(39, 37, 37, 0.3);
+  --scrim: rgba(0, 0, 0, 0.6); /* detail overlay, home section shade */
   --menu-idle: rgba(255, 255, 255, 0.5);
   --menu-hover: rgba(255, 255, 255, 0.8);
   --menu-active: rgba(0, 0, 0, 0.5);
+  --tab-fg: #000;
+  --tab-fg-active: #fff;
 
   --font-book: 'agltbook', Helvetica, Arial, sans-serif;
   --font-medium: 'agltmedium', Helvetica, Arial, sans-serif;
   --font-bold: 'agltbold', Helvetica, Arial, sans-serif;
 
-  --dur-link: 0.25s;
-  --ease: ease-in-out;
-  --wipe-distance: 500px;
-  --z-menu: 70;
-  --menu-row: 46px; /* one row of menu tabs, top padding included (wider than 640px; phones use the burger) */
+  /* ---------- Type scale ----------
+     Fluid from 375px to 1440px viewports (rem + vw), smaller on phones.
+     display > h2 > h3 > lead > body > small at every width. */
+  --fs-display: clamp(2.125rem, 9.58vw - 0.12rem, 8.5rem); /* 34 -> 136 */
+  --fs-h2: clamp(1.75rem, 1.31rem + 1.88vw, 3rem);         /* 28 -> 48 */
+  --fs-h3: clamp(1.375rem, 1.155rem + 0.94vw, 2rem);       /* 22 -> 32 */
+  --fs-lead: clamp(1.125rem, 0.99rem + 0.57vw, 1.5rem);    /* 18 -> 24 */
+  --fs-body: clamp(1rem, 0.91rem + 0.38vw, 1.25rem);       /* 16 -> 20 */
+  --fs-small: clamp(0.875rem, 0.79rem + 0.38vw, 1.125rem); /* 14 -> 18 */
+  --fs-tab: 1rem;          /* menu, language and close tabs */
+  --fs-tab-panel: 1.375rem; /* tabs in the open phone menu */
+
+  --lh-display: 0.9;
+  --lh-h2: 1.05;
+  --lh-h3: 1.1;
+  --lh-lead: 1.3;
+  --lh-body: 1.45;
+  --lh-small: 1.3;
+  --lh-tab: 26px;
+
+  --ls-display: -0.03em; /* display, h2, h3 (original: -2px at 3em) */
+  --ls-text: -0.02em;    /* lead, body, small */
+
+  /* ---------- Spacing ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+  --space-10: 128px;
+  --space-top: clamp(72px, 14vh, 160px);         /* page top, clears the fixed menu */
+  --space-after-title: clamp(16px, 3vw, 40px);   /* under a display title */
+  --space-section: clamp(64px, 10vw, 140px);     /* between page sections */
+  --rich-gap: 1em;                               /* between paragraphs of running text */
 
   --gutter: clamp(16px, 2.8vw, 40px);
   --col-gap: clamp(12px, 1.4vw, 20px);
-  --fs-display: 13.5vw;
-  --fs-title: 9vw; /* display titles: projects (IA), Roger Masellas */
-  --fs-body: 1.25rem; /* long-form text */
-  --lh-body: 1.45;
-  --fs-row: clamp(2.25rem, 9vw, 4rem);
-  /* 4rem from ~711px up */
-  --fs-meta: clamp(1rem, 1.25vw, 1.125rem);
-  --fs-bar: clamp(1.125rem, 1.6vw, 1.5rem);
+
+  /* ---------- Brand chrome ---------- */
+  --chrome-inset: 10px; /* menu, burger, language tabs and close sit 10px from the edges */
+  --tab-h: 28px;        /* one tab: 26px line + 1px padding top and bottom */
+  --tap: 44px;          /* minimum tap target on phones */
+  --menu-row: 46px;     /* one row of menu tabs, top padding included (wider than 640px; phones use the burger) */
+  /* Coral band behind the fixed controls inside the project detail:
+     wider screens: tab row + close row; phones: burger / close row. */
+  --detail-band: calc(var(--menu-row) + var(--tab-h) + 2 * var(--chrome-inset));
+  --wipe-pad: 0.2em;    /* a wipe link's block reaches this far past its text, on hover only */
+  --wipe-distance: 500px;
+
+  --dur-link: 0.25s;
+  --ease: ease-in-out;
+  --z-menu: 70;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --detail-band: calc(var(--tap) + 2 * var(--chrome-inset));
+  }
 }

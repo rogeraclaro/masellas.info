@@ -49,8 +49,8 @@ body {
   background: var(--charcoal);
   color: var(--bone);
   font-family: var(--font-medium);
-  font-size: 16px;
-  line-height: 1.3;
+  font-size: var(--fs-tab);
+  line-height: var(--lh-small);
   /* No font-smoothing override, to match the original home's weight. */
   overflow-x: hidden;
 }
@@ -80,10 +80,10 @@ ul {
 
 .skip-link {
   position: fixed;
-  top: 10px;
+  top: var(--chrome-inset);
   left: 50%;
   z-index: 100;
-  padding: 4px 10px;
+  padding: var(--space-1) var(--space-3);
   background: var(--bone);
   color: var(--charcoal);
   transform: translate(-50%, -200%);
@@ -95,7 +95,7 @@ ul {
 
 /* ---------- Header ---------- */
 .page-header {
-  padding: clamp(96px, 16vh, 180px) var(--gutter) clamp(32px, 5vw, 72px);
+  padding: var(--space-top) var(--gutter) var(--space-after-title);
 }
 
 .page-bar {
@@ -103,11 +103,12 @@ ul {
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px var(--col-gap);
-  margin-top: clamp(24px, 3vw, 48px);
+  gap: var(--space-3) var(--col-gap);
+  margin-top: var(--space-after-title);
   font-family: var(--font-book);
-  font-size: var(--fs-bar);
-  letter-spacing: -0.03em;
+  font-size: var(--fs-lead);
+  line-height: var(--lh-lead);
+  letter-spacing: var(--ls-text);
 }
 
 .page-count {
@@ -118,7 +119,7 @@ ul {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  margin-left: -8px;
+  margin-left: calc(-1 * var(--space-2));
 }
 
 .filters__sep {
@@ -139,7 +140,7 @@ ul {
 }
 
 .chip .face {
-  padding: 2px 8px;
+  padding: var(--space-1) var(--space-2);
   white-space: nowrap;
 }
 
@@ -147,8 +148,12 @@ ul {
   color: var(--bone);
 }
 
+/* Active filter: coral plus the brand underline, not colour alone. */
 .chip[aria-pressed='true'] .face--front {
   color: var(--coral);
+  text-decoration: underline;
+  text-decoration-thickness: 0.06em;
+  text-underline-offset: 0.14em;
 }
 
 .chip .face--before,
@@ -178,10 +183,10 @@ ul {
 
 .work-list__error {
   margin: 0;
-  padding: clamp(14px, 1.5vw, 22px) var(--gutter);
+  padding: var(--row-pad) var(--gutter);
   border-bottom: 1px solid var(--hairline);
   font-family: var(--font-book);
-  font-size: var(--fs-bar);
+  font-size: var(--fs-lead);
   color: var(--bone-60);
 }
 
@@ -198,10 +203,9 @@ ul {
   outline-offset: -4px;
 }
 
-.work-item {
-  --row-pad: clamp(14px, 1.5vw, 22px);
-  --fs-info: clamp(1rem, 1.2vw, 1.125rem);
-  --lh-info: 1.25;
+.work-list,
+.work-list__error {
+  --row-pad: clamp(16px, 1.5vw, 24px); /* --space-4 .. --space-5 */
 }
 
 .work-item .face {
@@ -218,7 +222,7 @@ ul {
    JS measures the row, so the cube depth follows automatically. */
 @media (min-width: 1200px) {
   .work-item .face--front {
-    min-height: calc(var(--row-pad) * 2 + var(--fs-info) * var(--lh-info) * 3 + 4px);
+    min-height: calc(var(--row-pad) * 2 + var(--fs-small) * var(--lh-small) * 3 + var(--space-1));
   }
 }
 
@@ -236,9 +240,9 @@ ul {
 .work-item__title {
   grid-column: 1 / span 9;
   font-family: var(--font-bold);
-  font-size: 2.5rem;
-  line-height: 1;
-  letter-spacing: -0.035em;
+  font-size: var(--fs-h2);
+  line-height: var(--lh-h2);
+  letter-spacing: var(--ls-display);
   padding-bottom: 0.06em;
   /* keeps descenders inside the face */
 }
@@ -253,16 +257,17 @@ ul {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--space-3);
   font-family: var(--font-book);
-  font-size: var(--fs-meta);
-  letter-spacing: -0.02em;
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  letter-spacing: var(--ls-text);
   color: var(--bone-60);
 }
 
 .work-item__thumbs {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .work-item__thumbs img {
@@ -276,9 +281,9 @@ ul {
 .work-item__info {
   grid-column: 8 / span 5;
   font-family: var(--font-book);
-  font-size: var(--fs-info);
-  line-height: var(--lh-info);
-  letter-spacing: -0.02em;
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  letter-spacing: var(--ls-text);
 }
 
 .work-item__desc {
@@ -290,15 +295,16 @@ ul {
 
 .work-item__domain {
   display: block;
-  margin-top: 4px;
+  margin-top: var(--space-1);
 }
 
 /* ---------- Footer ---------- */
 .page-footer {
-  padding: clamp(64px, 14vh, 160px) var(--gutter) clamp(32px, 6vh, 64px);
+  padding: var(--space-section) var(--gutter) var(--space-6);
   font-family: var(--font-book);
-  font-size: var(--fs-bar);
-  letter-spacing: -0.03em;
+  font-size: var(--fs-lead);
+  line-height: var(--lh-lead);
+  letter-spacing: var(--ls-text);
 }
 
 .page-footer p {
@@ -316,7 +322,7 @@ ul {
 
   .work-item__meta {
     grid-column: 1 / -1;
-    margin-top: 8px;
+    margin-top: var(--space-2);
   }
 
   .work-item__info {
@@ -365,7 +371,7 @@ html.detail-open {
   position: fixed;
   inset: 0;
   z-index: 50;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--scrim);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -380,6 +386,20 @@ html.detail-open {
   color: var(--charcoal);
 }
 
+/* Solid coral band behind the fixed controls (menu / language tabs and close, or burger and
+   close on phones), so the text scrolls under it instead of under the tabs. */
+.detail::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  height: var(--detail-band);
+  background: var(--coral);
+  pointer-events: none;
+}
+
 .detail[hidden] {
   display: none;
 }
@@ -392,36 +412,31 @@ html.detail-open {
 }
 
 .detail__content {
-  padding: clamp(72px, 12vh, 128px) var(--gutter) clamp(48px, 10vh, 120px);
+  padding: var(--space-top) var(--gutter) var(--space-section);
 }
 
-/* Phones: top-right corner, across from the burger toggle. */
+/* "close" is a standard tab (.menu__tab, css/shared/menu.css), above the coral band.
+   Phones: top-right corner, across from the burger toggle. */
 .detail__close {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 1;
+  top: var(--chrome-inset);
+  right: var(--chrome-inset);
+  z-index: 2;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
   font-family: var(--font-medium);
-  font-size: 16px;
-  line-height: 26px;
+  font-size: var(--fs-tab);
+  line-height: var(--lh-tab);
+  cursor: pointer;
 }
 
 /* The language tabs hold the top-right corner (and stay usable here): close sits under them. */
 @media (min-width: 641px) {
   .detail__close {
-    top: calc(var(--menu-row) + 10px);
-    right: 10px;
+    top: calc(var(--menu-row) + var(--chrome-inset));
   }
-}
-
-.detail__close .face--front {
-  color: var(--charcoal);
-}
-
-.detail__close .face--before,
-.detail__close .face--after {
-  background: var(--charcoal);
-  color: var(--bone);
 }
 
 .detail__close:focus-visible,
@@ -438,14 +453,14 @@ html.detail-open {
 
 .detail__crumb {
   margin: 0;
-  font-family: var(--font-medium);
-  font-size: var(--fs-bar);
-  letter-spacing: -0.03em;
+  font-family: var(--font-book);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  letter-spacing: var(--ls-text);
 }
 
 .detail__title {
-  margin: clamp(16px, 3vw, 40px) 0 0;
-  font-size: clamp(3rem, 9vw, 9rem);
+  margin: var(--space-after-title) 0 0;
   color: var(--charcoal);
 }
 
@@ -454,38 +469,39 @@ html.detail-open {
 }
 
 .detail__meta {
-  margin: clamp(16px, 2vw, 28px) 0 0;
+  margin: var(--space-after-title) 0 0;
   font-family: var(--font-book);
-  font-size: var(--fs-bar);
-  letter-spacing: -0.03em;
+  font-size: var(--fs-lead);
+  line-height: var(--lh-lead);
+  letter-spacing: var(--ls-text);
 }
 
 .detail__lead {
-  max-width: 65vw;
-  margin: clamp(24px, 3vw, 40px) 0 0;
+  max-width: 65ch;
+  margin: var(--space-after-title) 0 0;
   font-family: var(--font-book);
-  font-size: 1.5rem;
-  line-height: 1.3;
-  letter-spacing: -0.02em;
+  font-size: var(--fs-lead);
+  line-height: var(--lh-lead);
+  letter-spacing: var(--ls-text);
 }
 
 .detail__ai {
-  margin-top: clamp(48px, 7vw, 96px);
+  margin-top: var(--space-section);
 }
 
 .detail__heading {
   margin: 0 0 0.75em;
   font-family: var(--font-bold);
   font-weight: normal;
-  font-size: 2rem;
-  line-height: 1.1;
-  letter-spacing: -0.03em;
+  font-size: var(--fs-h3);
+  line-height: var(--lh-h3);
+  letter-spacing: var(--ls-display);
   text-decoration: underline;
   text-decoration-thickness: 0.06em;
   text-underline-offset: 0.14em;
 }
 
-/* 65vw on phones would leave a ~240px column: use the full width there. */
+/* Phones: use the full width. */
 @media (max-width: 640px) {
   .detail .detail__lead,
   .detail .detail__body {
@@ -494,81 +510,57 @@ html.detail-open {
 }
 
 .detail__body {
-  max-width: 65vw;
+  max-width: 65ch;
   font-family: var(--font-book);
-  font-size: 1.25rem;
-  line-height: 1.45;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body); /* same as the home's "some words" */
+  letter-spacing: var(--ls-text);
 }
 
 .detail__body p {
-  margin: 0 0 1em;
+  margin: 0 0 var(--rich-gap);
 }
 
-/* Rich text links in the coral body: body text is charcoal too, so links keep the underline of
-   "visit site" (.detail-link) but no side padding, so they sit flush in running text. */
-.detail-link.detail-link--inline {
-  margin-left: 0;
-  padding: 0;
-}
+/* Links (.detail-link, rich-text .detail-link--inline): the shared on-coral wipe link,
+   css/shared/wipe-link.css. */
 
 .detail__tools {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: clamp(24px, 3vw, 40px);
+  gap: var(--space-2);
+  margin-top: var(--space-after-title);
 }
 
 .detail__tools li {
-  padding: 2px 10px;
+  padding: var(--space-1) var(--space-3);
   border: 1px solid var(--charcoal);
-  font-family: var(--font-medium);
-  font-size: 1rem;
-  line-height: 1.5;
+  font-family: var(--font-book);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  letter-spacing: var(--ls-text);
 }
 
 .detail__visit {
-  margin: clamp(32px, 4vw, 56px) 0 0;
-  font-family: var(--font-medium);
-  font-size: var(--fs-bar);
-}
-
-/* Wipe link on coral: charcoal text, a charcoal block floods in on hover. */
-.detail-link {
-  margin-left: -8px;
-  padding: 2px 8px;
-  color: var(--charcoal);
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 0.18em;
-  box-shadow: inset 0 0 0 0 var(--charcoal);
-  transition: var(--dur-link) var(--ease);
-}
-
-.detail-link:hover,
-.detail-link:focus-visible {
-  color: var(--bone);
-  text-decoration-color: transparent;
-  box-shadow: inset var(--wipe-distance) 0 0 0 var(--charcoal);
+  margin: var(--space-after-title) 0 0;
+  font-family: var(--font-book);
+  font-size: var(--fs-lead);
+  line-height: var(--lh-lead);
+  letter-spacing: var(--ls-text);
 }
 
 .detail__next {
-  margin-top: clamp(64px, 10vw, 140px);
-  padding-top: clamp(24px, 3vw, 40px);
-  border-top: 1px solid rgba(39, 37, 37, 0.3);
+  margin-top: var(--space-section);
+  padding-top: var(--space-after-title);
+  border-top: 1px solid var(--hairline-on-coral);
 }
 
+/* Big heading link (next project): h2, no underline, wide wipe. */
 .detail-link--big {
   display: inline-block;
   font-family: var(--font-bold);
-  font-size: clamp(1.75rem, 4vw, 2.5rem);
-  line-height: 1.15;
-  letter-spacing: -0.03em;
+  font-size: var(--fs-h2);
+  line-height: var(--lh-h2);
+  letter-spacing: var(--ls-display);
   text-decoration: none;
   --wipe-distance: 2000px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .detail-link {
-    transition: none;
-  }
 }

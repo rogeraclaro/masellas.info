@@ -1,7 +1,9 @@
 /* Rich text styles (admin/lib/rich-text.js), shared by the home's "some words", the project detail
    ("how I used AI") and the admin previews: the site bundles this file, the admin serves it.
    Put .rich-text on the container. Colours follow the text (currentColor), so it works on charcoal
-   and on coral. A context sets --rich-gap to its own paragraph spacing; paragraphs keep their rules. */
+   and on coral. A context sets --rich-gap to its own paragraph spacing; paragraphs keep their rules.
+   Sizes use the site tokens (css/shared/tokens.css); the admin does not load them, so every token
+   has a fallback. */
 
 .rich-text strong {
   font-family: var(--font-bold);
@@ -29,9 +31,9 @@
   margin: 1.2em 0 0.5em;
   font-family: var(--font-bold);
   font-weight: 400;
-  font-size: 1.4em;
-  line-height: 1.1;
-  letter-spacing: -0.03em;
+  font-size: var(--fs-h3, 1.4em);
+  line-height: var(--lh-h3, 1.1);
+  letter-spacing: var(--ls-display, -0.03em);
   text-decoration: underline;
   text-decoration-thickness: 0.07em;
   text-underline-offset: 0.12em;
@@ -107,15 +109,15 @@
   left: 0;
   z-index: 90; /* over the menus (70) and the project detail (60) */
   max-width: min(32ch, calc(100vw - 16px));
-  padding: 8px 12px;
+  padding: var(--space-2, 8px) var(--space-3, 12px);
   border-radius: 0;
   background: var(--bone, #e4e1ce);
   color: var(--charcoal, #272525);
   font-family: var(--font-book);
-  font-size: 0.95rem;
+  font-size: var(--fs-small, 0.95rem);
   font-weight: 400;
-  line-height: 1.35;
-  letter-spacing: normal;
+  line-height: var(--lh-small, 1.35);
+  letter-spacing: var(--ls-text, normal);
   text-align: left;
   overflow-wrap: anywhere;
 }

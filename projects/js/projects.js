@@ -262,7 +262,7 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
   const plainClick = (event) => event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
 
   function buildCloseButton() {
-    closeBtn = el('button', 'chip cube detail__close');
+    closeBtn = el('button', 'menu__tab cube detail__close');
     closeBtn.type = 'button';
     closeBtn.setAttribute('aria-label', t('close_label'));
     buildCube(closeBtn, [document.createTextNode(t('close'))], () => [document.createTextNode(t('close'))]);

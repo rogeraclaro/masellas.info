@@ -4,9 +4,9 @@
   margin: 0;
   font-family: var(--font-bold);
   font-weight: normal;
-  font-size: var(--fs-title);
-  line-height: 0.9;
-  letter-spacing: -0.03em; /* original: -2px at 3em = -0.03em */
+  font-size: var(--fs-display);
+  line-height: var(--lh-display);
+  letter-spacing: var(--ls-display); /* original: -2px at 3em = -0.03em */
   color: var(--bone);
   text-decoration: underline;
   /* fallback before the split */

@@ -4,6 +4,7 @@ import { parseRichText, RICH_TEXT_MAX } from './rich-text.js';
 import { renderRichText } from './rich-text-dom.js';
 import { formattingHelp } from './rich-text-help.js';
 import { slugify } from './slug.js';
+import { bindTermTooltips } from './term-tooltip.js';
 
 (() => {
   'use strict';
@@ -64,7 +65,7 @@ import { slugify } from './slug.js';
   }
 
   async function showApp() {
-    const [config] = await Promise.all([api('GET', 'api/config'), loadProjects()]);
+    const [config] = await Promise.all([api('GET', 'api/config'), loadProjects(), loadGlossary()]);
     $('view-site').href = config.publicUrl;
     loginView.hidden = true;
     appView.hidden = false;
@@ -212,11 +213,17 @@ import { slugify } from './slug.js';
 
   // Live preview of one language of a rich-text field, with the parser and renderer the site uses.
   // Problems are listed above it; the server rejects the same ones on save.
-  function renderPreview(source, preview, problems, options) {
+  // {{term}}s come from the glossary, in the language on show (or ca), as on the site.
+  function renderPreview(source, preview, problems, options, lang = 'ca') {
     const { blocks, errors } = parseRichText(source);
-    preview.replaceChildren(...renderRichText(blocks, options));
-    problems.textContent = errors.length ? `not saved like this: ${errors.join(' ')}` : '';
+    const lookup = glossaryLookup(lang);
+    const missing = [...new Set(bareTerms(blocks).filter((term) => !lookup(term.key)).map((term) => term.label))];
+    preview.replaceChildren(...renderRichText(blocks, { ...options, lookup }));
+    const problemsText = [...errors, ...missing.map((term) => `"${term}" is not in the glossary: add it to the glossary or write {{${term}|explanation}}.`)];
+    problems.textContent = problemsText.length ? `not saved like this: ${problemsText.join(' ')}` : '';
   }
+
+  bindTermTooltips();
 
   for (const slot of document.querySelectorAll('[data-format-help]')) slot.replaceWith(formattingHelp());
 
@@ -388,7 +395,7 @@ import { slugify } from './slug.js';
     $('description-count').textContent = `${shown('description').length} / 200`;
     $('ai-count').textContent = `${shown('ai').length} / 5000`;
     // As in the project detail: subheadings sit under its "how I used AI" heading.
-    renderPreview(shown('ai'), $('ai-preview'), $('ai-problems'), { linkClass: '', headingTag: 'h4' });
+    renderPreview(shown('ai'), $('ai-preview'), $('ai-problems'), { linkClass: '', headingTag: 'h4' }, langFields.ai.current());
   }
 
   function openForm(project, trigger) {
@@ -492,12 +499,13 @@ import { slugify } from './slug.js';
     if (event.target.dataset.confirm) resetDelete(event.target);
   });
 
-  /* ---------- Views: projects / some words ---------- */
+  /* ---------- Views: projects / some words / glossary ---------- */
 
   function showView(name) {
     for (const tab of document.querySelectorAll('.view-tab')) tab.setAttribute('aria-pressed', String(tab.dataset.view === name));
     $('view-projects').hidden = name !== 'projects';
     $('view-words').hidden = name !== 'words';
+    $('view-glossary').hidden = name !== 'glossary';
     if (name === 'words' && wordsVersion === null) loadWords().catch((err) => wordsFailed(err));
   }
 
@@ -521,7 +529,7 @@ import { slugify } from './slug.js';
   function renderWordsPreview() {
     const text = words.inputs[words.current()].value;
     $('words-count').textContent = `${text.length} / ${RICH_TEXT_MAX}`;
-    renderPreview(text, $('words-preview'), $('preview-problems'));
+    renderPreview(text, $('words-preview'), $('preview-problems'), {}, words.current());
   }
 
   async function loadWords({ keepDraft = false } = {}) {
@@ -573,6 +581,204 @@ import { slugify } from './slug.js';
     }
   });
 
+  /* ---------- Glossary ---------- */
+
+  let glossary = { terms: [] };
+  let glossaryVersion = null;
+  let editingTerm = null; // index in glossary.terms, null = new
+  let glossaryTimer = 0;
+  const termKey = (label) => String(label).trim().toLowerCase();
+
+  function glossaryLookup(lang) {
+    const byKey = new Map(glossary.terms.map((entry) => [termKey(entry.term), entry.explanation]));
+    return (key) => {
+      const explanation = byKey.get(key);
+      return explanation ? (explanation[lang] || '').trim() || explanation.ca : null;
+    };
+  }
+
+  // {{term}}s without their own explanation, anywhere in parsed blocks.
+  function bareTerms(blocks) {
+    const found = [];
+    const walk = (parts) => parts.forEach((part) => {
+      if (part.type === 'term' && part.explanation === null) found.push(part);
+      else if (part.parts) walk(part.parts);
+    });
+    blocks.forEach((block) => (block.items ? block.items.forEach(walk) : walk(block.parts)));
+    return found;
+  }
+
+  function setGlossaryStatus(text) {
+    clearTimeout(glossaryTimer);
+    $('glossary-status').textContent = text;
+    if (text === 'saved' || text === 'deleted') glossaryTimer = setTimeout(() => { $('glossary-status').textContent = ''; }, 3000);
+  }
+
+  function refreshPreviews() {
+    renderWordsPreview();
+    updateCount();
+  }
+
+  function renderGlossary() {
+    const rows = glossary.terms.map((entry, index) => {
+      const row = el('tr');
+      row.dataset.index = String(index);
+      const term = el('th', '', entry.term);
+      term.scope = 'row';
+      const other = (lang) => el('td', entry.explanation[lang] ? '' : 'glossary-table__fallback', entry.explanation[lang] || 'uses ca');
+      const actions = el('td', 'glossary-table__actions');
+      actions.append(button('edit', 'edit', `edit ${entry.term}`), button('delete', 'delete', `delete ${entry.term}`));
+      row.append(term, el('td', '', entry.explanation.ca), other('en'), other('es'), actions);
+      return row;
+    });
+    if (!rows.length) {
+      const empty = el('td', 'empty', 'no terms yet.');
+      empty.colSpan = 5;
+      rows.push(cell(empty));
+    }
+    $('glossary-rows').replaceChildren(...rows);
+  }
+
+  function cell(td) {
+    const row = el('tr');
+    row.append(td);
+    return row;
+  }
+
+  async function loadGlossary() {
+    const data = await api('GET', 'api/glossary', undefined, { track: false });
+    glossary = { terms: data.terms };
+    glossaryVersion = data.version;
+    renderGlossary();
+    refreshPreviews();
+  }
+
+  const explanation = langField($('f-explanation'), { onChange: () => updateExplanationCount() });
+
+  function updateExplanationCount() {
+    $('explanation-count').textContent = `${explanation.inputs[explanation.current()].value.length} / 300 · plain text`;
+  }
+
+  function clearTermErrors() {
+    for (const id of ['term-form-error', 'e-term', 'e-explanation']) $(id).textContent = '';
+    $('term-form').querySelectorAll('[aria-invalid]').forEach((input) => input.removeAttribute('aria-invalid'));
+  }
+
+  let termReturnFocus = null;
+  function openTermForm(index, trigger) {
+    editingTerm = index;
+    termReturnFocus = trigger;
+    clearTermErrors();
+    const entry = index === null ? null : glossary.terms[index];
+    $('term-editor-title').textContent = entry ? `edit ${entry.term}` : 'new term';
+    $('f-term').value = entry ? entry.term : '';
+    $('term-preview').textContent = entry ? entry.term : 'term';
+    explanation.set(entry ? entry.explanation : null);
+    updateExplanationCount();
+    $('term-editor').hidden = false;
+    $('f-term').focus();
+  }
+
+  function closeTermForm(focusTarget = termReturnFocus) {
+    $('term-editor').hidden = true;
+    editingTerm = null;
+    (focusTarget && focusTarget.isConnected ? focusTarget : $('new-term')).focus();
+  }
+
+  // The API takes the whole list; errors come back keyed terms.<index>.term / .explanation.<lang>.
+  async function saveGlossary(terms, { onFieldError = null } = {}) {
+    try {
+      const data = await api('PUT', 'api/glossary', { terms }, { ifMatch: glossaryVersion, track: false });
+      glossary = { terms: data.terms };
+      glossaryVersion = data.version;
+      renderGlossary();
+      refreshPreviews();
+      return true;
+    } catch (err) {
+      if (err.status === 401) return false;
+      if (err.status === 409) {
+        await loadGlossary().catch(() => {});
+        setGlossaryStatus('the glossary changed elsewhere. it has been reloaded, check it and try again.');
+      } else if (err.status === 400 && err.body.errors) {
+        const messages = Object.entries(err.body.errors);
+        if (onFieldError) onFieldError(messages);
+        else setGlossaryStatus(messages.map(([, message]) => message).join(' '));
+      } else if (err.body && err.body.version) {
+        glossaryVersion = err.body.version; // saved privately, public files pending
+        setGlossaryStatus(err.message);
+      } else {
+        setGlossaryStatus(err.status ? `could not save: ${err.message}.` : 'could not reach the server. try again.');
+      }
+      return false;
+    }
+  }
+
+  $('term-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    clearTermErrors();
+    const index = editingTerm === null ? glossary.terms.length : editingTerm;
+    const terms = glossary.terms.slice();
+    terms[index] = { term: $('f-term').value, explanation: explanation.value() };
+    const wasNew = editingTerm === null;
+    const saved = await saveGlossary(terms, {
+      onFieldError: (messages) => {
+        let first = null;
+        for (const [key, message] of messages) {
+          const match = /^terms\.(\d+)\.(term|explanation)(?:\.(ca|en|es))?$/.exec(key);
+          const mine = match && Number(match[1]) === index;
+          const target = mine ? $(match[2] === 'term' ? 'e-term' : 'e-explanation') : $('term-form-error');
+          target.textContent = target.textContent ? `${target.textContent} ${message}` : message;
+          if (!mine || first) continue;
+          if (match[2] === 'term') first = $('f-term');
+          else {
+            explanation.select(match[3] || 'ca');
+            first = explanation.inputs[match[3] || 'ca'];
+          }
+          first.setAttribute('aria-invalid', 'true');
+        }
+        (first || $('term-form-error')).focus();
+      },
+    });
+    if (!saved) return;
+    const term = termKey(terms[index].term);
+    const row = $('glossary-rows').querySelector(`tr:nth-child(${glossary.terms.findIndex((entry) => termKey(entry.term) === term) + 1})`);
+    closeTermForm(wasNew ? $('new-term') : row?.querySelector('[data-action="edit"]'));
+    setGlossaryStatus('saved');
+  });
+
+  $('f-term').addEventListener('input', () => { $('term-preview').textContent = $('f-term').value.trim() || 'term'; });
+  $('term-cancel').addEventListener('click', () => closeTermForm());
+  $('term-editor').addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeTermForm();
+  });
+  $('new-term').addEventListener('click', (event) => openTermForm(null, event.currentTarget));
+
+  $('glossary-rows').addEventListener('click', async (event) => {
+    const btn = event.target.closest('button[data-action]');
+    if (!btn) return;
+    const index = Number(btn.closest('tr').dataset.index);
+    if (btn.dataset.action === 'edit') return openTermForm(index, btn);
+    if (!btn.dataset.confirm) {
+      btn.dataset.confirm = '1';
+      btn.textContent = 'confirm delete';
+      btn.classList.add('btn--danger');
+      return;
+    }
+    const removed = glossary.terms[index].term;
+    if (await saveGlossary(glossary.terms.filter((_, i) => i !== index))) {
+      $('new-term').focus();
+      setGlossaryStatus('deleted');
+    } else if (!$('glossary-status').textContent) setGlossaryStatus(`could not delete ${removed}.`);
+  });
+  $('glossary-rows').addEventListener('focusout', (event) => {
+    const btn = event.target;
+    if (btn.dataset && btn.dataset.confirm) {
+      delete btn.dataset.confirm;
+      btn.textContent = 'delete';
+      btn.classList.remove('btn--danger');
+    }
+  });
+
   /* ---------- Session ---------- */
 
   $('login-form').addEventListener('submit', async (event) => {
@@ -590,6 +796,7 @@ import { slugify } from './slug.js';
     await api('POST', 'api/logout').catch(() => {});
     version = null;
     wordsVersion = null;
+    glossaryVersion = null;
     showLogin();
   });
 

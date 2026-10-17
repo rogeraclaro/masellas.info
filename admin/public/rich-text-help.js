@@ -16,8 +16,12 @@ const EXAMPLES = [
   ['code (taken literally)', '`npm test`'],
   ['link', '[my site](https://masellas.info)'],
   ['email link', '[write me](mailto:roger@lamosca.com)'],
-  ['escape: \\ before * ~ ` [ ] ( ) > - # \\', '\\*not bold\\*'],
+  ['term with the glossary explanation', '{{RAG}}'],
+  ['term with its own explanation', '{{RAG|retrieval-augmented generation}}'],
+  ['escape: \\ before * ~ ` [ ] ( ) > - # { } \\', '\\*not bold\\*'],
 ];
+// The {{RAG}} example as if the glossary had it.
+const exampleGlossary = (key) => (key === 'rag' ? 'retrieval-augmented generation (from the glossary)' : null);
 
 const instances = new Set();
 let isOpen = null; // shared state; "toggle" also fires (async) for the initial value, so compare with it
@@ -61,7 +65,7 @@ export function formattingHelp() {
     th.scope = 'row';
     const code = cell('code', source);
     code.className = 'format-help__source';
-    const result = cell('div', ...renderRichText(parseRichText(source).blocks, { linkClass: '' }));
+    const result = cell('div', ...renderRichText(parseRichText(source).blocks, { linkClass: '', lookup: exampleGlossary }));
     result.className = 'rich-text format-help__result';
     return cell('tr', th, cell('td', code), cell('td', result));
   });

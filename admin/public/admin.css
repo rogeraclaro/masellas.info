@@ -218,3 +218,17 @@ textarea { resize: vertical; }
 .format-help__result > :last-child { margin-bottom: 0; }
 .format-help__result { --rich-gap: 0.5em; }
 .format-help__result a { color: var(--coral); }
+
+/* glossary */
+.glossary-table { width: 100%; max-width: 1100px; border-collapse: collapse; font-family: var(--font-book); }
+.glossary-table th, .glossary-table td { padding: 12px 12px 12px 0; border-top: 1px solid var(--hairline); text-align: left; vertical-align: top; font-weight: normal; }
+.glossary-table thead th { color: var(--bone-60); }
+.glossary-table tbody th { font-family: var(--font-bold); }
+.glossary-table__fallback { color: var(--bone-60); }
+.glossary-table__actions { white-space: nowrap; text-align: right; }
+.glossary-table__actions .btn + .btn { margin-left: 6px; }
+@media (max-width: 720px) {
+  .glossary-table thead { display: none; }
+  .glossary-table tr { display: block; padding: 12px 0; border-top: 1px solid var(--hairline); }
+  .glossary-table th, .glossary-table td { display: block; padding: 2px 0; border: 0; text-align: left; }
+}

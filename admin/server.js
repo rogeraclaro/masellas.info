@@ -6,7 +6,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createStore, ConflictError } from './lib/store.js';
 import { verifyPassword, signSession, verifySession, createRateLimiter } from './lib/auth.js';
-import { validateProject, validateSomeWords, uniqueSlug, isPermutation, slugOwner } from './lib/validation.js';
+import { validateProject, validateSomeWords, validateGlossary, uniqueSlug, isPermutation, slugOwner } from './lib/validation.js';
+import { glossaryPath, prepareGlossary, missingTerms, termUsage } from './lib/glossary.js';
+import { termKey } from './lib/rich-text.js';
+import { LANGS } from './lib/languages.js';
 import { parseEnv, loadConfig } from './lib/config.js';
 import { writePublic, prepareFiles, someWordsPaths, writeSomeWordsPublic, prepareSomeWords } from './lib/publish.js';
 import { migrateProjects, migrateSomeWords } from './lib/languages.js';
@@ -20,6 +23,7 @@ const SHARED_FILES = {
   '/rich-text-dom.js': path.join(HERE, 'lib/rich-text-dom.js'),
   '/rich-text.css': path.join(HERE, 'lib/rich-text.css'),
   '/slug.js': path.join(HERE, 'lib/slug.js'),
+  '/term-tooltip.js': path.join(HERE, 'lib/term-tooltip.js'),
 };
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -123,16 +127,24 @@ export function createApp({
   dataFile, publicFile, passwordHash, sessionSecret, cookieSecure, publicUrl, cookiePath = '/', trustProxy = false, log = console.log,
   someWordsFile = someWordsPaths({ dataFile, publicFile }).someWordsFile,
   someWordsPublicFile = someWordsPaths({ dataFile, publicFile }).someWordsPublicFile,
+  glossaryFile = glossaryPath(dataFile),
 }) {
   // Older files (plain strings) are read as { ca, en, es } and stored that way on the next write.
   const store = createStore(dataFile, { migrate: migrateProjects });
   const wordsStore = createStore(someWordsFile, { migrate: migrateSomeWords });
+  const glossaryStore = createStore(glossaryFile);
+  // Before the first boot creates it, a missing glossary reads as empty.
+  const readGlossary = () => glossaryStore.read().then(({ data }) => data, (err) => {
+    if (err.code === 'ENOENT') return { terms: [] };
+    throw err;
+  });
   const limiter = createRateLimiter({ max: 5, windowMs: 15 * 60 * 1000 });
   const cookieAttrs = `HttpOnly; SameSite=Strict; Path=${cookiePath}${cookieSecure ? '; Secure' : ''}`;
-  // A private file plus its public copy: mutations run under If-Match, then republish.
-  // Public writes run one at a time, in mutation order, so an older copy can never land last.
+  // A private file plus its public copies: mutations run under If-Match, then republish.
+  // Public writes (of every resource: the glossary republishes the others) run one at a time, in
+  // mutation order, and each reads the current private data, so an older copy can never land last.
+  let publishQueue = Promise.resolve();
   function resource(resourceStore, writeCopy, shape) {
-    let publishQueue = Promise.resolve();
     const publish = (data) => {
       const run = publishQueue.then(() => writeCopy(data));
       publishQueue = run.catch(() => {});
@@ -159,8 +171,31 @@ export function createApp({
       sendJson(res, status, { ...shape(data), version });
     };
   }
-  const mutate = resource(store, (data) => writePublic(publicFile, data), (data) => ({ projects: data.projects }));
-  const mutateWords = resource(wordsStore, (data) => writeSomeWordsPublic(someWordsPublicFile, data), (data) => ({ text: data.text }));
+  const mutate = resource(store, async (data) => writePublic(publicFile, data, await readGlossary()), (data) => ({ projects: data.projects }));
+  const mutateWords = resource(wordsStore, async (data) => writeSomeWordsPublic(someWordsPublicFile, data, await readGlossary()), (data) => ({ text: data.text }));
+  const mutateGlossary = resource(glossaryStore, async (glossary) => {
+    const [{ data: projects }, { data: words }] = await Promise.all([store.read(), wordsStore.read()]);
+    await writePublic(publicFile, projects, glossary);
+    await writeSomeWordsPublic(someWordsPublicFile, words, glossary);
+  }, (data) => ({ terms: data.terms }));
+
+  // {{term}}s (without their own explanation) must be in the glossary. value: { ca, en, es } or undefined.
+  async function termErrors(field, label, value) {
+    if (!value) return {};
+    const keys = new Set((await readGlossary()).terms.map((entry) => termKey(entry.term)));
+    const errors = {};
+    for (const lang of LANGS) {
+      const missing = missingTerms(value[lang], keys);
+      if (missing.length) {
+        errors[`${field}.${lang}`] = missing.map((term) => `${label} (${lang}): "${term}" is not in the glossary: add it to the glossary or write {{${term}|explanation}}`).join(' ');
+      }
+    }
+    return errors;
+  }
+  const assertTermsKnown = async (...args) => {
+    const errors = await termErrors(...args);
+    if (Object.keys(errors).length) throw invalid(errors);
+  };
 
   // Behind the proxy every socket is 127.0.0.1; only then trust its headers (otherwise they are spoofable).
   function clientIp(req) {
@@ -217,6 +252,7 @@ export function createApp({
       const { position, ...fields } = body;
       const { value, errors } = validateProject(fields);
       if (Object.keys(errors).length) throw invalid(errors);
+      await assertTermsKnown('ai', 'how I used AI', value.ai);
       return mutate(req, res, 201, (data) => {
         if (value.id) assertSlugFree(data.projects, value.id);
         const project = { id: value.id || uniqueSlug(value.title, data.projects.map((p) => p.id)), ...value };
@@ -242,7 +278,31 @@ export function createApp({
     if (method === 'PUT' && pathname === '/api/some-words') {
       const { value, errors } = validateSomeWords(body);
       if (Object.keys(errors).length) throw invalid(errors);
+      await assertTermsKnown('text', 'text', value.text);
       return mutateWords(req, res, 200, () => ({ text: value.text }));
+    }
+    if (method === 'GET' && pathname === '/api/glossary') {
+      const { data, version } = await glossaryStore.read();
+      return sendJson(res, 200, { terms: data.terms, version });
+    }
+    if (method === 'PUT' && pathname === '/api/glossary') {
+      const { value, errors } = validateGlossary(body);
+      if (Object.keys(errors).length) throw invalid(errors);
+      return mutateGlossary(req, res, 200, async (current) => {
+        // Removing (or renaming) a term is refused while a text still uses it without its own explanation.
+        const kept = new Set(value.terms.map((entry) => termKey(entry.term)));
+        const removed = (current.terms ?? []).filter((entry) => !kept.has(termKey(entry.term)));
+        if (removed.length) {
+          const [{ data: projects }, { data: words }] = await Promise.all([store.read(), wordsStore.read()]);
+          const blocked = removed
+            .map((entry) => [entry.term, termUsage({ projects, words }, termKey(entry.term))])
+            .filter(([, places]) => places.length);
+          if (blocked.length) {
+            throw invalid({ _usage: blocked.map(([term, places]) => `"${term}" is still used in ${places.join(', ')}: remove it there, or give it its own explanation there ({{${term}|…}}).`).join(' ') });
+          }
+        }
+        return { terms: value.terms };
+      });
     }
     const match = /^\/api\/projects\/([^/]+)$/.exec(pathname);
     if (match && (method === 'PUT' || method === 'DELETE')) {
@@ -255,6 +315,7 @@ export function createApp({
       }
       const { value, errors } = validateProject(body, { partial: true });
       if (Object.keys(errors).length) throw invalid(errors);
+      await assertTermsKnown('ai', 'how I used AI', value.ai);
       return mutate(req, res, 200, (data) => {
         const index = findIndex(data.projects, id);
         if (value.id) assertSlugFree(data.projects, value.id, id);
@@ -298,12 +359,15 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     process.exit(1);
   }
   try {
-    const { seeded } = await prepareFiles(config);
+    const { created } = await prepareGlossary(config);
+    if (created) console.log(`admin: created an empty glossary (${config.glossaryFile})`);
+    const glossary = JSON.parse(readFileSync(config.glossaryFile, 'utf8'));
+    const { seeded } = await prepareFiles({ ...config, glossary });
     if (seeded) console.log(`admin: seeded DATA_FILE from PUBLIC_FILE (${config.dataFile})`);
     // Last resort for "some words": the default committed in the repo (absent on the server,
     // where the deploy seeds the public copy instead).
     const defaultFile = path.resolve(HERE, '../projects/data/some-words.json');
-    const words = await prepareSomeWords({ ...config, defaultFile });
+    const words = await prepareSomeWords({ ...config, defaultFile, glossary });
     if (words.seeded) console.log(`admin: seeded ${config.someWordsFile} from ${words.seeded}`);
   } catch (err) {
     console.error(`admin: ${err.message}`);

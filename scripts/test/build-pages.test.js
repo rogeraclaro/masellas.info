@@ -77,6 +77,11 @@ test('richTextHtml renders every style, escaped, with the block class on each bl
   assert.throws(() => richTextHtml('a **b'), /unclosed/);
 });
 
+test('richTextHtml: {{term|…}} becomes a tooltip term; a bare {{term}} is just its text (no glossary at build time)', () => {
+  const html = richTextHtml('Uses {{RAG|retrieval & generation}} and {{LLM}}. **{{x|<y>}}**');
+  assert.equal(html, '<p>Uses <button type="button" class="term" aria-describedby="term-static-1">RAG</button><span id="term-static-1" hidden>retrieval &amp; generation</span> and LLM. <strong><button type="button" class="term" aria-describedby="term-static-2">x</button><span id="term-static-2" hidden>&lt;y&gt;</span></strong></p>');
+});
+
 test('the repo sources build six pages with lang, hreflang, og:locale and the switcher', async () => {
   const pages = await buildPages({ root: REPO, write: false });
   assert.deepEqual(pages.map((p) => p.file).sort(), [

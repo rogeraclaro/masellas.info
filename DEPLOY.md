@@ -22,6 +22,7 @@ Server layout:
   .env                                                 config + secrets (never deployed)
 /home/rogermasellas/masellas-admin/data/projects.json  private list, hidden projects included
 /home/rogermasellas/masellas-admin/data/some-words.json  private copy of the "some words" text
+/home/rogermasellas/masellas-admin/data/glossary.json    glossary for {{term}} tooltips (created empty on first boot)
 ```
 
 ## Languages

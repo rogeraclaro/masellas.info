@@ -10,6 +10,7 @@ import { bindLangLinks } from './shared/lang-links.js';
 // Same parser the admin validates with (admin/lib is deployed as-is; esbuild bundles it here).
 import { parseRichText, RICH_TEXT_MAX } from '../admin/lib/rich-text.js';
 import { renderRichText } from '../admin/lib/rich-text-dom.js';
+import { bindTermTooltips } from '../admin/lib/term-tooltip.js';
 
 const root = document.documentElement;
 const gsap = window.gsap;
@@ -217,6 +218,7 @@ async function init() {
   hideText(sections[start]);
   bindInput();
   bindLangLinks(document.querySelector('.lang-nav'));
+  bindTermTooltips({ gsap: animate ? gsap : null, ease: alpha });
 
   // Never blocks "the point"; a deep link to "some words" waits briefly (max 1.5 s) for its text.
   const wordsReady = wordsSection

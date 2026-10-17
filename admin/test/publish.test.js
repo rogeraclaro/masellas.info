@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile, readdir, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { toPublic, writePublic, prepareFiles } from '../lib/publish.js';
+import { toPublic, writePublic, prepareFiles, writeSomeWordsPublic } from '../lib/publish.js';
 
 const project = (id, visible) => ({
   id, title: id.toUpperCase(), category: 'tool', year: 2026, description: '', url: `https://${id}.example.com`, visible, thumbs: [],
@@ -111,4 +111,22 @@ test('prepareFiles seeds the private file from the public one when it is missing
 
 test('prepareFiles fails when neither file exists', async () => {
   await assert.rejects(prepareFiles({ dataFile, publicFile }), /DATA_FILE/);
+});
+
+const glossary = { terms: [{ term: 'RAG', explanation: { ca: 'generació augmentada', en: 'retrieval-augmented generation', es: '' } }] };
+
+test('publishing resolves glossary terms per language (fallback ca) and keeps inline explanations', async () => {
+  const data = { projects: [{ ...project('t', true), ai: { ca: 'Amb {{RAG}}.', en: 'With {{RAG}} and {{LLM|large language model}}.', es: 'Con {{rag}}.' } }] };
+  assert.equal(toPublic(data, 'en', glossary).projects[0].ai, 'With {{RAG|retrieval-augmented generation}} and {{LLM|large language model}}.');
+  assert.equal(toPublic(data, 'es', glossary).projects[0].ai, 'Con {{rag|generació augmentada}}.');
+  assert.equal(toPublic(data, 'ca').projects[0].ai, 'Amb {{RAG}}.', 'no glossary: left as written');
+  await writePublic(publicFile, data, glossary);
+  const read = async (name) => JSON.parse(await readFile(path.join(path.dirname(publicFile), name), 'utf8')).projects[0].ai;
+  assert.equal(await read('projects.ca.json'), 'Amb {{RAG|generació augmentada}}.');
+  assert.equal(await read('projects.json'), 'Amb {{RAG|generació augmentada}}.');
+  const words = path.join(path.dirname(publicFile), 'some-words.json');
+  await writeSomeWordsPublic(words, { text: { ca: '{{RAG}}', en: '{{RAG}}', es: '' } }, glossary);
+  const text = async (lang) => JSON.parse(await readFile(path.join(path.dirname(publicFile), `some-words.${lang}.json`), 'utf8')).text;
+  assert.equal(await text('en'), '{{RAG|retrieval-augmented generation}}');
+  assert.equal(await text('es'), '{{RAG|generació augmentada}}', 'empty es text falls back to ca, then resolves for es (ca explanation)');
 });

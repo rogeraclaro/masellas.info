@@ -1,5 +1,5 @@
 // Pure validation helpers for project records and the home's "some words". No I/O.
-import { parseRichText, RICH_TEXT_MAX } from './rich-text.js';
+import { parseRichText, RICH_TEXT_MAX, TERM_MAX, EXPLANATION_MAX, termKey } from './rich-text.js';
 import { LANGS, DEFAULT_LANG } from './languages.js';
 import { slugify, checkSlug } from './slug.js';
 
@@ -145,4 +145,49 @@ export function validateSomeWords(input) {
   const check = perLanguage(input.text, 'text', richText, { min: 1 });
   if (check.errors) Object.assign(errors, check.errors);
   return { value: check.errors ? {} : { text: check.value }, errors };
+}
+
+/* ---------- Glossary: { terms: [{ term, explanation: { ca, en, es } }] } ---------- */
+
+const GLOSSARY_MAX = 500;
+
+function explanationText(v, opts) {
+  const check = text(v, { ...opts, max: EXPLANATION_MAX });
+  if (check.value && check.value.includes('}}')) return { error: `${opts.label} cannot contain }}` };
+  return check;
+}
+
+// Terms are shared by every language and unique ignoring case; explanations are per language
+// (ca required). Returns the terms sorted alphabetically, ignoring case.
+export function validateGlossary(input) {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
+    return { value: {}, errors: { _body: 'expected a JSON object' } };
+  }
+  const errors = {};
+  const unknown = Object.keys(input).filter((key) => key !== 'terms');
+  if (unknown.length) errors._unknown = `unknown fields: ${unknown.join(', ')}`;
+  if (!Array.isArray(input.terms)) return { value: {}, errors: { ...errors, terms: 'terms must be a list' } };
+  if (input.terms.length > GLOSSARY_MAX) return { value: {}, errors: { ...errors, terms: `up to ${GLOSSARY_MAX} terms` } };
+  const seen = new Map();
+  const terms = [];
+  input.terms.forEach((item, index) => {
+    const at = `terms.${index}`;
+    if (item === null || typeof item !== 'object' || Array.isArray(item)) {
+      errors[at] = 'each entry needs a term and an explanation';
+      return;
+    }
+    const extra = Object.keys(item).filter((key) => key !== 'term' && key !== 'explanation');
+    if (extra.length) errors[at] = `unknown fields: ${extra.join(', ')}`;
+    const term = text(item.term, { min: 1, max: TERM_MAX, label: 'term' });
+    if (term.error) errors[`${at}.term`] = term.error;
+    else if (/[|{}]/.test(term.value)) errors[`${at}.term`] = 'term cannot contain | { or }';
+    else if (seen.has(termKey(term.value))) errors[`${at}.term`] = `${seen.get(termKey(term.value))} is already in the glossary (terms ignore case)`;
+    else seen.set(termKey(term.value), term.value);
+    const explanation = perLanguage(item.explanation, `${at}.explanation`, explanationText, { min: 1, label: 'explanation' });
+    if (explanation.errors) Object.assign(errors, explanation.errors);
+    if (!term.error && explanation.value) terms.push({ term: term.value, explanation: explanation.value });
+  });
+  if (Object.keys(errors).length) return { value: {}, errors };
+  terms.sort((a, b) => termKey(a.term).localeCompare(termKey(b.term)));
+  return { value: { terms }, errors };
 }

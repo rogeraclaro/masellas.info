@@ -5,13 +5,19 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { writeAtomic } from './store.js';
 import { LANGS, DEFAULT_LANG, pick, localizedFile, migrateProjects, migrateSomeWords } from './languages.js';
+import { resolveTerms } from './rich-text.js';
+import { glossaryLookup } from './glossary.js';
 
-export function toPublic(data, lang = DEFAULT_LANG) {
+// Rich text for one language with its {{term}}s explained from the glossary (in that language, or ca),
+// so the site never needs the glossary itself.
+const publicText = (value, lang, glossary) => resolveTerms(pick(value, lang), glossaryLookup(glossary, lang));
+
+export function toPublic(data, lang = DEFAULT_LANG, glossary = null) {
   return {
     projects: data.projects
       .filter((p) => p.visible !== false)
       .map(({ id, title, category, year, description, url, thumbs, ai = '', tools = [] }) => ({
-        id, title, category: pick(category, lang), year, description: pick(description, lang), url, thumbs, ai: pick(ai, lang), tools,
+        id, title, category: pick(category, lang), year, description: pick(description, lang), url, thumbs, ai: publicText(ai, lang, glossary), tools,
       })),
   };
 }
@@ -25,12 +31,12 @@ async function writeLanguages(file, publicFor) {
   await writeAtomic(file, json(DEFAULT_LANG), 0o644);
 }
 
-export function writePublic(publicFile, data) {
-  return writeLanguages(publicFile, (lang) => toPublic(data, lang));
+export function writePublic(publicFile, data, glossary = null) {
+  return writeLanguages(publicFile, (lang) => toPublic(data, lang, glossary));
 }
 
 // Boot: seed DATA_FILE from PUBLIC_FILE once if needed, then bring PUBLIC_FILE in sync.
-export async function prepareFiles({ dataFile, publicFile }) {
+export async function prepareFiles({ dataFile, publicFile, glossary = null }) {
   let seeded = false;
   if (!existsSync(dataFile)) {
     if (!existsSync(publicFile)) throw new Error(`neither DATA_FILE (${dataFile}) nor PUBLIC_FILE (${publicFile}) exists`);
@@ -40,7 +46,7 @@ export async function prepareFiles({ dataFile, publicFile }) {
     seeded = true;
   }
   const data = migrateProjects(JSON.parse(await readFile(dataFile, 'utf8')));
-  await writePublic(publicFile, data);
+  await writePublic(publicFile, data, glossary);
   return { seeded };
 }
 
@@ -55,13 +61,13 @@ export function someWordsPaths({ dataFile, publicFile }) {
 }
 
 // Public copies: { text } for one language each (empty -> ca), plus the legacy file (= ca).
-export function writeSomeWordsPublic(publicFile, data) {
-  return writeLanguages(publicFile, (lang) => ({ text: pick(data.text, lang) }));
+export function writeSomeWordsPublic(publicFile, data, glossary = null) {
+  return writeLanguages(publicFile, (lang) => ({ text: publicText(data.text, lang, glossary) }));
 }
 
 // Boot: seed the private file once (from the public copy, else the repo default),
 // then republish. Returns the file it was seeded from, or null.
-export async function prepareSomeWords({ someWordsFile, someWordsPublicFile, defaultFile }) {
+export async function prepareSomeWords({ someWordsFile, someWordsPublicFile, defaultFile, glossary = null }) {
   let seeded = null;
   if (!existsSync(someWordsFile)) {
     seeded = [someWordsPublicFile, defaultFile].find((file) => file && existsSync(file)) || null;
@@ -71,6 +77,6 @@ export async function prepareSomeWords({ someWordsFile, someWordsPublicFile, def
     await writeFile(someWordsFile, `${JSON.stringify({ text }, null, 2)}\n`, { mode: 0o600 });
   }
   const data = migrateSomeWords(JSON.parse(await readFile(someWordsFile, 'utf8')));
-  await writeSomeWordsPublic(someWordsPublicFile, data);
+  await writeSomeWordsPublic(someWordsPublicFile, data, glossary);
   return { seeded };
 }

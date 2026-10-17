@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRichText } from '../lib/rich-text.js';
+import { parseRichText, resolveTerms, termKey } from '../lib/rich-text.js';
 
 const text = (value) => ({ type: 'text', value });
 const br = { type: 'br' };
@@ -217,4 +217,61 @@ test('plain texts parse exactly as before (one text part per line)', () => {
     p(text('Claude wrote the first pass of the invoice parser. I rewrote the edge cases: VAT on partial hours, credit notes.')),
     p(text('Cursor did most of the boring CRUD - while I watched (the tests).'), br, text('Numbers are mine.')),
   ]);
+});
+
+/* ---------- Terms: {{term}} and {{term|explanation}} ---------- */
+
+const term = (label, explanation = null) => ({ type: 'term', label, explanation, key: label.trim().toLowerCase() });
+
+test('{{term}} is a glossary term; {{term|explanation}} carries its own explanation', () => {
+  assert.deepEqual(parse('We used {{RAG}} and {{LLM|large language model}}.'), [p(
+    text('We used '), term('RAG'), text(' and '), term('LLM', 'large language model'), text('.'),
+  )]);
+});
+
+test('only the first | splits; label and explanation are trimmed plain text', () => {
+  assert.deepEqual(parse('{{ a|b | c **d** }}'), [p(term('a', 'b | c **d**'))]);
+  assert.deepEqual(parse('{{**x**}}'), [p(term('**x**'))], 'no markup inside a term');
+});
+
+test('termKey normalises for the glossary: trim and lowercase', () => {
+  assert.equal(termKey('  RAG '), 'rag');
+  assert.equal(parse('{{ Claude Code }}')[0].parts[0].key, 'claude code');
+});
+
+test('terms may sit inside bold and strikethrough; code keeps them literal', () => {
+  assert.deepEqual(parse('**see {{RAG}}** ~~{{x|y}}~~ `{{RAG}}`'), [p(
+    strong(text('see '), term('RAG')), text(' '), strike(term('x', 'y')), text(' '), code('{{RAG}}'),
+  )]);
+});
+
+test('\\{ and \\} are literal braces; a single { or } is just text', () => {
+  assert.deepEqual(parse('\\{\\{RAG\\}\\} {a} }}'), [p(text('{{RAG}} {a} }}'))]);
+});
+
+const termErrors = [
+  ['open {{RAG and more', /unclosed "\{\{".*\{\{RAG/],
+  ['empty {{  }} here', /empty term/],
+  ['empty {{|explained}} here', /empty term/],
+  ['empty explanation {{RAG|  }}', /explanation/],
+  [`long {{${'x'.repeat(61)}}}`, /60/],
+  [`long {{RAG|${'x'.repeat(301)}}}`, /300/],
+  ['[see {{RAG}}](https://x.example)', /link/],
+];
+
+for (const [input, message] of termErrors) {
+  test(`term error: ${JSON.stringify(input).slice(0, 50)}`, () => {
+    const { errors } = parseRichText(input);
+    assert.equal(errors.length, 1, errors.join(' | '));
+    assert.match(errors[0], message);
+  });
+}
+
+test('resolveTerms fills bare terms from a lookup, keeps inline explanations, code, escapes and unknown terms', () => {
+  const lookup = (key) => ({ rag: 'retrieval-augmented generation', llm: 'large language model' })[key] ?? null;
+  const input = '## {{RAG}}\n\n- **{{llm}}** and {{RAG|my own words}}\n- `{{RAG}}` \\{{RAG}} {{unknown}}';
+  assert.equal(resolveTerms(input, lookup), '## {{RAG|retrieval-augmented generation}}\n\n- **{{llm|large language model}}** and {{RAG|my own words}}\n- `{{RAG}}` \\{{RAG}} {{unknown}}');
+  assert.equal(resolveTerms('no terms here', lookup), 'no terms here');
+  const resolved = parseRichText(resolveTerms('{{RAG}}', lookup));
+  assert.deepEqual(resolved.blocks[0].parts, [term('RAG', 'retrieval-augmented generation')]);
 });

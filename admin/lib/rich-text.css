@@ -74,3 +74,52 @@
 .rich-text blockquote p {
   margin: 0;
 }
+
+/* Terms ({{term}}): a button that reads as text, with a dotted underline; term-tooltip.js shows the
+   explanation in one bone bubble per page (works on charcoal and on coral). */
+.rich-text .term {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: inherit;
+  text-transform: inherit;
+  text-decoration: underline dotted 1px currentColor;
+  text-underline-offset: 0.2em;
+  cursor: help;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.rich-text .term:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.term-tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 90; /* over the menus (70) and the project detail (60) */
+  max-width: min(32ch, calc(100vw - 16px));
+  padding: 8px 12px;
+  border-radius: 0;
+  background: var(--bone, #e4e1ce);
+  color: var(--charcoal, #272525);
+  font-family: var(--font-book);
+  font-size: 0.95rem;
+  font-weight: 400;
+  line-height: 1.35;
+  letter-spacing: normal;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.term-tooltip[hidden] {
+  display: none;
+}

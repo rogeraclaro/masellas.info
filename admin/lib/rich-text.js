@@ -11,16 +11,21 @@
 //   **bold**  ~~strikethrough~~  `code` (literal)  [label](url) with an http:, https: or mailto: URL
 //   bold / strikethrough may contain each other, links and code; a link label may contain bold,
 //   strikethrough and code.
-//   A backslash before * ~ \ ` [ ] ( ) > - # makes it literal.
+//   {{term}} (explained by the glossary) and {{term|explanation}} (its own explanation): plain text,
+//   allowed inside bold / strikethrough, not inside a link label (and literal inside code).
+//   A backslash before * ~ \ ` [ ] ( ) > - # { } makes it literal.
 // Anything malformed is reported (and kept as text so a preview can still show it).
 //
 // AST: blocks  { type: 'p' | 'h' | 'quote', parts } | { type: 'ul', items: [parts] }
 //      parts   { type: 'text', value } | { type: 'br' } | { type: 'code', value }
 //              | { type: 'strong' | 's', parts } | { type: 'link', href, parts }
+//              | { type: 'term', label, explanation | null, key }   (key: termKey(label), for the glossary)
 
 export const RICH_TEXT_MAX = 4000;
+export const TERM_MAX = 60;
+export const EXPLANATION_MAX = 300;
 const SCHEMES = new Set(['http:', 'https:', 'mailto:']);
-const ESCAPABLE = new Set(['*', '~', '\\', '`', '[', ']', '(', ')', '>', '-', '#']);
+const ESCAPABLE = new Set(['*', '~', '\\', '`', '[', ']', '(', ')', '>', '-', '#', '{', '}']);
 const MARKS = [['**', 'strong', 'bold'], ['~~', 's', 'strikethrough']];
 // [label](href): the label may hold escaped characters but no bare brackets or newlines; the href
 // has no spaces and allows one level of balanced parentheses (e.g. Wikipedia URLs).
@@ -42,7 +47,33 @@ function checkHref(href) {
   return null;
 }
 
-const plainText = (parts) => parts.map((part) => part.value ?? (part.parts ? plainText(part.parts) : '')).join('');
+const plainText = (parts) => parts.map((part) => part.value ?? part.label ?? (part.parts ? plainText(part.parts) : '')).join('');
+
+// Glossary key of a term: trimmed, lowercase.
+export const termKey = (label) => String(label).trim().toLowerCase();
+
+// "{{" at `at` in a line: { end, whole, label, explanation } (end: index after "}}"), or null if unclosed.
+function readTerm(src, at) {
+  const close = src.indexOf('}}', at + 2);
+  if (close === -1) return null;
+  const inner = src.slice(at + 2, close);
+  const bar = inner.indexOf('|');
+  return {
+    end: close + 2,
+    whole: src.slice(at, close + 2),
+    inner,
+    label: (bar === -1 ? inner : inner.slice(0, bar)).trim(),
+    explanation: bar === -1 ? null : inner.slice(bar + 1).trim(),
+  };
+}
+
+function termProblem({ label, explanation }) {
+  if (!label) return 'has an empty term';
+  if (label.length > TERM_MAX) return `has a term longer than ${TERM_MAX} characters`;
+  if (explanation !== null && !explanation) return 'has an empty explanation (write {{term}} to use the glossary one)';
+  if (explanation !== null && explanation.length > EXPLANATION_MAX) return `has an explanation longer than ${EXPLANATION_MAX} characters`;
+  return null;
+}
 
 // Parses src from `start` until the `close` mark (or the end). Marks already open (`open`) are
 // plain text inside, so bold-in-bold can never nest. Returns { parts, end, closed }.
@@ -77,6 +108,25 @@ function parseSpan(src, start, errors, { close = null, open = [], inLink = false
       }
       buffer += char;
       i += 1;
+      continue;
+    }
+    if (src.startsWith('{{', i)) {
+      const found = readTerm(src, i);
+      if (!found) {
+        errors.push(`unclosed "{{" near "${snippet(src, i)}": close a term with }} (write \\{ for a literal {)`);
+        buffer += '{{';
+        i += 2;
+        continue;
+      }
+      const problem = inLink ? 'cannot be inside a link label: put it next to the link' : termProblem(found);
+      if (problem) {
+        errors.push(`term "${found.whole}" ${problem}`);
+        buffer += found.whole;
+      } else {
+        flush();
+        parts.push({ type: 'term', label: found.label, explanation: found.explanation, key: termKey(found.label) });
+      }
+      i = found.end;
       continue;
     }
     const mark = MARKS.find(([token]) => src.startsWith(token, i));
@@ -170,4 +220,33 @@ export function parseRichText(input) {
     .filter(Boolean)
     .map((block) => parseBlock(block, errors));
   return { blocks, errors };
+}
+
+// Publishing: every {{term}} without its own explanation becomes {{term|<lookup(key)>}} (unknown
+// keys stay as they are). Follows the parser's rules, so code spans and escaped braces are untouched.
+export function resolveTerms(text, lookup) {
+  return String(text).split('\n').map((line) => {
+    let out = '';
+    let i = 0;
+    while (i < line.length) {
+      const char = line[i];
+      if (char === '\\' && ESCAPABLE.has(line[i + 1])) {
+        out += line.slice(i, i + 2);
+        i += 2;
+      } else if (char === '`' && line.indexOf('`', i + 1) > i + 1) {
+        const end = line.indexOf('`', i + 1) + 1;
+        out += line.slice(i, end);
+        i = end;
+      } else if (line.startsWith('{{', i) && readTerm(line, i)) {
+        const found = readTerm(line, i);
+        const explanation = found.explanation === null && found.label ? lookup(termKey(found.label)) : null;
+        out += explanation ? `{{${found.inner}|${explanation}}}` : found.whole;
+        i = found.end;
+      } else {
+        out += char;
+        i += 1;
+      }
+    }
+    return out;
+  }).join('\n');
 }

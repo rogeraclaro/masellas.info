@@ -66,30 +66,38 @@ export function checkDictionaries(dicts) {
 }
 
 // The "some words" fallback: the same parser, and the same markup as admin/lib/rich-text-dom.js.
-function inlineHtml(parts, linkClass) {
+// No glossary here: {{term|explanation}} becomes a tooltip term, a bare {{term}} just its text.
+function inlineHtml(parts, linkClass, ids) {
   return parts.map((part) => {
+    if (part.type === 'term') {
+      if (!part.explanation) return escapeHtml(part.label);
+      const id = `term-static-${(ids.count += 1)}`;
+      return `<button type="button" class="term" aria-describedby="${id}">${escapeHtml(part.label)}</button><span id="${id}" hidden>${escapeHtml(part.explanation)}</span>`;
+    }
     if (part.type === 'br') return '<br>';
     if (part.type === 'text') return escapeHtml(part.value);
     if (part.type === 'code') return `<code>${escapeHtml(part.value)}</code>`;
-    if (part.type === 'strong' || part.type === 's') return `<${part.type}>${inlineHtml(part.parts, linkClass)}</${part.type}>`;
+    if (part.type === 'strong' || part.type === 's') return `<${part.type}>${inlineHtml(part.parts, linkClass, ids)}</${part.type}>`;
     const external = /^https?:/i.test(part.href) ? ' target="_blank" rel="noopener"' : '';
-    return `<a class="${linkClass}" href="${escapeHtml(part.href)}"${external}>${inlineHtml(part.parts, linkClass)}</a>`;
+    return `<a class="${linkClass}" href="${escapeHtml(part.href)}"${external}>${inlineHtml(part.parts, linkClass, ids)}</a>`;
   }).join('');
 }
 
 export function richTextHtml(text, { paragraphClass = '', linkClass = 'wipe-link', headingTag = 'h3' } = {}) {
   const { blocks, errors } = parseRichText(text);
   if (errors.length) throw new Error(errors.join(' '));
+  const ids = { count: 0 };
+  const inline = (parts) => inlineHtml(parts, linkClass, ids);
   const open = (tag, extra = '') => {
     const classes = [paragraphClass, extra].filter(Boolean).join(' ');
     return `<${tag}${classes ? ` class="${classes}"` : ''}>`;
   };
   return blocks.map((block) => {
-    if (block.type === 'h') return `${open(headingTag)}${inlineHtml(block.parts, linkClass)}</${headingTag}>`;
-    if (block.type === 'ul') return `${open('ul')}${block.items.map((item) => `<li>${inlineHtml(item, linkClass)}</li>`).join('')}</ul>`;
-    if (block.type === 'quote') return `${open('blockquote')}<p>${inlineHtml(block.parts, linkClass)}</p></blockquote>`;
+    if (block.type === 'h') return `${open(headingTag)}${inline(block.parts)}</${headingTag}>`;
+    if (block.type === 'ul') return `${open('ul')}${block.items.map((item) => `<li>${inline(item)}</li>`).join('')}</ul>`;
+    if (block.type === 'quote') return `${open('blockquote')}<p>${inline(block.parts)}</p></blockquote>`;
     const linkOnly = block.parts.length === 1 && block.parts[0].type === 'link';
-    return `${open('p', linkOnly ? 'link-only' : '')}${inlineHtml(block.parts, linkClass)}</p>`;
+    return `${open('p', linkOnly ? 'link-only' : '')}${inline(block.parts)}</p>`;
   }).join('\n');
 }
 

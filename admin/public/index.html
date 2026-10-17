@@ -28,6 +28,7 @@
 		<div class="views" role="group" aria-label="What to edit">
 			<button type="button" class="btn view-tab" data-view="projects" aria-pressed="true">projects</button>
 			<button type="button" class="btn view-tab" data-view="words" aria-pressed="false">some words</button>
+			<button type="button" class="btn view-tab" data-view="glossary" aria-pressed="false">glossary</button>
 		</div>
 		<nav class="bar__nav" aria-label="Admin">
 			<a id="view-site" class="btn" href="https://masellas.info/projects/" target="_blank" rel="noopener">view site</a>
@@ -141,6 +142,42 @@
 			<p id="preview-problems" class="hint preview-problems"></p>
 			<div id="words-preview" class="preview rich-text"></div>
 		</section>
+	</main>
+	<main class="content" id="view-glossary" hidden>
+		<h2 class="heading heading--small">glossary</h2>
+		<p class="hint">explanations for {{term}} in "some words" and "how I used AI". the site shows them as tooltips, in each language (empty en / es use ca). a term still used somewhere cannot be deleted.</p>
+		<div class="toolbar">
+			<button id="new-term" type="button" class="btn btn--primary">new term</button>
+			<p id="glossary-status" class="status" role="status" aria-live="polite"></p>
+		</div>
+
+		<section id="term-editor" class="editor" hidden aria-labelledby="term-editor-title">
+			<h3 id="term-editor-title" class="heading heading--small" tabindex="-1">new term</h3>
+			<form id="term-form" class="form" novalidate>
+				<p id="term-form-error" class="field-error" aria-live="assertive"></p>
+				<div class="field">
+					<label for="f-term">term</label>
+					<input id="f-term" name="term" maxlength="60" required autocomplete="off" aria-describedby="term-hint e-term">
+					<p id="term-hint" class="hint">as written in the text: {{<span id="term-preview">term</span>}} (case does not matter).</p>
+					<p id="e-term" class="field-error"></p>
+				</div>
+				<div class="field">
+					<label for="f-explanation">explanation</label>
+					<textarea id="f-explanation" name="explanation" rows="3" maxlength="300" required aria-describedby="explanation-count e-explanation" data-langs></textarea>
+					<p id="explanation-count" class="hint">0 / 300 · plain text</p>
+					<p id="e-explanation" class="field-error"></p>
+				</div>
+				<div class="form__actions">
+					<button type="submit" class="btn btn--primary">save</button>
+					<button id="term-cancel" type="button" class="btn">cancel</button>
+				</div>
+			</form>
+		</section>
+
+		<table class="glossary-table" aria-label="Glossary terms">
+			<thead><tr><th scope="col">term</th><th scope="col">explanation (ca)</th><th scope="col">en</th><th scope="col">es</th><th scope="col"><span class="sr-only">actions</span></th></tr></thead>
+			<tbody id="glossary-rows"></tbody>
+		</table>
 	</main>
 </div>
 

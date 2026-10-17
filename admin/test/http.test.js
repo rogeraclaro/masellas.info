@@ -58,6 +58,7 @@ before(async () => {
   await writeFile(dataFile, `${JSON.stringify(seed, null, 2)}\n`);
   // "some words" files sit next to the projects files (derived, no extra config).
   await writeFile(path.join(dir, 'private', 'some-words.json'), `${JSON.stringify({ text: 'Hello.' }, null, 2)}\n`);
+  await writeFile(path.join(dir, 'private', 'glossary.json'), `${JSON.stringify({ terms: [] }, null, 2)}\n`);
   passwordHash = hashPassword(PASSWORD);
   ({ app: server, base } = await boot());
 });
@@ -468,7 +469,7 @@ test('some words: rejects foreign origins and non-JSON like the rest of the API'
 });
 
 test('the shared rich-text modules are served for the UI, nothing else from lib/', async () => {
-  for (const name of ['rich-text.js', 'rich-text-dom.js', 'rich-text-help.js', 'slug.js']) {
+  for (const name of ['rich-text.js', 'rich-text-dom.js', 'rich-text-help.js', 'slug.js', 'term-tooltip.js']) {
     const res = await fetch(`${base}/${name}`);
     assert.equal(res.status, 200, name);
     assert.match(res.headers.get('content-type'), /javascript/);
@@ -479,4 +480,56 @@ test('the shared rich-text modules are served for the UI, nothing else from lib/
   for (const p of ['/lib/store.js', '/store.js', '/lib/rich-text.js', '/config.js']) {
     assert.equal((await fetch(base + p)).status, 404, p);
   }
+});
+
+test('glossary: GET/PUT with versions, terms checked on save, republish, and used terms cannot be deleted', async () => {
+  assert.equal((await call(base, 'GET', '/api/glossary')).status, 401);
+  let res = await call(base, 'GET', '/api/glossary', { cookie });
+  let json = await res.json();
+  assert.deepEqual(json.terms, []);
+  let { version } = json;
+
+  // A project text using an unknown term cannot be saved.
+  let projects = await (await call(base, 'GET', '/api/projects', { cookie })).json();
+  res = await call(base, 'PUT', '/api/projects/ledger', { cookie, version: projects.version, body: { ai: only('Amb {{RAG}}.', 'With {{RAG}}.', '') } });
+  assert.equal(res.status, 400);
+  const unknown = (await res.json()).errors;
+  assert.match(unknown['ai.ca'], /"RAG" is not in the glossary: add it to the glossary or write \{\{RAG\|explanation\}\}/);
+  assert.ok(unknown['ai.en']);
+  res = await call(base, 'PUT', '/api/some-words', { cookie, version: (await (await call(base, 'GET', '/api/some-words', { cookie })).json()).version, body: { text: only('{{RAG}}') } });
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).errors['text.ca'], /not in the glossary/);
+
+  assert.equal((await call(base, 'PUT', '/api/glossary', { cookie, body: { terms: [] } })).status, 428);
+  res = await call(base, 'PUT', '/api/glossary', { cookie, version, body: { terms: [{ term: 'RAG', explanation: only('') }] } });
+  assert.equal(res.status, 400);
+  res = await call(base, 'PUT', '/api/glossary', { cookie, version, body: { terms: [{ term: 'RAG', explanation: only('generació augmentada', 'retrieval-augmented generation', '') }, { term: 'Agent', explanation: only('agent') }] } });
+  assert.equal(res.status, 200);
+  json = await res.json();
+  assert.deepEqual(json.terms.map((t) => t.term), ['Agent', 'RAG']);
+  assert.equal((await call(base, 'PUT', '/api/glossary', { cookie, version, body: { terms: [] } })).status, 409, 'stale version');
+  ({ version } = json);
+
+  // Now the project saves, and its public files are resolved per language.
+  projects = await (await call(base, 'GET', '/api/projects', { cookie })).json();
+  res = await call(base, 'PUT', '/api/projects/ledger', { cookie, version: projects.version, body: { ai: only('Amb {{RAG}}.', 'With {{rag}}.', '') } });
+  assert.equal(res.status, 200);
+  const web = path.dirname(publicFile);
+  const ai = async (lang) => JSON.parse(await readFile(path.join(web, `projects.${lang}.json`), 'utf8')).projects.find((p) => p.id === 'ledger').ai;
+  assert.equal(await ai('en'), 'With {{rag|retrieval-augmented generation}}.');
+  assert.equal(await ai('es'), 'Amb {{RAG|generació augmentada}}.');
+
+  // Editing the glossary republishes everything.
+  res = await call(base, 'PUT', '/api/glossary', { cookie, version, body: { terms: [{ term: 'RAG', explanation: only('nova', 'new', 'nueva') }, { term: 'Agent', explanation: only('agent') }] } });
+  assert.equal(res.status, 200);
+  ({ version } = await res.json());
+  assert.equal(await ai('es'), 'Amb {{RAG|nueva}}.');
+
+  // Deleting (or renaming) a term in use is refused, naming where it is used.
+  res = await call(base, 'PUT', '/api/glossary', { cookie, version, body: { terms: [{ term: 'Agent', explanation: only('agent') }] } });
+  assert.equal(res.status, 400);
+  const blocked = await res.json();
+  assert.match(blocked.errors._usage, /"RAG".*"Ledger" how I used AI \(ca\).*"Ledger" how I used AI \(en\)/);
+  res = await call(base, 'PUT', '/api/glossary', { cookie, version, body: { terms: [{ term: 'RAG', explanation: only('nova') }] } });
+  assert.equal(res.status, 200, 'an unused term can go');
 });

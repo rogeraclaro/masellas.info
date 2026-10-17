@@ -93,12 +93,6 @@ ul {
   padding: 72px var(--gutter) 48px; /* top: clear the fixed menu */
 }
 
-@media (max-width: 640px) {
-  .section__inner {
-    padding-top: calc(72px + var(--menu-row)); /* the language tabs add a second row */
-  }
-}
-
 .section__inner:focus {
   outline: none;
 }

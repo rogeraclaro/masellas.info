@@ -27,7 +27,7 @@ Server layout:
 
 ## Languages
 
-The site is in Catalan (principal, at the root: `/`, `/projects/`), English (`/en/`, `/en/projects/`) and Spanish (`/es/`, `/es/projects/`). There is no redirect by browser language. Each page has `<html lang>`, `hreflang` alternates (x-default = ca), `og:locale` and a `ca / en / es` switcher (top right) that keeps the current section (`#secondPage`) or open project (`?p=`).
+The site is in Catalan (principal, at the root: `/`, `/projects/`), English (`/en/`, `/en/projects/`) and Spanish (`/es/`, `/es/projects/`). There is no redirect by browser language. Each page has `<html lang>`, `hreflang` alternates (x-default = ca), `og:locale` and a `ca / en / es` switcher (top right; on phones, up to 640px, it shares a burger menu with the section tabs) that keeps the current section (`#secondPage`) or open project (`?p=`).
 
 - Page HTML lives once per page in `src/pages/home.html` and `src/pages/projects.html`. `{{key}}` is escaped text from the dictionary; `{{{key}}}` is HTML/JSON the build generates (alternates, switcher, the "some words" fallback, the JS strings).
 - Text lives in `i18n/ca.json`, `i18n/en.json`, `i18n/es.json` (flat keys). `home.words` uses the admin's rich-text format. Keys starting with `js.` are injected into the projects page as `<script type="application/json" id="i18n">` and read by `js/shared/i18n.js`.

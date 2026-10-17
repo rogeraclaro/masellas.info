@@ -50,18 +50,146 @@
 }
 
 
+/* ---------- Burger menu (phones) ----------
+   Up to 640px the section and language tabs move into a full-screen panel (.site-menu),
+   opened by .menu-toggle (js/shared/site-menu.js toggles html.menu-open).
+   Wider screens hide the toggle, and the wrapper does not affect layout. */
+.menu-toggle {
+  display: none;
+}
+
+.site-menu {
+  display: contents;
+}
+
 @media (max-width: 640px) {
+  .menu-toggle {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: calc(var(--z-menu) + 1); /* above the open panel */
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: var(--menu-idle);
+    color: #000;
+    cursor: pointer;
+    view-transition-name: site-menu-toggle;
+  }
+
+  .menu-toggle:focus-visible {
+    outline: 2px solid var(--bone);
+    outline-offset: 2px;
+  }
+
+  /* Three lines; the middle one fades and the outer two cross into an x when open. */
+  .menu-toggle__icon,
+  .menu-toggle__icon::before,
+  .menu-toggle__icon::after {
+    display: block;
+    width: 20px;
+    height: 2px;
+    background: currentColor;
+    transition: transform 0.2s var(--ease), background-color 0.2s var(--ease);
+  }
+
+  .menu-toggle__icon {
+    position: relative;
+  }
+
+  .menu-toggle__icon::before,
+  .menu-toggle__icon::after {
+    content: "";
+    position: absolute;
+    left: 0;
+  }
+
+  .menu-toggle__icon::before {
+    transform: translateY(-6px);
+  }
+
+  .menu-toggle__icon::after {
+    transform: translateY(6px);
+  }
+
+  .menu-open .menu-toggle__icon {
+    background-color: transparent;
+  }
+
+  .menu-open .menu-toggle__icon::before {
+    transform: rotate(45deg);
+  }
+
+  .menu-open .menu-toggle__icon::after {
+    transform: rotate(-45deg);
+  }
+
+  /* Closed: invisible, so its links cannot be focused or read. */
+  .site-menu {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-menu);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 30px;
+    padding: 64px 10px 10px; /* under the toggle */
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--charcoal);
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(-8px);
+    transition: opacity 0.2s var(--ease), transform 0.2s var(--ease), visibility 0s linear 0.2s;
+  }
+
+  .menu-open .site-menu {
+    visibility: visible;
+    opacity: 1;
+    transform: none;
+    transition: opacity 0.2s var(--ease), transform 0.2s var(--ease);
+  }
+
+  html.menu-open {
+    overflow: hidden; /* no page scroll behind the panel */
+  }
+
+  /* Inside the panel: static lists, section tabs stacked, language tabs in a row.
+     The panel is closed on the next page, so these do not take part in page transitions. */
+  .site-menu .menu,
+  .site-menu .lang-menu {
+    position: static;
+    padding: 0;
+    view-transition-name: none;
+  }
+
+  .site-menu .menu {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .menu__tab .face {
-    padding: 6px 12px;
+    padding: 9px 12px; /* 44px tall tap targets */
   }
+}
 
-  :root {
-    --menu-row: 56px; /* taller tabs */
+@media (max-width: 640px) and (prefers-reduced-motion: reduce) {
+  .site-menu,
+  .menu-open .site-menu,
+  .menu-toggle__icon,
+  .menu-toggle__icon::before,
+  .menu-toggle__icon::after {
+    transition: none;
   }
+}
 
-  /* No room beside the section tabs: the language tabs take a second row. */
-  .lang-menu {
-    top: var(--menu-row);
+@media (hover: hover) and (pointer: fine) {
+  .menu-toggle:hover {
+    background: var(--menu-hover);
   }
 }
 

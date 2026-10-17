@@ -41,6 +41,9 @@
 </head>
 <body>
 
+<button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-menu" aria-label="{{nav.menu_open}}" data-label-open="{{nav.menu_open}}" data-label-close="{{nav.menu_close}}"><span class="menu-toggle__icon" aria-hidden="true"></span></button>
+
+<div class="site-menu" id="site-menu">
 <nav aria-label="{{nav.main_label}}">
 	<ul class="menu">
 		<li><a class="menu__tab cube" href="{{home_url}}#firstPage" aria-current="location"><span class="cube__inner"><span class="face face--front">{{nav.the_point}}</span><span class="face face--before" aria-hidden="true">{{nav.the_point}}</span><span class="face face--after" aria-hidden="true">{{nav.the_point}}</span></span></a></li>
@@ -50,6 +53,7 @@
 </nav>
 
 {{{lang_switcher}}}
+</div>
 
 <main class="sections">
 	<section class="section section--coral is-active" id="section0" data-anchor="firstPage" aria-labelledby="home-title">

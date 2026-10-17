@@ -19,7 +19,7 @@
   --ease: ease-in-out;
   --wipe-distance: 500px;
   --z-menu: 70;
-  --menu-row: 46px; /* one row of menu tabs, top padding included (56px on mobile, see menu.css) */
+  --menu-row: 46px; /* one row of menu tabs, top padding included (wider than 640px; phones use the burger) */
 
   --gutter: clamp(16px, 2.8vw, 40px);
   --col-gap: clamp(12px, 1.4vw, 20px);

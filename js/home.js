@@ -7,6 +7,7 @@ import { pageReady } from './shared/page-ready.js';
 import { step, jump, indexFromHash, createGestureGate } from './home/sections.js';
 import { pageLang } from './shared/i18n.js';
 import { bindLangLinks } from './shared/lang-links.js';
+import { bindSiteMenu } from './shared/site-menu.js';
 // Same parser the admin validates with (admin/lib is deployed as-is; esbuild bundles it here).
 import { parseRichText, RICH_TEXT_MAX } from '../admin/lib/rich-text.js';
 import { renderRichText } from '../admin/lib/rich-text-dom.js';
@@ -32,6 +33,7 @@ let alpha = 'power1.out';
 let current = 0;
 let animating = false;
 let pendingWords = null; // fetched "some words" paragraphs waiting for a safe moment to swap in
+let menu = { isOpen: () => false }; // mobile burger menu: while open, gestures and keys never change sections
 
 if (animate) alpha = setupGsap(gsap);
 else {
@@ -161,7 +163,7 @@ function stepBy(delta, options) {
 function gestureHandler(gate, delta) {
   return (self) => {
     if (self.event && self.event.pointerType === 'mouse') return; // keep mouse text selection
-    if (!gate.accept(performance.now()) || animating) return;
+    if (!gate.accept(performance.now()) || animating || menu.isOpen()) return;
     stepBy(delta);
   };
 }
@@ -179,7 +181,7 @@ function bindInput() {
 
   const keys = { ArrowDown: 1, PageDown: 1, ArrowUp: -1, PageUp: -1 };
   document.addEventListener('keydown', (event) => {
-    if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || menu.isOpen()) return;
     if (event.target.closest('input, textarea, select, [contenteditable]')) return;
     if (event.key === 'Home' || event.key === 'End') {
       event.preventDefault();
@@ -216,6 +218,7 @@ async function init() {
   sections.forEach((section, i) => section.classList.toggle('is-active', i === start));
   markActive(start);
   hideText(sections[start]);
+  menu = bindSiteMenu();
   bindInput();
   bindLangLinks(document.querySelector('.lang-nav'));
   bindTermTooltips({ gsap: animate ? gsap : null, ease: alpha });

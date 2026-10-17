@@ -329,11 +329,6 @@ ul {
     flex-direction: column;
     align-items: flex-start;
   }
-
-  /* Clear the second row of tabs (language). */
-  .page-header {
-    padding-top: max(clamp(96px, 16vh, 180px), calc(72px + var(--menu-row)));
-  }
 }
 
 /* ---------- No motion (reduced motion or GSAP unavailable) ---------- */
@@ -400,20 +395,15 @@ html.detail-open {
   padding: clamp(72px, 12vh, 128px) var(--gutter) clamp(48px, 10vh, 120px);
 }
 
+/* Phones: top-right corner, across from the burger toggle. */
 .detail__close {
   position: absolute;
   top: 10px;
-  right: var(--gutter);
+  right: 10px;
   z-index: 1;
   font-family: var(--font-medium);
   font-size: 16px;
   line-height: 26px;
-}
-
-@media (max-width: 640px) {
-  .detail__content {
-    padding-top: max(clamp(72px, 12vh, 128px), calc(72px + var(--menu-row))); /* clear the second row of tabs */
-  }
 }
 
 /* The language tabs hold the top-right corner (and stay usable here): close sits under them. */

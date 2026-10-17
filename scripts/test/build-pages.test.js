@@ -108,6 +108,22 @@ test('the repo sources build six pages with lang, hreflang, og:locale and the sw
   assert.doesNotMatch(pages.find((p) => p.file === 'en/index.html').html, /name="robots"/, 'home stays indexable');
 });
 
+test('every page has the burger toggle, labelled in its language, wrapping both menus', async () => {
+  const pages = await buildPages({ root: REPO, write: false });
+  for (const { file, html, lang } of pages) {
+    const dict = JSON.parse(await readFile(path.join(REPO, 'i18n', `${lang}.json`), 'utf8'));
+    const toggle = /<button class="menu-toggle"[^>]*>/.exec(html)?.[0];
+    assert.ok(toggle, `${file}: toggle`);
+    assert.match(toggle, /aria-expanded="false"/, file);
+    assert.match(toggle, /aria-controls="site-menu"/, file);
+    assert.ok(toggle.includes(`aria-label="${dict['nav.menu_open']}"`), `${file}: open label`);
+    assert.ok(toggle.includes(`data-label-close="${dict['nav.menu_close']}"`), `${file}: close label`);
+    const panel = /<div class="site-menu" id="site-menu">([\s\S]*?)\n<\/div>/.exec(html)?.[1] ?? '';
+    assert.match(panel, /<ul class="menu">/, `${file}: section tabs in the panel`);
+    assert.match(panel, /<ul class="lang-menu">/, `${file}: language tabs in the panel`);
+  }
+});
+
 test('the strings block cannot close its <script> early', async () => {
   const dict = { ...complete(), 'js.x': '</script><b>' };
   const root = await fixture({ ca: dict, en: dict, es: dict }, { projects: '{{{i18n_json}}}' });

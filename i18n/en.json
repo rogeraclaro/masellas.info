@@ -4,6 +4,8 @@
   "nav.some_words": "some words",
   "nav.projects": "projects",
   "nav.language_label": "Language",
+  "nav.menu_open": "Open menu",
+  "nav.menu_close": "Close menu",
   "contact.email_text": "roger at lamosca.com",
 
   "home.title": "Roger Masellas, Frontend Developer",

@@ -31,8 +31,11 @@
   view-transition-name: site-lang;
 }
 
+/* Phones show only the burger toggle (css/shared/menu.css); it stays put as well. */
+
 ::view-transition-group(site-menu),
-::view-transition-group(site-lang) {
+::view-transition-group(site-lang),
+::view-transition-group(site-menu-toggle) {
   animation-duration: var(--page-vt-duration);
 }
 

@@ -5,6 +5,7 @@ import { renderRichText } from './rich-text-dom.js';
 import { formattingHelp } from './rich-text-help.js';
 import { slugify } from './slug.js';
 import { bindTermTooltips } from './term-tooltip.js';
+import { hasChanges } from './ui-state.js';
 
 (() => {
   'use strict';
@@ -398,10 +399,52 @@ import { bindTermTooltips } from './term-tooltip.js';
     renderPreview(shown('ai'), $('ai-preview'), $('ai-problems'), { linkClass: '', headingTag: 'h4' }, langFields.ai.current());
   }
 
-  function openForm(project, trigger) {
-    editingId = project ? project.id : null;
-    returnFocus = trigger;
-    clearErrors();
+  /* Leaving a form ("back to list", Esc) asks first when it has unsaved changes: the button turns into
+     "discard changes?" and a second press leaves. */
+  function leaveGuard(button, { dirty, leave }) {
+    const label = button.textContent;
+    const disarm = () => {
+      delete button.dataset.confirm;
+      button.textContent = label;
+      button.classList.remove('btn--danger');
+    };
+    const request = () => {
+      if (!button.dataset.confirm && dirty()) {
+        button.dataset.confirm = '1';
+        button.textContent = 'discard changes?';
+        button.classList.add('btn--danger');
+        button.focus();
+        return;
+      }
+      disarm();
+      leave();
+    };
+    button.addEventListener('click', request);
+    button.addEventListener('blur', disarm);
+    return { request, disarm };
+  }
+
+  // Runs fn (which refills a form) keeping the scroll position, the language tabs on show and the focus.
+  function keepPlace(groups, fn) {
+    const scroll = window.scrollY;
+    const focused = document.activeElement;
+    const tabs = groups.map((group) => group.current());
+    fn();
+    groups.forEach((group, i) => group.select(tabs[i]));
+    window.scrollTo(0, scroll);
+    if (focused && focused.isConnected && !focused.closest('[hidden]')) focused.focus({ preventScroll: true });
+  }
+
+  let formTimer = 0;
+  function setFormStatus(text) {
+    clearTimeout(formTimer);
+    $('form-status').textContent = text;
+    if (text === 'saved') formTimer = setTimeout(() => { $('form-status').textContent = ''; }, 3000);
+  }
+
+  let savedValues = null; // what the form held when it was opened or last saved
+
+  function fillForm(project) {
     $('editor-title').textContent = project ? `edit ${project.title}` : 'new project';
     for (const name of fields) $(`f-${name}`).value = project ? project[name] ?? '' : '';
     slugTouched = Boolean(project);
@@ -412,15 +455,30 @@ import { bindTermTooltips } from './term-tooltip.js';
     thumbInputs.forEach((input, i) => { input.value = project?.thumbs?.[i] ?? ''; });
     $('f-tools').value = (project?.tools ?? []).join(', ');
     updateCount();
+    savedValues = collect();
+  }
+
+  function openForm(project, trigger) {
+    editingId = project ? project.id : null;
+    returnFocus = trigger;
+    clearErrors();
+    setFormStatus('');
+    projectLeave.disarm();
+    fillForm(project);
     editor.hidden = false;
     $('f-title').focus();
   }
 
-  function closeForm(focusTarget = returnFocus) {
+  // Back to the list, focused on the project the form was showing (if it exists).
+  function closeForm() {
     editor.hidden = true;
+    const target = (editingId && rowButton(editingId, 'edit')) || returnFocus;
     editingId = null;
-    (focusTarget && focusTarget.isConnected ? focusTarget : $('new-project')).focus();
+    savedValues = null;
+    (target && target.isConnected ? target : $('new-project')).focus();
   }
+
+  const projectLeave = leaveGuard($('cancel'), { dirty: () => hasChanges(savedValues, collect()), leave: closeForm });
 
   function updateSlugHint() {
     $('id-preview').textContent = $('f-id').value.trim() || '…';
@@ -474,24 +532,30 @@ import { bindTermTooltips } from './term-tooltip.js';
     clearErrors();
     const wasEditing = editingId;
     const body = collect();
+    const before = new Set(projects.map((p) => p.id));
     try {
       const data = wasEditing
         ? await api('PUT', `api/projects/${encodeURIComponent(wasEditing)}`, body)
         : await api('POST', 'api/projects', body);
       projects = data.projects;
-      render();
-      // A rename moves the row to its new id (same position).
-      closeForm(wasEditing ? rowButton(body.id || wasEditing, 'edit') : $('new-project'));
-      setStatus('saved');
+      render(); // the list behind is current when going back
+      // Stay in the form, now editing what was saved: a new project becomes the one being edited (so
+      // the next save updates it), a rename follows the new id; values come back as the server stored them.
+      const savedId = wasEditing ? body.id || wasEditing : body.id || projects.find((p) => !before.has(p.id))?.id;
+      const saved = projects.find((p) => p.id === savedId);
+      if (saved) {
+        editingId = saved.id;
+        keepPlace(Object.values(langFields), () => fillForm(saved));
+      }
+      setFormStatus('saved');
     } catch (err) {
       if (err.status === 400 && err.body.errors) showErrors(err.body.errors);
       else await handleError(err, (message) => { $('form-error').textContent = message; });
     }
   });
 
-  $('cancel').addEventListener('click', () => closeForm());
   editor.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') closeForm();
+    if (event.key === 'Escape') projectLeave.request();
   });
   $('new-project').addEventListener('click', (event) => openForm(null, event.currentTarget));
   list.addEventListener('click', onListClick);
@@ -665,25 +729,46 @@ import { bindTermTooltips } from './term-tooltip.js';
   }
 
   let termReturnFocus = null;
-  function openTermForm(index, trigger) {
-    editingTerm = index;
-    termReturnFocus = trigger;
-    clearTermErrors();
-    const entry = index === null ? null : glossary.terms[index];
+  let savedTerm = null;
+  const termValues = () => ({ term: $('f-term').value, explanation: explanation.value() });
+
+  let termTimer = 0;
+  function setTermStatus(text) {
+    clearTimeout(termTimer);
+    $('term-status').textContent = text;
+    if (text === 'saved') termTimer = setTimeout(() => { $('term-status').textContent = ''; }, 3000);
+  }
+
+  function fillTermForm(entry) {
     $('term-editor-title').textContent = entry ? `edit ${entry.term}` : 'new term';
     $('f-term').value = entry ? entry.term : '';
     $('term-preview').textContent = entry ? entry.term : 'term';
     explanation.set(entry ? entry.explanation : null);
     updateExplanationCount();
+    savedTerm = termValues();
+  }
+
+  function openTermForm(index, trigger) {
+    editingTerm = index;
+    termReturnFocus = trigger;
+    clearTermErrors();
+    setTermStatus('');
+    termLeave.disarm();
+    fillTermForm(index === null ? null : glossary.terms[index]);
     $('term-editor').hidden = false;
     $('f-term').focus();
   }
 
-  function closeTermForm(focusTarget = termReturnFocus) {
+  function closeTermForm() {
     $('term-editor').hidden = true;
+    const row = editingTerm === null ? null : $('glossary-rows').children[editingTerm];
+    const target = row?.querySelector('[data-action="edit"]') || termReturnFocus;
     editingTerm = null;
-    (focusTarget && focusTarget.isConnected ? focusTarget : $('new-term')).focus();
+    savedTerm = null;
+    (target && target.isConnected ? target : $('new-term')).focus();
   }
+
+  const termLeave = leaveGuard($('term-cancel'), { dirty: () => hasChanges(savedTerm, termValues()), leave: closeTermForm });
 
   // The API takes the whole list; errors come back keyed terms.<index>.term / .explanation.<lang>.
   async function saveGlossary(terms, { onFieldError = null } = {}) {
@@ -718,8 +803,7 @@ import { bindTermTooltips } from './term-tooltip.js';
     clearTermErrors();
     const index = editingTerm === null ? glossary.terms.length : editingTerm;
     const terms = glossary.terms.slice();
-    terms[index] = { term: $('f-term').value, explanation: explanation.value() };
-    const wasNew = editingTerm === null;
+    terms[index] = termValues();
     const saved = await saveGlossary(terms, {
       onFieldError: (messages) => {
         let first = null;
@@ -740,16 +824,16 @@ import { bindTermTooltips } from './term-tooltip.js';
       },
     });
     if (!saved) return;
-    const term = termKey(terms[index].term);
-    const row = $('glossary-rows').querySelector(`tr:nth-child(${glossary.terms.findIndex((entry) => termKey(entry.term) === term) + 1})`);
-    closeTermForm(wasNew ? $('new-term') : row?.querySelector('[data-action="edit"]'));
-    setGlossaryStatus('saved');
+    // Stay on the saved entry (the list is sorted, so find where it went).
+    const key = termKey(terms[index].term);
+    editingTerm = glossary.terms.findIndex((entry) => termKey(entry.term) === key);
+    keepPlace([explanation], () => fillTermForm(glossary.terms[editingTerm]));
+    setTermStatus('saved');
   });
 
   $('f-term').addEventListener('input', () => { $('term-preview').textContent = $('f-term').value.trim() || 'term'; });
-  $('term-cancel').addEventListener('click', () => closeTermForm());
   $('term-editor').addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') closeTermForm();
+    if (event.key === 'Escape') termLeave.request();
   });
   $('new-term').addEventListener('click', (event) => openTermForm(null, event.currentTarget));
 

@@ -110,7 +110,7 @@ input:focus-visible, textarea:focus-visible { outline: 2px solid var(--coral); o
 textarea { resize: vertical; }
 .field-error { margin: 4px 0 0; color: var(--coral); font-family: var(--font-book); }
 .field-error:empty { display: none; }
-.form__actions { display: flex; gap: 8px; flex: 1 1 100%; }
+.form__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1 1 100%; }
 
 /* List */
 .list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hairline); }
@@ -206,14 +206,14 @@ textarea { resize: vertical; }
 .preview--coral { --rich-gap: 1em; }
 
 /* formatting help */
-.format-help { margin-top: 12px; border: 1px solid var(--hairline); }
-.format-help summary { padding: 8px 12px; color: var(--coral); cursor: pointer; }
+.format-help { border: 1px solid var(--hairline); font-size: 0.8rem; line-height: 1.35; }
+.format-help summary { padding: 8px 10px; color: var(--coral); font-size: 1rem; cursor: pointer; }
 .format-help__scroller { overflow-x: auto; }
-.format-help__table { width: 100%; border-collapse: collapse; font-family: var(--font-book); font-size: 0.9em; }
-.format-help__table th, .format-help__table td { padding: 8px 12px; border-top: 1px solid var(--hairline); text-align: left; vertical-align: top; font-weight: normal; }
+.format-help__table { width: 100%; border-collapse: collapse; font-family: var(--font-book); }
+.format-help__table th, .format-help__table td { padding: 5px 8px; border-top: 1px solid var(--hairline); text-align: left; vertical-align: top; font-weight: normal; }
 .format-help__table thead th { color: var(--bone-60); }
 .format-help__table tbody th { color: var(--bone-60); }
-.format-help__source { white-space: pre; }
+.format-help__source { white-space: pre-wrap; overflow-wrap: anywhere; }
 .format-help__result p { margin: 0 0 0.5em; }
 .format-help__result > :last-child { margin-bottom: 0; }
 .format-help__result { --rich-gap: 0.5em; }
@@ -231,4 +231,30 @@ textarea { resize: vertical; }
   .glossary-table thead { display: none; }
   .glossary-table tr { display: block; padding: 12px 0; border-top: 1px solid var(--hairline); }
   .glossary-table th, .glossary-table td { display: block; padding: 2px 0; border: 0; text-align: left; }
+}
+
+/* Rich-text fields: the formatting help beside the textarea on wide screens, under it otherwise. */
+.rich-field { display: grid; gap: 12px; }
+.rich-field__main { min-width: 0; }
+.rich-field__help { min-width: 0; }
+@media (min-width: 1100px) {
+  .rich-field { grid-template-columns: minmax(0, 1fr) 36ch; gap: 20px; align-items: start; }
+}
+.format-help__result h3 { font-size: 1.2em; }
+/* Never split ordinary words in the examples (code spans keep their own wrapping rule). */
+.format-help__result :is(p, li, h3, strong, s, a, blockquote) { overflow-wrap: normal; word-break: normal; }
+
+/* Beside the textarea the column is narrow: each row becomes "style" as a small caption on top,
+   then "type this" | "you get" in two equal columns. */
+@media (min-width: 1100px) {
+  .rich-field__help .format-help__table,
+  .rich-field__help .format-help__table :is(thead, tbody) { display: block; }
+  .rich-field__help .format-help__table tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    border-top: 1px solid var(--hairline);
+  }
+  .rich-field__help .format-help__table :is(th, td) { border-top: 0; }
+  .rich-field__help .format-help__table tbody th { grid-column: 1 / -1; padding-bottom: 0; font-size: 0.9em; }
+  .rich-field__help .format-help__table thead th:first-child { display: none; }
 }

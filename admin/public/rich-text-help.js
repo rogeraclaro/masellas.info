@@ -1,8 +1,9 @@
 /* "formatting help": a collapsible table of the rich-text styles, shown under every rich-text field.
-   Each example is rendered with the real parser and renderer. Open by default; the open / closed
+   Each example is rendered with the real parser and renderer. Closed by default; the open / closed
    state is remembered (shared by every copy) in localStorage when it is available. */
 import { parseRichText } from './rich-text.js';
 import { renderRichText } from './rich-text-dom.js';
+import { helpOpen } from './ui-state.js';
 
 const KEY = 'admin:formatting-help-open';
 const EXAMPLES = [
@@ -28,9 +29,9 @@ let isOpen = null; // shared state; "toggle" also fires (async) for the initial 
 
 function readOpen() {
   try {
-    return localStorage.getItem(KEY) !== 'closed';
+    return helpOpen(localStorage.getItem(KEY));
   } catch {
-    return true;
+    return false;
   }
 }
 

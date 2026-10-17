@@ -471,7 +471,7 @@ html.detail-open {
 }
 
 .detail__lead {
-  max-width: 40ch;
+  max-width: 65vw;
   margin: clamp(24px, 3vw, 40px) 0 0;
   font-family: var(--font-book);
   font-size: 1.5rem;
@@ -495,8 +495,16 @@ html.detail-open {
   text-underline-offset: 0.14em;
 }
 
+/* 65vw on phones would leave a ~240px column: use the full width there. */
+@media (max-width: 640px) {
+  .detail .detail__lead,
+  .detail .detail__body {
+    max-width: none;
+  }
+}
+
 .detail__body {
-  max-width: 65ch;
+  max-width: 65vw;
   font-family: var(--font-book);
   font-size: 1.25rem;
   line-height: 1.45;

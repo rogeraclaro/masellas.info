@@ -1,8 +1,8 @@
 {
   "nav.main_label": "Main",
-  "nav.the_point": "the point",
-  "nav.some_words": "some words",
-  "nav.projects": "projects",
+  "nav.the_point": "al gra",
+  "nav.some_words": "unes paraules",
+  "nav.projects": "projectes (IA)",
   "nav.language_label": "Language",
   "nav.menu_open": "Open menu",
   "nav.menu_close": "Close menu",
@@ -17,10 +17,10 @@
   "home.linkedin_link": "here",
   "home.words": "Founding member of multimedia design studio [Lamosca sccl](https://www.lamosca.com).\n\nDuring my years at Lamosca I \u001fFirst directed our multimedia section and then internet section. I worked mainly in web development and multimedia applications in various formats, and in organizational and team coordination tasks.\n\nIn recent years, I have combined this main line of work with teaching at several universities.\n\nI also built and participated in projects (and debates) for many clients, of all sizes and in almost all possible formats.\n\nThe above has allowed me to maintain a permanent state of training and learning around IT, particularly in Frontend development.\n\n[roger at lamosca.com](mailto:roger@lamosca.com)",
 
-  "projects.title": "Projects (IA) — Roger Masellas",
+  "projects.title": "Projectes (IA) — Roger Masellas",
   "projects.description": "Things I have built recently, with links.",
   "projects.skip_link": "skip to projects",
-  "projects.heading": "projects (IA)",
+  "projects.heading": "Projectes (IA)",
   "projects.filters_label": "Filter by category",
   "projects.list_label": "Projects",
   "projects.footer_note": "More soon.",
@@ -37,6 +37,6 @@
   "js.close_label": "close project details",
   "js.visit_label": "visit site: {title} (opens in a new tab)",
   "js.next": "next project: {title}",
-  "js.detail_title": "{title} — Projects (IA) — Roger Masellas",
+  "js.detail_title": "{title} — Projectes (IA) — Roger Masellas",
   "js.load_error": "The projects could not load. Try again in a minute."
 }

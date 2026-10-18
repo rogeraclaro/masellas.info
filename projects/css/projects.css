@@ -556,7 +556,7 @@ html.detail-open {
 .detail__visit {
   margin: var(--space-after-title) 0 0;
   font-family: var(--font-book);
-  font-size: var(--fs-lead);
+  font-size: var(--fs-body);
   line-height: var(--lh-lead);
   letter-spacing: var(--ls-text);
 }

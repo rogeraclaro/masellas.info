@@ -144,7 +144,7 @@ ul {
   max-width: 65ch;
   margin: 0 auto;
   font-family: var(--font-book);
-  font-size: var(--fs-body);
+  font-size: var(--fs-lead);
   line-height: var(--lh-body); /* same as the project detail body */
   letter-spacing: var(--ls-text);
 }

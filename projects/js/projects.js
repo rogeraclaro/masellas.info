@@ -279,7 +279,19 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
 
   function renderDetail(project) {
     splitTitle(detailTitle, project.title, { words: true });
-    detail.querySelector('.detail__meta').textContent = `${project.category} / ${project.year}`;
+    const url = safeUrl(project.url);
+    const visit = detail.querySelector('.detail__visit');
+    const meta = detail.querySelector('.detail__meta');
+    meta.replaceChildren(`${project.category} / ${project.year}`);
+    if (url) {
+      // The same "visit site" link as at the bottom, after a middle dot.
+      const top = el('a', 'detail-link', visit.querySelector('a').textContent);
+      top.href = url.href;
+      top.target = '_blank';
+      top.rel = 'noopener';
+      top.setAttribute('aria-label', t('visit_label', { title: project.title }));
+      meta.append(el('span', 'detail__meta-sep', ' · '), top);
+    }
 
     const lead = detail.querySelector('.detail__lead');
     lead.textContent = project.description || '';
@@ -295,8 +307,6 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
     toolList.replaceChildren(...tools.map((tool) => el('li', '', tool)));
     toolList.hidden = !tools.length;
 
-    const url = safeUrl(project.url);
-    const visit = detail.querySelector('.detail__visit');
     visit.hidden = !url;
     if (url) {
       const link = visit.querySelector('a');

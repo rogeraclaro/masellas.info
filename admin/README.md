@@ -1,6 +1,6 @@
 # projects admin
 
-Small back-office for masellas.info: log in with one password, then edit the projects list (add, edit, hide, reorder, delete) or the text of the home's "some words" section (switch at the top).
+Small back-office for masellas.info: log in with one password, then edit the projects list (add, edit, hide, reorder, delete), the projects (B.C.) list (same view), the text of the home's "some words" section, or the glossary (switch at the top).
 
 ## Languages
 
@@ -13,9 +13,15 @@ It keeps two files:
 - `DATA_FILE` — the private, full list (hidden projects included, with `visible`). Lives outside the web root. The API reads, writes and versions only this file.
 - `PUBLIC_FILE` — `projects/data/projects.json` in the web root. Rebuilt from `DATA_FILE` after every change and at boot, together with one file per language next to it: `projects.ca.json`, `projects.en.json`, `projects.es.json` (what `/projects/`, `/en/projects/`, `/es/projects/` fetch). Visible projects only, in order, without the `visible` field, translated fields flattened to plain text for that language (empty -> ca). `projects.json` itself is the ca version. Never edit them by hand; the next change overwrites them.
 
+## Projects (B.C.)
+
+A second collection of projects, older ones made without AI, shown at `/projects-ac/` (ca; `/en/projects-ac/`, `/es/projects-ac/`) exactly like `/projects/`. The "projects (B.C.)" tab opens the same view as "projects" (list, add, edit, hide, reorder, delete, slug rules, `ca / en / es` fields, rich text with formatting help and preview) on the other list; there the rich-text field is labelled "how it was made" (the field is still `ai` in the data and the API). Switching between the two closes the form; with unsaved changes it asks first ("discard changes?"). Slugs are unique per collection: the same slug may exist in both.
+
+Files, with no extra configuration (like "some words"): private `dirname(DATA_FILE)/projects-ac.json`; public `dirname(PUBLIC_FILE)/projects-ac.<lang>.json` (ca, en, es; no legacy un-suffixed copy). At boot, if the private file is missing it is created with an empty list (mode 0600); the public files are rebuilt from it at every boot and change. Its `{{term}}`s work as in projects: resolved at publish, unknown ones added to the glossary as pending on save, counted when a glossary term is deleted or renamed, and republished when the glossary changes.
+
 "Some words" uses the same two-file setup, with no extra configuration: `some-words.json` sits next to each file above (private: `dirname(DATA_FILE)/some-words.json`; public: `dirname(PUBLIC_FILE)/some-words.json` plus `some-words.ca.json`, `.en.json`, `.es.json`, served at `/projects/data/some-words.<lang>.json`). Optional overrides: `SOME_WORDS_FILE`, `SOME_WORDS_PUBLIC_FILE` (absolute paths). At boot the private file is seeded once if missing: from the public copy, else from the repo default `projects/data/some-words.json`; the admin refuses to start if none exists.
 
-Text format for "some words" and a project's "how I used AI" (validated on save; rendered on the home, the project detail, the static fallback and the admin previews with the same parser, `lib/rich-text.js`, and styles, `lib/rich-text.css`). The admin shows the same as a "formatting help" table under both fields.
+Text format for "some words" and a project's "how I used AI" (projects (B.C.): "how it was made") (validated on save; rendered on the home, the project detail, the static fallback and the admin previews with the same parser, `lib/rich-text.js`, and styles, `lib/rich-text.css`). The admin shows the same as a "formatting help" table under both fields.
 
 - a blank line starts a new block (paragraph); a single newline is a line break
 - `## text` on a block of its own: subheading
@@ -33,7 +39,7 @@ The "glossary" view lists the terms (`glossary.json` next to `DATA_FILE`, create
 
 Pending terms: saving a project (POST / PUT) or "some words" with a `{{term}}` the glossary does not have adds it, as first written (ca first, then en, es; once, ignoring case), with an empty explanation `{ "ca": "", "en": "", "es": "" }`. `{{term|explanation}}` is never added. Pending means an empty ca; en / es may be filled. The admin lists pending terms first, marked "pending", with a count on the glossary tab; the project and "some words" forms say which terms a save added. The glossary write happens on the server after the text is saved (same store: atomic, `.bak`, new version; no write when nothing is new) and before publishing. If it fails, the text stays saved and published, the response is still 2xx with `addedTerms: []` and a `glossaryError` message; saving that text again retries.
 
-The site never reads the glossary: when publishing, every `{{term}}` in "how I used AI" and "some words" becomes `{{term|<explanation in that language>}}` in the public files (`lib/rich-text.js` `resolveTerms`). A pending term with no explanation for that language (nor ca) stays a bare `{{term}}`, which the site and the static fallback show as the plain word, without a tooltip. Saving the glossary republishes all public files. The static fallback in the pages (`scripts/build-pages.mjs`, from `i18n/*.json`) has no glossary: `{{term|…}}` works there, a bare `{{term}}` shows just the word.
+The site never reads the glossary: when publishing, every `{{term}}` in "how I used AI", "how it was made" and "some words" becomes `{{term|<explanation in that language>}}` in the public files (`lib/rich-text.js` `resolveTerms`). A pending term with no explanation for that language (nor ca) stays a bare `{{term}}`, which the site and the static fallback show as the plain word, without a tooltip. Saving the glossary republishes all public files. The static fallback in the pages (`scripts/build-pages.mjs`, from `i18n/*.json`) has no glossary: `{{term|…}}` works there, a bare `{{term}}` shows just the word.
 
 Node 22, zero npm dependencies.
 
@@ -82,14 +88,14 @@ Environment variables only. `admin/.env` is read at boot if it exists; real envi
 npm test
 ```
 
-Uses `node:test`. Covers languages (migration, fallback), validation per language, slugs, reorder checks, the file store (atomic write, backup, serialized writes, version conflicts), the public projection (regeneration, boot sync, migration, write failures), password hashing, session tokens, the rate limiter, and HTTP integration on an ephemeral port.
+Uses `node:test`. Covers languages (migration, fallback), both project collections, validation per language, slugs, reorder checks, the file store (atomic write, backup, serialized writes, version conflicts), the public projection (regeneration, boot sync, migration, write failures), password hashing, session tokens, the rate limiter, and HTTP integration on an ephemeral port.
 
 ## How it works
 
-- `server.js` — HTTP server, routes, static files (`public/` at `/`, the repo's `tipos/` at `/tipos/`).
+- `server.js` — HTTP server, routes, static files (`public/` at `/`, the repo's `tipos/` at `/tipos/`). Both project collections run through the same routes (`collections` / `projectRoutes`).
 - `lib/store.js` — reads (migrating older shapes) and writes `DATA_FILE`: temp file + rename, previous version kept as `projects.json.bak`, one write at a time, version = sha256 of the file.
 - `lib/auth.js` — scrypt password check, HMAC-signed 12 h session cookie, in-memory login rate limit (5 failures per IP per 15 min).
-- `lib/publish.js` — public projection (`toPublic`), atomic public write (no backup), boot sync and migration.
+- `lib/publish.js` — public projection (`toPublic`), atomic public write (no backup), boot sync and migration; projects (B.C.) paths and boot (`projectsAcPaths`, `prepareProjectsAc`).
 - `lib/slug.js` — url slug rules and `slugify` (served to the UI too).
 - `lib/validation.js` — field rules (per language where translated), slug ids, reorder permutation check, "some words" text.
 - `lib/languages.js` — the languages (ca, en, es), the `{ ca, en, es }` shape, fallback to ca, migration of older plain-string data, `<name>.<lang>.json` paths.
@@ -115,6 +121,9 @@ API (JSON, all under `/api`, session required except login, logout and session):
 | PUT | `/api/projects/:id` | any project fields, including a new `id` | a new `id` keeps the position; the old address is not redirected; `addedTerms` |
 | DELETE | `/api/projects/:id` | | |
 | PUT | `/api/order` | `{ ids }` | exact permutation of current ids |
+| GET, POST | `/api/projects-ac` | as `/api/projects` | projects (B.C.): same fields, rules and answers, its own file and version |
+| PUT, DELETE | `/api/projects-ac/:id` | as `/api/projects/:id` | |
+| PUT | `/api/order-ac` | `{ ids }` | projects (B.C.) order (not `/api/projects-ac/order`, which would be a project called "order") |
 | GET | `/api/some-words` | | `{ text: { ca, en, es }, version }` |
 | PUT | `/api/some-words` | `{ text: { ca, en, es } }` | ca 1–4000 chars, en / es 0–4000; republishes the public copies; `addedTerms` |
 | GET | `/api/glossary` | | `{ terms: [{ term, explanation: { ca, en, es } }], version }`, sorted; an empty `ca` = pending |

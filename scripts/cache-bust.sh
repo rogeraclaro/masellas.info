@@ -22,4 +22,8 @@ for prefix in '' en/ es/; do
   bust "${prefix}projects/index.html" /projects/css/projects.min.css projects/css/projects.min.css
   bust "${prefix}projects/index.html" /projects/js/projects.min.js projects/js/projects.min.js
   bust "${prefix}projects/index.html" /js/page-transition.min.js js/page-transition.min.js
+  # projects (B.C.): same template and bundles as projects.
+  bust "${prefix}projects-ac/index.html" /projects/css/projects.min.css projects/css/projects.min.css
+  bust "${prefix}projects-ac/index.html" /projects/js/projects.min.js projects/js/projects.min.js
+  bust "${prefix}projects-ac/index.html" /js/page-transition.min.js js/page-transition.min.js
 done

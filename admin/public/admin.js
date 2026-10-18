@@ -1,5 +1,5 @@
-/* Admin UI (projects + the home's "some words"). Vanilla JS module; all user data goes through
-   textContent, never innerHTML. The rich-text parser is the same file the server validates with. */
+/* Admin UI (projects, projects (B.C.), the home's "some words", glossary). Vanilla JS module; all user
+   data goes through textContent, never innerHTML. The rich-text parser is the same file the server validates with. */
 import { parseRichText, RICH_TEXT_MAX } from './rich-text.js';
 import { renderRichText } from './rich-text-dom.js';
 import { formattingHelp } from './rich-text-help.js';
@@ -22,8 +22,15 @@ import { hasChanges } from './ui-state.js';
   const thumbInputs = [...document.querySelectorAll('.thumb')];
   const LANGS = ['ca', 'en', 'es']; // ca: principal; an empty en / es shows the ca text on the site
 
-  let projects = [];
-  let version = null;
+  // The two project collections share one view (list + form); `active` is the one on show. Each keeps
+  // its own list and version. page: the site page, for the slug hint and "view site".
+  const COLLECTIONS = {
+    projects: { api: 'api/projects', order: 'api/order', page: '/projects/', aiLabel: 'how I used AI', listLabel: 'Projects, in site order' },
+    'projects-ac': { api: 'api/projects-ac', order: 'api/order-ac', page: '/projects-ac/', aiLabel: 'how it was made', listLabel: 'Projects (B.C.), in site order' },
+  };
+  for (const collection of Object.values(COLLECTIONS)) Object.assign(collection, { projects: [], version: null, loaded: false });
+  let active = COLLECTIONS.projects;
+  let publicUrl = null;
   let editingId = null; // null = creating
   let returnFocus = null;
   let dragId = null;
@@ -39,8 +46,9 @@ import { hasChanges } from './ui-state.js';
     }
   }
 
-  // ifMatch/track: "some words" has its own version and must not touch the projects one.
-  async function api(method, path, body, { ifMatch = version, track = true } = {}) {
+  // collection: whose version a mutation sends and tracks; track: false for the other resources
+  // ("some words", glossary), which keep their own versions.
+  async function api(method, path, body, { collection = active, ifMatch = collection.version, track = true } = {}) {
     const headers = {};
     if (method !== 'GET') headers['Content-Type'] = 'application/json';
     if (method !== 'GET' && ifMatch) headers['If-Match'] = ifMatch;
@@ -51,7 +59,7 @@ import { hasChanges } from './ui-state.js';
       throw new ApiError(401, data);
     }
     if (!res.ok) throw new ApiError(res.status, data);
-    if (track && data.version) version = data.version;
+    if (track && data.version) collection.version = data.version;
     return data;
   }
 
@@ -67,7 +75,8 @@ import { hasChanges } from './ui-state.js';
 
   async function showApp() {
     const [config] = await Promise.all([api('GET', 'api/config'), loadProjects(), loadGlossary()]);
-    $('view-site').href = config.publicUrl;
+    publicUrl = config.publicUrl;
+    applyCollection();
     loginView.hidden = true;
     appView.hidden = false;
     $('new-project').focus();
@@ -79,25 +88,31 @@ import { hasChanges } from './ui-state.js';
     if (text === 'saved') statusTimer = setTimeout(() => { statusEl.textContent = ''; }, 3000);
   }
 
-  async function loadProjects() {
-    const data = await api('GET', 'api/projects');
-    projects = data.projects;
-    render();
+  // Stores a collection's list; redraws only when it is the one on show.
+  function setProjects(collection, list) {
+    collection.projects = list;
+    if (collection === active) render();
+  }
+
+  async function loadProjects(collection = active) {
+    const data = await api('GET', collection.api, undefined, { collection });
+    collection.loaded = true;
+    setProjects(collection, data.projects);
   }
 
   // Shared failure path: 409 reloads the list, anything else is reported plainly.
-  async function handleError(err, target = setStatus) {
+  async function handleError(err, target = setStatus, collection = active) {
     if (err.status === 401) return;
     if (err.status === 409) {
       target('the data changed elsewhere. the list has been reloaded, check it and try again.');
-      await loadProjects();
+      await loadProjects(collection);
       return;
     }
     if (err.body && err.body.version) {
       // Saved privately but the public file failed: reflect the saved state.
       target(err.message);
       if (err.body.addedTerms?.length) loadGlossary().catch(() => {});
-      await loadProjects();
+      await loadProjects(collection);
       return;
     }
     target(err.status ? `could not save: ${err.message}.` : 'could not reach the server. try again.');
@@ -278,7 +293,7 @@ import { hasChanges } from './ui-state.js';
     const up = button('up', 'up', `move ${project.title} up`);
     const down = button('down', 'down', `move ${project.title} down`);
     up.disabled = index === 0;
-    down.disabled = index === projects.length - 1;
+    down.disabled = index === active.projects.length - 1;
     actions.append(button('edit', 'edit', `edit ${project.title}`), up, down, button('delete', 'delete', `delete ${project.title}`));
 
     row.append(info, actions);
@@ -286,6 +301,7 @@ import { hasChanges } from './ui-state.js';
   }
 
   function render() {
+    const { projects } = active;
     list.replaceChildren(...projects.map(renderRow));
     if (!projects.length) list.append(el('li', 'empty', 'no projects yet.'));
     for (const lang of LANGS) {
@@ -297,22 +313,23 @@ import { hasChanges } from './ui-state.js';
   const rowButton = (id, action) => list.querySelector(`[data-id="${CSS.escape(id)}"] [data-action="${action}"]`);
 
   async function saveOrder(next, focus) {
-    projects = next;
-    render();
+    const collection = active;
+    setProjects(collection, next);
     if (focus) {
       const btn = rowButton(focus.id, focus.action);
       (btn && !btn.disabled ? btn : rowButton(focus.id, focus.action === 'up' ? 'down' : 'up'))?.focus();
     }
     try {
-      await api('PUT', 'api/order', { ids: next.map((p) => p.id) });
+      await api('PUT', collection.order, { ids: next.map((p) => p.id) }, { collection });
       setStatus('saved');
     } catch (err) {
-      await handleError(err);
-      if (err.status !== 409 && err.status !== 401) await loadProjects();
+      await handleError(err, setStatus, collection);
+      if (err.status !== 409 && err.status !== 401) await loadProjects(collection);
     }
   }
 
   function move(id, delta, action) {
+    const { projects } = active;
     const from = projects.findIndex((p) => p.id === id);
     const to = from + delta;
     if (to < 0 || to >= projects.length) return;
@@ -335,21 +352,21 @@ import { hasChanges } from './ui-state.js';
     const { action } = btn.dataset;
     if (action === 'up') move(id, -1, 'up');
     else if (action === 'down') move(id, 1, 'down');
-    else if (action === 'edit') openForm(projects.find((p) => p.id === id), btn);
+    else if (action === 'edit') openForm(active.projects.find((p) => p.id === id), btn);
     else if (action === 'delete' && !btn.dataset.confirm) {
       btn.dataset.confirm = '1';
       btn.textContent = 'confirm delete';
       btn.classList.add('btn--danger');
       btn.setAttribute('aria-label', btn.getAttribute('aria-label').replace(/^delete/, 'confirm delete'));
     } else if (action === 'delete') {
+      const collection = active;
       try {
-        const data = await api('DELETE', `api/projects/${encodeURIComponent(id)}`);
-        projects = data.projects;
-        render();
+        const data = await api('DELETE', `${collection.api}/${encodeURIComponent(id)}`, undefined, { collection });
+        setProjects(collection, data.projects);
         $('new-project').focus();
         setStatus('deleted');
       } catch (err) {
-        await handleError(err);
+        await handleError(err, setStatus, collection);
       }
     }
   }
@@ -389,6 +406,7 @@ import { hasChanges } from './ui-state.js';
     event.preventDefault();
     const after = dropAfter(row, event);
     const targetId = row.dataset.id;
+    const { projects } = active;
     const moving = projects.find((p) => p.id === dragId);
     clearIndicators();
     if (targetId === dragId) return;
@@ -551,14 +569,15 @@ import { hasChanges } from './ui-state.js';
     event.preventDefault();
     clearErrors();
     const wasEditing = editingId;
+    const collection = active; // the form cannot switch collections while open
     const body = collect();
-    const before = new Set(projects.map((p) => p.id));
+    const before = new Set(collection.projects.map((p) => p.id));
     try {
       const data = wasEditing
-        ? await api('PUT', `api/projects/${encodeURIComponent(wasEditing)}`, body)
-        : await api('POST', 'api/projects', body);
-      projects = data.projects;
-      render(); // the list behind is current when going back
+        ? await api('PUT', `${collection.api}/${encodeURIComponent(wasEditing)}`, body, { collection })
+        : await api('POST', collection.api, body, { collection });
+      setProjects(collection, data.projects); // the list behind is current when going back
+      const { projects } = collection;
       // Stay in the form, now editing what was saved: a new project becomes the one being edited (so
       // the next save updates it), a rename follows the new id; values come back as the server stored them.
       const savedId = wasEditing ? body.id || wasEditing : body.id || projects.find((p) => !before.has(p.id))?.id;
@@ -570,7 +589,7 @@ import { hasChanges } from './ui-state.js';
       setFormStatus(savedStatus(data));
     } catch (err) {
       if (err.status === 400 && err.body.errors) showErrors(err.body.errors);
-      else await handleError(err, (message) => { $('form-error').textContent = message; });
+      else await handleError(err, (message) => { $('form-error').textContent = message; }, collection);
     }
   });
 
@@ -583,11 +602,44 @@ import { hasChanges } from './ui-state.js';
     if (event.target.dataset.confirm) resetDelete(event.target);
   });
 
-  /* ---------- Views: projects / some words / glossary ---------- */
+  /* ---------- Views: projects / projects (B.C.) / some words / glossary ---------- */
+
+  // Labels, slug hint and "view site" for the collection on show.
+  function applyCollection() {
+    $('f-ai-label').textContent = active.aiLabel;
+    $('f-ai-label').nextElementSibling.setAttribute('aria-label', `${active.aiLabel}: language`); // its ca / en / es strip
+    $('id-path').textContent = active.page;
+    list.setAttribute('aria-label', active.listLabel);
+    if (publicUrl) $('view-site').href = new URL(`..${active.page}`, publicUrl).href;
+    render();
+  }
+
+  // Switching collections closes the form; with unsaved changes it asks first ("discard changes?")
+  // and stays, so the second press of "back to list" (or saving) lets the switch happen.
+  function switchCollection(collection) {
+    if (collection === active) return true;
+    if (!editor.hidden) {
+      if (hasChanges(savedValues, collect())) {
+        showView(Object.keys(COLLECTIONS).find((key) => COLLECTIONS[key] === active));
+        projectLeave.request();
+        return false;
+      }
+      editor.hidden = true;
+      editingId = null;
+      savedValues = null;
+    }
+    active = collection;
+    applyCollection();
+    setStatus('');
+    if (!collection.loaded) loadProjects(collection).catch((err) => handleError(err, setStatus, collection));
+    return true;
+  }
 
   function showView(name) {
+    const collection = COLLECTIONS[name];
+    if (collection && !switchCollection(collection)) return;
     for (const tab of document.querySelectorAll('.view-tab')) tab.setAttribute('aria-pressed', String(tab.dataset.view === name));
-    $('view-projects').hidden = name !== 'projects';
+    $('view-projects').hidden = !collection;
     $('view-words').hidden = name !== 'words';
     $('view-glossary').hidden = name !== 'glossary';
     if (name === 'words' && wordsVersion === null) loadWords().catch((err) => wordsFailed(err));
@@ -922,7 +974,7 @@ import { hasChanges } from './ui-state.js';
 
   $('logout').addEventListener('click', async () => {
     await api('POST', 'api/logout').catch(() => {});
-    version = null;
+    for (const collection of Object.values(COLLECTIONS)) Object.assign(collection, { projects: [], version: null, loaded: false });
     wordsVersion = null;
     glossaryVersion = null;
     showLogin();

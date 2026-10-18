@@ -27,6 +27,7 @@
 		<h1 class="heading">admin</h1>
 		<div class="views" role="group" aria-label="What to edit">
 			<button type="button" class="btn view-tab" data-view="projects" aria-pressed="true">projects</button>
+			<button type="button" class="btn view-tab" data-view="projects-ac" aria-pressed="false">projects (B.C.)</button>
 			<button type="button" class="btn view-tab" data-view="words" aria-pressed="false">some words</button>
 			<button type="button" class="btn view-tab" data-view="glossary" aria-pressed="false">glossary</button>
 		</div>
@@ -36,6 +37,7 @@
 		</nav>
 	</header>
 
+	<!-- One view for both project collections (projects, projects (B.C.)); admin.js swaps the data and labels. -->
 	<main class="content" id="view-projects">
 		<div class="toolbar">
 			<button id="new-project" type="button" class="btn btn--primary">new project</button>
@@ -54,7 +56,7 @@
 				<div class="field">
 					<label for="f-id">url slug</label>
 					<input id="f-id" name="id" maxlength="60" autocapitalize="none" autocomplete="off" spellcheck="false" aria-describedby="id-hint e-id">
-					<p id="id-hint" class="hint">used in the address: /projects/?p=<span id="id-preview"></span></p>
+					<p id="id-hint" class="hint">used in the address: <span id="id-path">/projects/</span>?p=<span id="id-preview"></span></p>
 					<p id="e-id" class="field-error"></p>
 				</div>
 				<div class="field field--half">
@@ -79,7 +81,7 @@
 					<p id="e-url" class="field-error"></p>
 				</div>
 				<div class="field">
-					<label for="f-ai">how I used AI</label>
+					<label for="f-ai" id="f-ai-label">how I used AI</label>
 					<div class="rich-field">
 						<div class="rich-field__main">
 							<textarea id="f-ai" class="rich-input" name="ai" rows="10" maxlength="5000" aria-describedby="ai-hint e-ai" data-langs></textarea>
@@ -154,7 +156,7 @@
 	</main>
 	<main class="content" id="view-glossary" hidden>
 		<h2 class="heading heading--small">glossary</h2>
-		<p class="hint">explanations for {{term}} in "some words" and "how I used AI". the site shows them as tooltips, in each language (empty en / es use ca). a {{term}} saved in a text that is not here yet is added automatically, pending a definition. a term still used somewhere cannot be deleted.</p>
+		<p class="hint">explanations for {{term}} in "some words", "how I used AI" (projects) and "how it was made" (projects (B.C.)). the site shows them as tooltips, in each language (empty en / es use ca). a {{term}} saved in a text that is not here yet is added automatically, pending a definition. a term still used somewhere cannot be deleted.</p>
 		<p id="glossary-pending" class="hint glossary-pending" aria-live="polite"></p>
 		<div class="toolbar">
 			<button id="new-term" type="button" class="btn btn--primary">new term</button>

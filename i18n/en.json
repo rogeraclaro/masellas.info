@@ -3,6 +3,7 @@
   "nav.the_point": "the point",
   "nav.some_words": "some words",
   "nav.projects": "projects (IA)",
+  "nav.projects_ac": "projects (B.C.)",
   "nav.language_label": "Language",
   "nav.menu_open": "Open menu",
   "nav.menu_close": "Close menu",
@@ -28,6 +29,12 @@
   "projects.detail_tools_label": "Tools",
   "projects.detail_visit": "visit site",
   "projects.detail_next_label": "Next project",
+
+  "projects_ac.projects.title": "Projects (B.C.) — Roger Masellas",
+  "projects_ac.projects.description": "Things I built before AI, with links.",
+  "projects_ac.projects.heading": "Projects (B.C.)",
+  "projects_ac.projects.detail_ai": "How it was made",
+  "projects_ac.js.detail_title": "{title} — Projects (B.C.) — Roger Masellas",
 
   "js.count_one": "{n} project",
   "js.count_other": "{n} projects",

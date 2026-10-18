@@ -330,7 +330,7 @@ ul {
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 720px) {
   .page-bar {
     flex-direction: column;
     align-items: flex-start;
@@ -435,7 +435,7 @@ html.detail-open {
 }
 
 /* The language tabs hold the top-right corner (and stay usable here): close sits under them. */
-@media (min-width: 641px) {
+@media (min-width: 721px) {
   .detail__close {
     top: calc(var(--menu-row) + var(--chrome-inset));
   }
@@ -504,7 +504,7 @@ html.detail-open {
 }
 
 /* Phones: use the full width. */
-@media (max-width: 640px) {
+@media (max-width: 720px) {
   .detail .detail__lead,
   .detail .detail__body {
     max-width: none;

@@ -61,13 +61,17 @@ export function withPendingTerms(glossary, texts) {
   return { glossary: { ...glossary, terms: sorted }, added };
 }
 
-// Where a glossary term is used without an inline explanation, e.g. '"Ledger" how I used AI (en)'.
-export function termUsage({ projects, words }, key) {
+// Where a glossary term is used without an inline explanation, e.g. '"Ledger" how I used AI (en)' or,
+// in projects (B.C.), 'projects (B.C.) "Mill" how it was made (ca)'.
+export function termUsage({ projects, projectsAc, words }, key) {
   const uses = (text) => bareKeys(text).some((term) => term.key === key);
   const places = [];
-  for (const project of projects?.projects ?? []) {
-    const ai = localize(project.ai);
-    for (const lang of LANGS) if (uses(ai[lang])) places.push(`"${project.title}" how I used AI (${lang})`);
+  const collections = [[projects, (title) => `"${title}" how I used AI`], [projectsAc, (title) => `projects (B.C.) "${title}" how it was made`]];
+  for (const [collection, where] of collections) {
+    for (const project of collection?.projects ?? []) {
+      const ai = localize(project.ai);
+      for (const lang of LANGS) if (uses(ai[lang])) places.push(`${where(project.title)} (${lang})`);
+    }
   }
   const text = localize(words?.text);
   for (const lang of LANGS) if (uses(text[lang])) places.push(`some words (${lang})`);

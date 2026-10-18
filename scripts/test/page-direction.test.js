@@ -12,6 +12,14 @@ test('a page further right enters from the right', () => {
   assert.equal(transitionType('0', '1'), 'slide-from-right'); // home -> a future right-hand page
 });
 
+test('projects (B.C.) at +1 enters from the right from home and projects (IA), and leaves to the left', () => {
+  assert.equal(transitionType('0', '1'), 'slide-from-right'); // home -> projects (B.C.)
+  assert.equal(transitionType('-1', '1'), 'slide-from-right'); // projects (IA) -> projects (B.C.)
+  assert.equal(transitionType('1', '-1'), 'slide-from-left'); // and back
+  assert.equal(transitionType('1', '0'), 'slide-from-left'); // projects (B.C.) -> home
+  assert.equal(transitionType('1', '1'), 'fade'); // /projects-ac/ -> /en/projects-ac/
+});
+
 test('same position crossfades (e.g. a language switch: same page, other language)', () => {
   assert.equal(transitionType(0, 0), 'fade'); // /  -> /en/
   assert.equal(transitionType('-1', '-1'), 'fade'); // /projects/ -> /es/projects/

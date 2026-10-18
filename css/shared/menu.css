@@ -52,7 +52,7 @@
 
 
 /* ---------- Burger menu (phones) ----------
-   Up to 640px the section and language tabs move into a full-screen panel (.site-menu),
+   Up to 720px the section and language tabs move into a full-screen panel (.site-menu),
    opened by .menu-toggle (js/shared/site-menu.js toggles html.menu-open).
    Wider screens hide the toggle, and the wrapper does not affect layout. */
 .menu-toggle {
@@ -63,7 +63,7 @@
   display: contents;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 720px) {
   .menu-toggle {
     position: fixed;
     top: var(--chrome-inset);
@@ -184,7 +184,7 @@
   }
 }
 
-@media (max-width: 640px) and (prefers-reduced-motion: reduce) {
+@media (max-width: 720px) and (prefers-reduced-motion: reduce) {
   .site-menu,
   .menu-open .site-menu,
   .menu-toggle__icon,

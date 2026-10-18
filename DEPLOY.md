@@ -8,41 +8,43 @@ Pushing to `main` runs `.github/workflows/deploy.yml`:
    - rsyncs the site to `/home/rogermasellas/htdocs/masellas.info/` (including `en/` and `es/`, never `src/` or `i18n/`). It does not delete anything and does not change ownership or permissions.
    - copies each `projects/data/*.json` only if the server does not have it yet. After that the admin owns them.
    - rsyncs `admin/` to `/home/rogermasellas/masellas-admin/app/` with `--delete`. `.env` and `data/` are protected.
-   - reloads the app with pm2 under `rogermasellas`, then smoke-checks `/en/`, `/es/projects/`, every `/projects/data/*.json` and `/admin/`.
+   - reloads the app with pm2 under `rogermasellas` (and waits until it has published `projects.ca.json` and `projects-ac.ca.json`), then smoke-checks `/en/`, `/es/projects/`, `/projects-ac/`, `/en/projects-ac/`, every `/projects/data/*.json` and `/admin/`.
 
 Server layout:
 
 ```
 /home/rogermasellas/htdocs/masellas.info/             site (web root)
-  index.html, projects/                                ca pages (en/ and es/ hold the others)
+  index.html, projects/, projects-ac/                  ca pages (en/ and es/ hold the others)
   projects/data/projects.<lang>.json                   public list per language (ca, en, es), rebuilt by the admin
+  projects/data/projects-ac.<lang>.json                projects (B.C.) public list per language, rebuilt by the admin (no legacy copy)
   projects/data/some-words.<lang>.json                 home "some words" text per language, rebuilt by the admin
   projects/data/projects.json, some-words.json         legacy copies (= ca), see admin/README.md
 /home/rogermasellas/masellas-admin/app/                admin code (deployed)
   .env                                                 config + secrets (never deployed)
 /home/rogermasellas/masellas-admin/data/projects.json  private list, hidden projects included
+/home/rogermasellas/masellas-admin/data/projects-ac.json private projects (B.C.) list (created empty on first boot)
 /home/rogermasellas/masellas-admin/data/some-words.json  private copy of the "some words" text
 /home/rogermasellas/masellas-admin/data/glossary.json    glossary for {{term}} tooltips (created empty on first boot)
 ```
 
 ## Languages
 
-The site is in Catalan (principal, at the root: `/`, `/projects/`), English (`/en/`, `/en/projects/`) and Spanish (`/es/`, `/es/projects/`). There is no redirect by browser language. Each page has `<html lang>`, `hreflang` alternates (x-default = ca), `og:locale` and a `ca / en / es` switcher (top right; on phones, up to 640px, it shares a burger menu with the section tabs) that keeps the current section (`#secondPage`) or open project (`?p=`).
+The site is in Catalan (principal, at the root: `/`, `/projects/`, `/projects-ac/`), English (`/en/`, `/en/projects/`, `/en/projects-ac/`) and Spanish (`/es/`, `/es/projects/`, `/es/projects-ac/`). `/projects/` is "projects (IA)" (made with AI); `/projects-ac/` is "projects (B.C.)" (ca / es "a.C."), older projects made without AI, with the same list, filters, `?p=<slug>` detail and transitions. There is no redirect by browser language. Each page has `<html lang>`, `hreflang` alternates (x-default = ca), `og:locale` and a `ca / en / es` switcher (top right; on phones, up to 720px, it shares a burger menu with the section tabs) that keeps the current section (`#secondPage`) or open project (`?p=`).
 
-- Page HTML lives once per page in `src/pages/home.html` and `src/pages/projects.html`. `{{key}}` is escaped text from the dictionary; `{{{key}}}` is HTML/JSON the build generates (alternates, switcher, the "some words" fallback, the JS strings).
+- Page HTML lives in `src/pages/home.html` and `src/pages/projects.html`. Both projects pages use `projects.html` (`PAGES` in `scripts/build-pages.mjs` sets each page's path, `data-page-x`, the data it loads via `data-collection`, and its key overrides); dictionary keys `projects_ac.<key>` replace `<key>` on the projects (B.C.) page only (title, heading, description, the "how it was made" detail heading, the detail page title), and an override of a key that does not exist fails the build. `{{key}}` is escaped text from the dictionary; `{{{key}}}` is HTML/JSON the build generates (alternates, switcher, the "some words" fallback, the JS strings).
 - Text lives in `i18n/ca.json`, `i18n/en.json`, `i18n/es.json` (flat keys). `home.words` uses the admin's rich-text format. Keys starting with `js.` are injected into the projects page as `<script type="application/json" id="i18n">` and read by `js/shared/i18n.js`.
-- `node scripts/build-pages.mjs` (run by `scripts/build.sh`) writes the six `index.html` files, each starting with a "generated" comment. It fails if any language misses a key another has, a value is empty, a template uses an unknown key, or `home.words` has a bad link. Edit the templates and dictionaries, never the generated pages, and commit the generated pages.
-- Projects and "some words" content are translated in the admin; the pages fetch `/projects/data/projects.<lang>.json` and `/projects/data/some-words.<lang>.json`.
+- `node scripts/build-pages.mjs` (run by `scripts/build.sh`) writes the nine `index.html` files, each starting with a "generated" comment. It fails if any language misses a key another has, a value is empty, a template uses an unknown key, or `home.words` has a bad link. Edit the templates and dictionaries, never the generated pages, and commit the generated pages.
+- Projects and "some words" content are translated in the admin; the pages fetch `/projects/data/projects.<lang>.json`, `/projects/data/projects-ac.<lang>.json` and `/projects/data/some-words.<lang>.json`. The repo holds empty `projects-ac.<lang>.json` seeds (`{ "projects": [] }`) so the page works when served from the repo; on the server the admin creates and owns them.
 - Switching language between pages at the same `data-page-x` is a short crossfade (transition type `fade`), not a slide.
 
 ## Front-end build
 
-Both pages load bundled, minified files built from ES module sources by esbuild 0.24.0 (no other dependencies):
+Every page loads bundled, minified files built from ES module sources by esbuild 0.24.0 (no other dependencies):
 
 | source | output |
 | --- | --- |
 | `js/home.js`, `css/home.css` | `js/home.min.js`, `css/home.min.css` |
-| `projects/js/projects.js`, `projects/css/projects.css` | `projects/js/projects.min.js`, `projects/css/projects.min.css` |
+| `projects/js/projects.js`, `projects/css/projects.css` | `projects/js/projects.min.js`, `projects/css/projects.min.css` (both projects pages) |
 | `js/page-transition.js` | `js/page-transition.min.js` (render-blocking, both pages) |
 
 Shared code lives in `js/shared/` and `css/shared/` and is pulled in with `import` / `@import`.
@@ -54,9 +56,9 @@ npm run build   # = sh scripts/build.sh: pages, then bundles; CI runs the same s
 npm test        # section wrap, gesture gate, page-transition direction, page build, language links
 ```
 
-Commit the generated pages and rebuilt `.min` files too, so the site works when served straight from the repo. CI rebuilds them anyway, then `scripts/cache-bust.sh` appends `?v=<hash>` to their (root-absolute) URLs in all six pages. It rewrites the HTML in place, so only run it in CI.
+Commit the generated pages and rebuilt `.min` files too, so the site works when served straight from the repo. CI rebuilds them anyway, then `scripts/cache-bust.sh` appends `?v=<hash>` to their (root-absolute) URLs in all nine pages. It rewrites the HTML in place, so only run it in CI.
 
-Page transitions: each page sets its place on a horizontal axis with `<html data-page-x="…">` (home `0`, projects `-1`). A page with a lower value slides in from the left, a higher one from the right; the same value (another language) crossfades. A new page only needs its own value plus `css/shared/view-transitions.css` and `js/page-transition.min.js`.
+Page transitions: each page sets its place on a horizontal axis with `<html data-page-x="…">` (home `0`, projects (IA) `-1`, projects (B.C.) `1`). A page with a lower value slides in from the left, a higher one from the right; the same value (another language) crossfades. So projects (B.C.) enters from the right (from home or projects (IA)) and leaving it slides the other page in from the left. A new page only needs its own value plus `css/shared/view-transitions.css` and `js/page-transition.min.js`.
 
 ## One-time setup
 

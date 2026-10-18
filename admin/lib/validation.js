@@ -65,7 +65,8 @@ const CHECKS = {
     return { value: v.map((url) => url.trim()) };
   },
   // Same rich-text format as "some words" (lib/rich-text.js); the project detail renders it.
-  ai: (v) => perLanguage(v, 'ai', (item, opts) => richText(item, { ...opts, max: 5000 }), { label: 'how I used AI' }),
+  // label: what the collection calls the field ("how I used AI", "how it was made").
+  ai: (v, { aiLabel }) => perLanguage(v, 'ai', (item, opts) => richText(item, { ...opts, max: 5000 }), { label: aiLabel }),
   tools: (v) => {
     if (!Array.isArray(v)) return { error: 'tools must be a list' };
     if (v.length > 12) return { error: 'up to 12 tools' };
@@ -81,8 +82,8 @@ const CHECKS = {
 };
 
 // Returns { value, errors }. errors is {} when valid; keys are field names
-// (or _body / _unknown for structural problems).
-export function validateProject(input, { partial = false } = {}) {
+// (or _body / _unknown for structural problems). aiLabel names the rich-text field in messages.
+export function validateProject(input, { partial = false, aiLabel = 'how I used AI' } = {}) {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
     return { value: {}, errors: { _body: 'expected a JSON object' } };
   }
@@ -98,7 +99,7 @@ export function validateProject(input, { partial = false } = {}) {
       else value[field] = structuredClone(DEFAULTS[field]);
       continue;
     }
-    const check = CHECKS[field](input[field]);
+    const check = CHECKS[field](input[field], { aiLabel });
     if (check.error) errors[field] = check.error;
     else if (check.errors) Object.assign(errors, check.errors);
     else value[field] = check.value;

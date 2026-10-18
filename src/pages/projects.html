@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="{{lang}}" data-page-x="-1">
+<!-- Shared by projects (IA) and projects (B.C.): see PAGES in scripts/build-pages.mjs. -->
+<html lang="{{lang}}" data-page-x="{{page_x}}">
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
@@ -40,7 +41,8 @@
 	<ul class="menu">
 		<li><a class="menu__tab cube" href="{{home_url}}#firstPage"><span class="cube__inner"><span class="face face--front">{{nav.the_point}}</span><span class="face face--before" aria-hidden="true">{{nav.the_point}}</span><span class="face face--after" aria-hidden="true">{{nav.the_point}}</span></span></a></li>
 		<li><a class="menu__tab cube" href="{{home_url}}#secondPage"><span class="cube__inner"><span class="face face--front">{{nav.some_words}}</span><span class="face face--before" aria-hidden="true">{{nav.some_words}}</span><span class="face face--after" aria-hidden="true">{{nav.some_words}}</span></span></a></li>
-		<li><a class="menu__tab cube" href="{{projects_url}}" aria-current="page"><span class="cube__inner"><span class="face face--front">{{nav.projects}}</span><span class="face face--before" aria-hidden="true">{{nav.projects}}</span><span class="face face--after" aria-hidden="true">{{nav.projects}}</span></span></a></li>
+		<li><a class="menu__tab cube" href="{{projects_url}}"{{{current_projects}}}><span class="cube__inner"><span class="face face--front">{{nav.projects}}</span><span class="face face--before" aria-hidden="true">{{nav.projects}}</span><span class="face face--after" aria-hidden="true">{{nav.projects}}</span></span></a></li>
+		<li><a class="menu__tab cube" href="{{projects_ac_url}}"{{{current_projects_ac}}}><span class="cube__inner"><span class="face face--front">{{nav.projects_ac}}</span><span class="face face--before" aria-hidden="true">{{nav.projects_ac}}</span><span class="face face--after" aria-hidden="true">{{nav.projects_ac}}</span></span></a></li>
 	</ul>
 </nav>
 
@@ -57,7 +59,7 @@
 		</div>
 	</header>
 
-	<ul class="work-list" id="projects-list" tabindex="-1" aria-label="{{projects.list_label}}"></ul>
+	<ul class="work-list" id="projects-list" tabindex="-1" aria-label="{{projects.list_label}}" data-collection="{{collection}}"></ul>
 </main>
 
 <footer class="page-footer">
@@ -80,7 +82,7 @@
 			</section>
 			<ul class="detail__tools" data-reveal aria-label="{{projects.detail_tools_label}}"></ul>
 			<p class="detail__visit" data-reveal><a class="detail-link" target="_blank" rel="noopener">{{projects.detail_visit}}</a></p>
-			<nav class="detail__next" data-reveal aria-label="{{projects.detail_next_label}}"><a class="detail-link detail-link--big" href="{{projects_url}}"></a></nav>
+			<nav class="detail__next" data-reveal aria-label="{{projects.detail_next_label}}"><a class="detail-link detail-link--big" href="{{page_path}}"></a></nav>
 		</article>
 	</div>
 </div>

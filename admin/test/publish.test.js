@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile, readdir, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { toPublic, writePublic, prepareFiles, writeSomeWordsPublic } from '../lib/publish.js';
+import { toPublic, writePublic, prepareFiles, writeSomeWordsPublic, projectsAcPaths, prepareProjectsAc } from '../lib/publish.js';
 
 const project = (id, visible) => ({
   id, title: id.toUpperCase(), category: 'tool', year: 2026, description: '', url: `https://${id}.example.com`, visible, thumbs: [],
@@ -137,4 +137,37 @@ test('a pending term (ca explanation empty) is published bare, so the site shows
   assert.equal(toPublic(data, 'ca', pending).projects[0].ai, 'Amb {{Vibe coding}}.');
   assert.equal(toPublic(data, 'es', pending).projects[0].ai, 'Amb {{Vibe coding}}.');
   assert.equal(toPublic(data, 'en', pending).projects[0].ai, 'With {{vibe coding|coding by prompting}}.', 'a language that has an explanation uses it');
+});
+
+test('projectsAcPaths sits next to DATA_FILE / PUBLIC_FILE', () => {
+  assert.deepEqual(projectsAcPaths({ dataFile: '/priv/data/projects.json', publicFile: '/web/projects/data/projects.json' }), {
+    projectsAcFile: '/priv/data/projects-ac.json',
+    projectsAcPublicFile: '/web/projects/data/projects-ac.json',
+  });
+});
+
+test('writePublic with legacy: false writes only the per-language files', async () => {
+  const acPublic = path.join(dir, 'web', 'projects-ac.json');
+  await writePublic(acPublic, { projects: [project('a', true)] }, null, { legacy: false });
+  assert.deepEqual((await readdir(path.join(dir, 'web'))).sort(), ['projects-ac.ca.json', 'projects-ac.en.json', 'projects-ac.es.json']);
+});
+
+test('prepareProjectsAc creates an empty private list (0600) once and publishes the empty public files', async () => {
+  const projectsAcFile = path.join(dir, 'private', 'projects-ac.json');
+  const projectsAcPublicFile = path.join(dir, 'web', 'projects-ac.json');
+  assert.deepEqual(await prepareProjectsAc({ projectsAcFile, projectsAcPublicFile }), { created: true });
+  assert.deepEqual(JSON.parse(await readFile(projectsAcFile, 'utf8')), { projects: [] });
+  assert.equal((await stat(projectsAcFile)).mode & 0o777, 0o600);
+  for (const lang of ['ca', 'en', 'es']) {
+    const file = path.join(dir, 'web', `projects-ac.${lang}.json`);
+    assert.deepEqual(JSON.parse(await readFile(file, 'utf8')), { projects: [] }, lang);
+    assert.equal((await stat(file)).mode & 0o777, 0o644, lang);
+  }
+  assert.ok(!(await readdir(path.join(dir, 'web'))).includes('projects-ac.json'), 'no legacy un-suffixed copy');
+
+  // Existing data is kept and republished (glossary resolved).
+  await writeFile(projectsAcFile, JSON.stringify({ projects: [{ ...project('old', true), ai: 'Amb {{RAG}}.' }, project('hid', false)] }));
+  assert.deepEqual(await prepareProjectsAc({ projectsAcFile, projectsAcPublicFile, glossary }), { created: false });
+  const ca = JSON.parse(await readFile(path.join(dir, 'web', 'projects-ac.ca.json'), 'utf8'));
+  assert.deepEqual(ca.projects.map((p) => [p.id, p.ai]), [['old', 'Amb {{RAG|generació augmentada}}.']]);
 });

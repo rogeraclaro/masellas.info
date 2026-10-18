@@ -11,7 +11,9 @@ import { glossaryPath, prepareGlossary, missingTerms, termUsage, withPendingTerm
 import { termKey } from './lib/rich-text.js';
 import { LANGS } from './lib/languages.js';
 import { parseEnv, loadConfig } from './lib/config.js';
-import { writePublic, prepareFiles, someWordsPaths, writeSomeWordsPublic, prepareSomeWords } from './lib/publish.js';
+import {
+  writePublic, prepareFiles, someWordsPaths, writeSomeWordsPublic, prepareSomeWords, projectsAcPaths, writeProjectsAcPublic, prepareProjectsAc,
+} from './lib/publish.js';
 import { migrateProjects, migrateSomeWords } from './lib/languages.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -128,16 +130,21 @@ export function createApp({
   someWordsFile = someWordsPaths({ dataFile, publicFile }).someWordsFile,
   someWordsPublicFile = someWordsPaths({ dataFile, publicFile }).someWordsPublicFile,
   glossaryFile = glossaryPath(dataFile),
+  projectsAcFile = projectsAcPaths({ dataFile, publicFile }).projectsAcFile,
+  projectsAcPublicFile = projectsAcPaths({ dataFile, publicFile }).projectsAcPublicFile,
 }) {
   // Older files (plain strings) are read as { ca, en, es } and stored that way on the next write.
   const store = createStore(dataFile, { migrate: migrateProjects });
   const wordsStore = createStore(someWordsFile, { migrate: migrateSomeWords });
+  const acStore = createStore(projectsAcFile, { migrate: migrateProjects }); // projects (B.C.)
   const glossaryStore = createStore(glossaryFile);
-  // Before the first boot creates it, a missing glossary reads as empty.
-  const readGlossary = () => glossaryStore.read().then(({ data }) => data, (err) => {
-    if (err.code === 'ENOENT') return { terms: [] };
+  // Before the first boot creates them, a missing glossary or projects (B.C.) file reads as empty.
+  const readOrEmpty = (fileStore, empty) => fileStore.read().then(({ data }) => data, (err) => {
+    if (err.code === 'ENOENT') return empty;
     throw err;
   });
+  const readGlossary = () => readOrEmpty(glossaryStore, { terms: [] });
+  const readProjectsAc = () => readOrEmpty(acStore, { projects: [] });
   const limiter = createRateLimiter({ max: 5, windowMs: 15 * 60 * 1000 });
   const cookieAttrs = `HttpOnly; SameSite=Strict; Path=${cookiePath}${cookieSecure ? '; Secure' : ''}`;
   // A private file plus its public copies: mutations run under If-Match, then republish.
@@ -175,12 +182,25 @@ export function createApp({
       sendJson(res, status, { ...shape(data), version, ...terms });
     };
   }
-  const mutate = resource(store, async (data) => writePublic(publicFile, data, await readGlossary()), (data) => ({ projects: data.projects }));
+  const projectsShape = (data) => ({ projects: data.projects });
+  // The two project collections share every rule; each has its own files, versions and slugs.
+  // aiLabel: what the collection calls the rich-text field (in validation messages).
+  const collections = [
+    {
+      path: '/api/projects', order: '/api/order', store, aiLabel: 'how I used AI',
+      mutate: resource(store, async (data) => writePublic(publicFile, data, await readGlossary()), projectsShape),
+    },
+    {
+      path: '/api/projects-ac', order: '/api/order-ac', store: acStore, aiLabel: 'how it was made',
+      mutate: resource(acStore, async (data) => writeProjectsAcPublic(projectsAcPublicFile, data, await readGlossary()), projectsShape),
+    },
+  ].map((collection) => ({ ...collection, item: new RegExp(`^${collection.path}/([^/]+)$`) }));
   const mutateWords = resource(wordsStore, async (data) => writeSomeWordsPublic(someWordsPublicFile, data, await readGlossary()), (data) => ({ text: data.text }));
   const mutateGlossary = resource(glossaryStore, async (glossary) => {
-    const [{ data: projects }, { data: words }] = await Promise.all([store.read(), wordsStore.read()]);
+    const [{ data: projects }, { data: words }, projectsAc] = await Promise.all([store.read(), wordsStore.read(), readProjectsAc()]);
     await writePublic(publicFile, projects, glossary);
     await writeSomeWordsPublic(someWordsPublicFile, words, glossary);
+    await writeProjectsAcPublic(projectsAcPublicFile, projectsAc, glossary);
   }, (data) => ({ terms: data.terms }));
 
   // {{term}}s (without their own explanation) the glossary lacks are added to it on save, so they must
@@ -245,6 +265,62 @@ export function createApp({
     if (owner) throw invalid({ id: `already used by ${owner.title}` });
   };
 
+  // Routes of one project collection. Returns true when it handled the request.
+  async function projectRoutes({ path: base, order, store: collectionStore, aiLabel, mutate, item }, req, res, pathname, body) {
+    const { method } = req;
+    if (method === 'GET' && pathname === base) {
+      const { data, version } = await collectionStore.read();
+      sendJson(res, 200, { projects: data.projects, version });
+      return true;
+    }
+    if (method === 'POST' && pathname === base) {
+      const { position, ...fields } = body;
+      const { value, errors } = validateProject(fields, { aiLabel });
+      if (Object.keys(errors).length) throw invalid(errors);
+      await assertTermsAddable('ai', aiLabel, value.ai);
+      await mutate(req, res, 201, (data) => {
+        if (value.id) assertSlugFree(data.projects, value.id);
+        const project = { id: value.id || uniqueSlug(value.title, data.projects.map((p) => p.id)), ...value };
+        if (position === 'top') data.projects.unshift(project);
+        else data.projects.push(project);
+        return data;
+      }, { termTexts: textsOf(value.ai) });
+      return true;
+    }
+    if (method === 'PUT' && pathname === order) {
+      await mutate(req, res, 200, (data) => {
+        if (!isPermutation(body.ids, data.projects.map((p) => p.id))) {
+          throw new HttpError(400, { error: 'ids must be an exact permutation of the current ids' });
+        }
+        const byId = new Map(data.projects.map((p) => [p.id, p]));
+        data.projects = body.ids.map((id) => byId.get(id));
+        return data;
+      });
+      return true;
+    }
+    const match = item.exec(pathname);
+    if (!match || (method !== 'PUT' && method !== 'DELETE')) return false;
+    const id = decodeURIComponent(match[1]);
+    if (method === 'DELETE') {
+      await mutate(req, res, 200, (data) => {
+        data.projects.splice(findIndex(data.projects, id), 1);
+        return data;
+      });
+      return true;
+    }
+    const { value, errors } = validateProject(body, { partial: true, aiLabel });
+    if (Object.keys(errors).length) throw invalid(errors);
+    await assertTermsAddable('ai', aiLabel, value.ai);
+    await mutate(req, res, 200, (data) => {
+      const index = findIndex(data.projects, id);
+      if (value.id) assertSlugFree(data.projects, value.id, id);
+      // A new id replaces the old one in place: same position, no alias for the old address.
+      data.projects[index] = { ...data.projects[index], ...value };
+      return data;
+    }, { termTexts: textsOf(value.ai) });
+    return true;
+  }
+
   async function api(req, res, pathname) {
     const { method } = req;
     const body = method === 'GET' ? null : (checkCsrf(req), await readJson(req));
@@ -271,32 +347,8 @@ export function createApp({
     if (!loggedIn) throw new HttpError(401, { error: 'not logged in' });
 
     if (method === 'GET' && pathname === '/api/config') return sendJson(res, 200, { publicUrl });
-    if (method === 'GET' && pathname === '/api/projects') {
-      const { data, version } = await store.read();
-      return sendJson(res, 200, { projects: data.projects, version });
-    }
-    if (method === 'POST' && pathname === '/api/projects') {
-      const { position, ...fields } = body;
-      const { value, errors } = validateProject(fields);
-      if (Object.keys(errors).length) throw invalid(errors);
-      await assertTermsAddable('ai', 'how I used AI', value.ai);
-      return mutate(req, res, 201, (data) => {
-        if (value.id) assertSlugFree(data.projects, value.id);
-        const project = { id: value.id || uniqueSlug(value.title, data.projects.map((p) => p.id)), ...value };
-        if (position === 'top') data.projects.unshift(project);
-        else data.projects.push(project);
-        return data;
-      }, { termTexts: textsOf(value.ai) });
-    }
-    if (method === 'PUT' && pathname === '/api/order') {
-      return mutate(req, res, 200, (data) => {
-        if (!isPermutation(body.ids, data.projects.map((p) => p.id))) {
-          throw new HttpError(400, { error: 'ids must be an exact permutation of the current ids' });
-        }
-        const byId = new Map(data.projects.map((p) => [p.id, p]));
-        data.projects = body.ids.map((id) => byId.get(id));
-        return data;
-      });
+    for (const collection of collections) {
+      if (await projectRoutes(collection, req, res, pathname, body)) return;
     }
     if (method === 'GET' && pathname === '/api/some-words') {
       const { data, version } = await wordsStore.read();
@@ -320,9 +372,9 @@ export function createApp({
         const kept = new Set(value.terms.map((entry) => termKey(entry.term)));
         const removed = (current.terms ?? []).filter((entry) => !kept.has(termKey(entry.term)));
         if (removed.length) {
-          const [{ data: projects }, { data: words }] = await Promise.all([store.read(), wordsStore.read()]);
+          const [{ data: projects }, { data: words }, projectsAc] = await Promise.all([store.read(), wordsStore.read(), readProjectsAc()]);
           const blocked = removed
-            .map((entry) => [entry.term, termUsage({ projects, words }, termKey(entry.term))])
+            .map((entry) => [entry.term, termUsage({ projects, projectsAc, words }, termKey(entry.term))])
             .filter(([, places]) => places.length);
           if (blocked.length) {
             throw invalid({ _usage: blocked.map(([term, places]) => `"${term}" is still used in ${places.join(', ')}: remove it there, or give it its own explanation there ({{${term}|…}}).`).join(' ') });
@@ -330,26 +382,6 @@ export function createApp({
         }
         return { terms: value.terms };
       });
-    }
-    const match = /^\/api\/projects\/([^/]+)$/.exec(pathname);
-    if (match && (method === 'PUT' || method === 'DELETE')) {
-      const id = decodeURIComponent(match[1]);
-      if (method === 'DELETE') {
-        return mutate(req, res, 200, (data) => {
-          data.projects.splice(findIndex(data.projects, id), 1);
-          return data;
-        });
-      }
-      const { value, errors } = validateProject(body, { partial: true });
-      if (Object.keys(errors).length) throw invalid(errors);
-      await assertTermsAddable('ai', 'how I used AI', value.ai);
-      return mutate(req, res, 200, (data) => {
-        const index = findIndex(data.projects, id);
-        if (value.id) assertSlugFree(data.projects, value.id, id);
-        // A new id replaces the old one in place: same position, no alias for the old address.
-        data.projects[index] = { ...data.projects[index], ...value };
-        return data;
-      }, { termTexts: textsOf(value.ai) });
     }
     throw new HttpError(404, { error: 'not found' });
   }
@@ -396,6 +428,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const defaultFile = path.resolve(HERE, '../projects/data/some-words.json');
     const words = await prepareSomeWords({ ...config, defaultFile, glossary });
     if (words.seeded) console.log(`admin: seeded ${config.someWordsFile} from ${words.seeded}`);
+    const { created: acCreated } = await prepareProjectsAc({ ...config, glossary });
+    if (acCreated) console.log(`admin: created an empty projects (B.C.) list (${config.projectsAcFile})`);
   } catch (err) {
     console.error(`admin: ${err.message}`);
     process.exit(1);

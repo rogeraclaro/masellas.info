@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" lang="{{lang}}" data-page-x="0">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="{{lang}}" data-page-x="{{page_x}}">
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 	<title>{{home.title}}</title>
@@ -48,7 +48,8 @@
 	<ul class="menu">
 		<li><a class="menu__tab cube" href="{{home_url}}#firstPage" aria-current="location"><span class="cube__inner"><span class="face face--front">{{nav.the_point}}</span><span class="face face--before" aria-hidden="true">{{nav.the_point}}</span><span class="face face--after" aria-hidden="true">{{nav.the_point}}</span></span></a></li>
 		<li><a class="menu__tab cube" href="{{home_url}}#secondPage"><span class="cube__inner"><span class="face face--front">{{nav.some_words}}</span><span class="face face--before" aria-hidden="true">{{nav.some_words}}</span><span class="face face--after" aria-hidden="true">{{nav.some_words}}</span></span></a></li>
-		<li><a class="menu__tab cube" href="{{projects_url}}"><span class="cube__inner"><span class="face face--front">{{nav.projects}}</span><span class="face face--before" aria-hidden="true">{{nav.projects}}</span><span class="face face--after" aria-hidden="true">{{nav.projects}}</span></span></a></li>
+		<li><a class="menu__tab cube" href="{{projects_url}}"{{{current_projects}}}><span class="cube__inner"><span class="face face--front">{{nav.projects}}</span><span class="face face--before" aria-hidden="true">{{nav.projects}}</span><span class="face face--after" aria-hidden="true">{{nav.projects}}</span></span></a></li>
+		<li><a class="menu__tab cube" href="{{projects_ac_url}}"{{{current_projects_ac}}}><span class="cube__inner"><span class="face face--front">{{nav.projects_ac}}</span><span class="face face--before" aria-hidden="true">{{nav.projects_ac}}</span><span class="face face--after" aria-hidden="true">{{nav.projects_ac}}</span></span></a></li>
 	</ul>
 </nav>
 

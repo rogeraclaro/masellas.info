@@ -58,6 +58,7 @@ before(async () => {
   await writeFile(dataFile, `${JSON.stringify(seed, null, 2)}\n`);
   // "some words" files sit next to the projects files (derived, no extra config).
   await writeFile(path.join(dir, 'private', 'some-words.json'), `${JSON.stringify({ text: 'Hello.' }, null, 2)}\n`);
+  await writeFile(path.join(dir, 'private', 'projects-ac.json'), `${JSON.stringify({ projects: [] }, null, 2)}\n`);
   await writeFile(path.join(dir, 'private', 'glossary.json'), `${JSON.stringify({ terms: [] }, null, 2)}\n`);
   passwordHash = hashPassword(PASSWORD);
   ({ app: server, base } = await boot());
@@ -612,4 +613,101 @@ test('if the glossary cannot be written the content save is kept, with a glossar
   } finally {
     app.close();
   }
+});
+
+/* ---------- projects (B.C.): the second collection, same rules, its own files and slugs ---------- */
+
+const acNow = async () => (await call(base, 'GET', '/api/projects-ac', { cookie })).json();
+const acPublic = async (lang) => JSON.parse(await readFile(path.join(path.dirname(publicFile), `projects-ac.${lang}.json`), 'utf8'));
+
+test('projects (B.C.): session required; starts empty with its own version', async () => {
+  assert.equal((await call(base, 'GET', '/api/projects-ac')).status, 401);
+  assert.equal((await call(base, 'POST', '/api/projects-ac', { body: {}, version: 'v' })).status, 401);
+  const json = await acNow();
+  assert.deepEqual(json.projects, []);
+  assert.match(json.version, /^[0-9a-f]{64}$/);
+});
+
+test('projects (B.C.): create, edit, hide, reorder, delete; per-collection slugs; own public files', async () => {
+  const iaBefore = await (await call(base, 'GET', '/api/projects', { cookie })).json();
+  let { version } = await acNow();
+  const step = async (method, pathname, body, status = 200) => {
+    const res = await call(base, method, pathname, { cookie, version, body });
+    assert.equal(res.status, status, `${method} ${pathname}`);
+    const json = await res.json();
+    ({ version } = json);
+    return json;
+  };
+
+  // "ledger" is taken in projects (IA), but slugs are per collection.
+  let json = await step('POST', '/api/projects-ac', { id: 'ledger', title: 'Old Ledger', category: only('web'), year: '2009', url: 'https://old.example.com' }, 201);
+  assert.deepEqual(json.projects.map((p) => p.id), ['ledger']);
+  assert.deepEqual(json.addedTerms, []);
+  json = await step('POST', '/api/projects-ac', { title: 'Mill', category: only('cd-rom'), year: '1999', url: 'https://mill.example.com', position: 'top' }, 201);
+  assert.deepEqual(json.projects.map((p) => p.id), ['mill', 'ledger']);
+
+  // A slug in use in this collection is refused.
+  let res = await call(base, 'POST', '/api/projects-ac', { cookie, version, body: { id: 'mill', title: 'X', category: only('x'), year: '1', url: 'https://x.example.com' } });
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).errors.id, /already used by Mill/);
+
+  // The rich-text field is labelled "how it was made" here.
+  res = await call(base, 'PUT', '/api/projects-ac/mill', { cookie, version, body: { ai: only('[x](javascript:alert(1))') } });
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).errors['ai.ca'], /^how it was made \(ca\)/);
+
+  await step('PUT', '/api/projects-ac/mill', { ai: only('Fet a mà.', 'Made by hand.'), description: only('Molí.') });
+  assert.equal((await acPublic('en')).projects[0].ai, 'Made by hand.');
+  assert.equal((await acPublic('es')).projects[0].ai, 'Fet a mà.', 'empty es falls back to ca');
+
+  await step('PUT', '/api/projects-ac/ledger', { visible: false });
+  assert.deepEqual((await acPublic('ca')).projects.map((p) => p.id), ['mill'], 'hidden ones never reach the public file');
+  assert.ok((await acPublic('ca')).projects.every((p) => !('visible' in p)));
+
+  assert.equal((await call(base, 'PUT', '/api/order-ac', { cookie, version, body: { ids: ['ledger'] } })).status, 400, 'must be a permutation');
+  json = await step('PUT', '/api/order-ac', { ids: ['ledger', 'mill'] });
+  assert.deepEqual(json.projects.map((p) => p.id), ['ledger', 'mill']);
+
+  await step('PUT', '/api/projects-ac/ledger', { visible: true });
+  assert.deepEqual((await acPublic('es')).projects.map((p) => p.id), ['ledger', 'mill']);
+
+  assert.equal((await call(base, 'DELETE', '/api/projects-ac/nope', { cookie, version })).status, 404);
+  json = await step('DELETE', '/api/projects-ac/ledger');
+  assert.deepEqual(json.projects.map((p) => p.id), ['mill']);
+
+  const web = await readdir(path.dirname(publicFile));
+  assert.deepEqual(web.filter((name) => name.startsWith('projects-ac')).sort(), ['projects-ac.ca.json', 'projects-ac.en.json', 'projects-ac.es.json'], 'no legacy copy, no temp files');
+
+  const iaAfter = await (await call(base, 'GET', '/api/projects', { cookie })).json();
+  assert.equal(iaAfter.version, iaBefore.version, 'projects (IA) untouched');
+  assert.ok(!(await publicIds()).includes('mill'), 'and its public file too');
+});
+
+test('projects (B.C.): If-Match, stale versions, Origin and content type as for projects', async () => {
+  const { version } = await acNow();
+  const body = { title: 'Late' };
+  assert.equal((await call(base, 'PUT', '/api/projects-ac/mill', { cookie, body })).status, 428);
+  assert.equal((await call(base, 'PUT', '/api/projects-ac/mill', { cookie, body, version: 'stale' })).status, 409);
+  assert.equal((await call(base, 'PUT', '/api/order-ac', { cookie, body: { ids: ['mill'] }, version: 'stale' })).status, 409);
+  assert.equal((await call(base, 'PUT', '/api/projects-ac/mill', { cookie, body, version, headers: { origin: 'https://evil.example.com' } })).status, 403);
+  assert.equal((await call(base, 'PUT', '/api/projects-ac/mill', { cookie, body, version, headers: { 'content-type': 'text/plain' } })).status, 415);
+  assert.equal((await acNow()).version, version, 'nothing changed');
+});
+
+test('projects (B.C.): glossary pending terms on save, usage protection and republish on glossary save', async () => {
+  let res = await call(base, 'PUT', '/api/projects-ac/mill', { cookie, version: (await acNow()).version, body: { ai: only('Amb {{Lingo}} i {{RAG}}.') } });
+  assert.equal(res.status, 200);
+  assert.deepEqual((await res.json()).addedTerms, ['Lingo']);
+  let { terms, version } = await glossaryNow();
+  assert.deepEqual(terms.find((t) => t.term === 'Lingo'), pendingEntry('Lingo'));
+  assert.match((await acPublic('ca')).projects[0].ai, /\{\{RAG\|nova\}\}/, 'known terms resolve at publish');
+
+  res = await call(base, 'PUT', '/api/glossary', { cookie, version, body: { terms: terms.filter((t) => t.term !== 'Lingo') } });
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).errors._usage, /"Lingo".*projects \(B\.C\.\) "Mill" how it was made \(ca\)/);
+
+  terms = terms.map((t) => (t.term === 'Lingo' ? { term: 'Lingo', explanation: only('argot', 'jargon') } : t));
+  res = await call(base, 'PUT', '/api/glossary', { cookie, version, body: { terms } });
+  assert.equal(res.status, 200);
+  assert.equal((await acPublic('en')).projects[0].ai, 'Amb {{Lingo|jargon}} i {{RAG|nova}}.', 'glossary save republishes projects (B.C.)');
 });

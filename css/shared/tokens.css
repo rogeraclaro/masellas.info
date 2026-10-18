@@ -66,7 +66,7 @@
   --chrome-inset: 10px; /* menu, burger, language tabs and close sit 10px from the edges */
   --tab-h: 28px;        /* one tab: 26px line + 1px padding top and bottom */
   --tap: 44px;          /* minimum tap target on phones */
-  --menu-row: 46px;     /* one row of menu tabs, top padding included (wider than 640px; phones use the burger) */
+  --menu-row: 46px;     /* one row of menu tabs, top padding included (wider than 720px; phones use the burger) */
   /* Coral band behind the fixed controls inside the project detail:
      wider screens: tab row + close row; phones: burger / close row. */
   --detail-band: calc(var(--menu-row) + var(--tab-h) + 2 * var(--chrome-inset));
@@ -78,7 +78,7 @@
   --z-menu: 70;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 720px) {
   :root {
     --detail-band: calc(var(--tap) + 2 * var(--chrome-inset));
   }

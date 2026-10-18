@@ -25,14 +25,15 @@ export function toPublic(data, lang = DEFAULT_LANG, glossary = null) {
 // <name>.<lang>.json for each language, plus the legacy <name>.json (= ca) that pages loaded
 // before the site had languages still fetch. Each file is atomic, 0644, without backup: they live
 // in the web root and are always rebuilt from the private file.
-async function writeLanguages(file, publicFor) {
+// legacy: false for files that never had a pre-languages version (projects (B.C.)).
+async function writeLanguages(file, publicFor, { legacy = true } = {}) {
   const json = (lang) => `${JSON.stringify(publicFor(lang), null, 2)}\n`;
   for (const lang of LANGS) await writeAtomic(localizedFile(file, lang), json(lang), 0o644);
-  await writeAtomic(file, json(DEFAULT_LANG), 0o644);
+  if (legacy) await writeAtomic(file, json(DEFAULT_LANG), 0o644);
 }
 
-export function writePublic(publicFile, data, glossary = null) {
-  return writeLanguages(publicFile, (lang) => toPublic(data, lang, glossary));
+export function writePublic(publicFile, data, glossary = null, { legacy = true } = {}) {
+  return writeLanguages(publicFile, (lang) => toPublic(data, lang, glossary), { legacy });
 }
 
 // Boot: seed DATA_FILE from PUBLIC_FILE once if needed, then bring PUBLIC_FILE in sync.
@@ -79,4 +80,30 @@ export async function prepareSomeWords({ someWordsFile, someWordsPublicFile, def
   const data = migrateSomeWords(JSON.parse(await readFile(someWordsFile, 'utf8')));
   await writeSomeWordsPublic(someWordsPublicFile, data, glossary);
   return { seeded };
+}
+
+/* ---------- projects (B.C.): the second collection, older projects made without AI ---------- */
+
+// Same shape and rules as projects, stored next to the projects files (no extra configuration).
+// Public: projects-ac.<lang>.json only (no legacy un-suffixed copy).
+export function projectsAcPaths({ dataFile, publicFile }) {
+  return {
+    projectsAcFile: path.join(path.dirname(dataFile), 'projects-ac.json'),
+    projectsAcPublicFile: path.join(path.dirname(publicFile), 'projects-ac.json'),
+  };
+}
+
+export const writeProjectsAcPublic = (publicFile, data, glossary = null) => writePublic(publicFile, data, glossary, { legacy: false });
+
+// Boot: create an empty private list once (mode 0600), then republish.
+export async function prepareProjectsAc({ projectsAcFile, projectsAcPublicFile, glossary = null }) {
+  let created = false;
+  if (!existsSync(projectsAcFile)) {
+    await mkdir(path.dirname(projectsAcFile), { recursive: true });
+    await writeFile(projectsAcFile, `${JSON.stringify({ projects: [] }, null, 2)}\n`, { mode: 0o600 });
+    created = true;
+  }
+  const data = migrateProjects(JSON.parse(await readFile(projectsAcFile, 'utf8')));
+  await writeProjectsAcPublic(projectsAcPublicFile, data, glossary);
+  return { created };
 }

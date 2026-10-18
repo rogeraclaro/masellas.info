@@ -1,4 +1,4 @@
-// Burger menu for phones (css/shared/menu.css shows .menu-toggle up to 640px). The toggle opens
+// Burger menu for phones (css/shared/menu.css shows .menu-toggle up to 720px). The toggle opens
 // #site-menu, which holds the section and language tabs; html.menu-open drives the CSS.
 // Escape closes it and refocuses the toggle; any click that is not on the toggle (a link,
 // the panel background, the page) closes it. Wider screens never show the toggle.
@@ -26,7 +26,7 @@ export function bindSiteMenu() {
     setOpen(false);
     toggle.focus();
   }, true);
-  window.matchMedia('(max-width: 640px)').addEventListener('change', (event) => {
+  window.matchMedia('(max-width: 720px)').addEventListener('change', (event) => {
     if (!event.matches) setOpen(false);
   });
   // Never snapshot (view transition) or restore (back/forward cache) a page with the menu open.

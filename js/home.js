@@ -22,7 +22,7 @@ const SLIDE = { duration: 1.4, ease: 'expo.inOut' };
 const sections = [...document.querySelectorAll('.section')];
 const anchors = sections.map((section) => section.dataset.anchor);
 const shade = document.querySelector('.section-shade');
-const tabs = [...document.querySelectorAll('.menu .menu__tab')]; // section links (the point / some words / projects)
+const tabs = [...document.querySelectorAll('.menu .menu__tab')]; // section links (the point / some words / projects / projects (B.C.))
 const cubes = [...document.querySelectorAll('.menu__tab')]; // plus the language tabs
 const title = document.getElementById('home-title');
 const words = document.querySelector('.intro');

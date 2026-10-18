@@ -29,6 +29,8 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
   let ALPHA = 'power1.out';
 
   const list = document.getElementById('projects-list');
+  // projects (IA) and projects (B.C.) share this bundle; the page names its data (set by the build).
+  const collection = list.dataset.collection || 'projects';
   const countEl = document.querySelector('.page-count');
   const filtersEl = document.querySelector('.filters');
   const titleEl = document.querySelector('[data-split]');
@@ -507,7 +509,7 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
   // Returns the visible projects, or null when the data cannot be loaded.
   async function loadProjects() {
     try {
-      const response = await fetch(`/projects/data/projects.${pageLang()}.json`, { cache: 'no-store' });
+      const response = await fetch(`/projects/data/${collection}.${pageLang()}.json`, { cache: 'no-store' });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return (await response.json()).projects.filter((project) => project.visible !== false);
     } catch (err) {
@@ -541,7 +543,8 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
     order = projects;
     projectsById = new Map(projects.map((project) => [project.id, project]));
     buildCloseButton();
-    renderFilters([...new Set(projects.map((project) => project.category))]);
+    // An empty list (a new collection) gets no filters at all, not a lone "all".
+    if (projects.length) renderFilters([...new Set(projects.map((project) => project.category))]);
     updateCount();
     measureCubes();
     if (lenis) lenis.resize();

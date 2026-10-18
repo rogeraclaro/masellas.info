@@ -222,3 +222,9 @@ test('"how I used AI" uses the rich-text format: styles are fine, its errors blo
   assert.match(errors['ai.es'], /how I used AI \(es\).*unclosed "\*\*"/);
   assert.match(validateProject({ ...valid(), ai: { ...all(''), ca: 'see [x](javascript:alert(1))' } }).errors['ai.ca'], /javascript/);
 });
+
+test('validateProject names the rich-text field by its label for the collection (aiLabel)', () => {
+  const bad = { ...valid(), ai: { ca: 'see [x](javascript:alert(1))', en: '', es: '' } };
+  assert.match(validateProject(bad).errors['ai.ca'], /^how I used AI \(ca\)/);
+  assert.match(validateProject(bad, { aiLabel: 'how it was made' }).errors['ai.ca'], /^how it was made \(ca\)/);
+});

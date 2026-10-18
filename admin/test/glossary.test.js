@@ -85,3 +85,10 @@ test('withPendingTerms adds missing bare terms once, as first written, with an e
   assert.deepEqual(withPendingTerms(current, ['{{RAG}} and {{x|own}}']), { glossary: current, added: [] });
   assert.deepEqual(withPendingTerms({}, ['{{New}}']).added, ['New'], 'a glossary without terms');
 });
+
+test('termUsage also finds uses in the projects (B.C.) collection, labelled "how it was made"', () => {
+  const projects = { projects: [] };
+  const projectsAc = { projects: [{ id: 'mill', title: 'Mill', ai: { ca: '', en: 'With {{RAG}}.', es: '' } }] };
+  assert.deepEqual(termUsage({ projects, projectsAc, words: { text: '' } }, 'rag'), ['projects (B.C.) "Mill" how it was made (en)']);
+  assert.deepEqual(termUsage({ projects, words: { text: '' } }, 'rag'), [], 'the collection is optional');
+});

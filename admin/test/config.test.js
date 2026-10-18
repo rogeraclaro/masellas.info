@@ -64,3 +64,9 @@ test('loadConfig rejects a short or non-hex SESSION_SECRET and a relative DATA_F
   assert.throws(() => loadConfig({ ...good, PUBLIC_FILE: 'projects.json' }), /PUBLIC_FILE/);
   assert.throws(() => loadConfig({ ...good, PUBLIC_FILE: good.DATA_FILE }), /PUBLIC_FILE/);
 });
+
+test('loadConfig derives the projects (B.C.) files from DATA_FILE / PUBLIC_FILE (no new vars)', () => {
+  const config = loadConfig(good);
+  assert.equal(config.projectsAcFile, '/srv/projects-ac.json');
+  assert.equal(config.projectsAcPublicFile, '/var/www/projects/data/projects-ac.json');
+});

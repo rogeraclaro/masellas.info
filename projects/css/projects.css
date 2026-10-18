@@ -484,7 +484,7 @@ html.detail-open {
 .detail__meta {
   margin: var(--space-after-title) 0 0;
   font-family: var(--font-book);
-  font-size: var(--fs-lead);
+  font-size: var(--fs-body);
   line-height: var(--lh-lead);
   letter-spacing: var(--ls-text);
 }
@@ -493,7 +493,7 @@ html.detail-open {
   max-width: 65vw;
   margin: var(--space-after-title) 0 0;
   font-family: var(--font-book);
-  font-size: var(--fs-lead);
+  font-size: var(--fs-body);
   line-height: var(--lh-lead);
   letter-spacing: var(--ls-text);
 }

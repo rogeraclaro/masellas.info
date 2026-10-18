@@ -36,8 +36,8 @@
   "projects_ac.projects.detail_ai": "Com es va fer",
   "projects_ac.js.detail_title": "{title} — Projectes (a.C.) — Roger Masellas",
 
-  "js.count_one": "{n} project",
-  "js.count_other": "{n} projects",
+  "js.count_one": "{n} projecte",
+  "js.count_other": "{n} projectes",
   "js.filter_all": "all",
   "js.row_label": "{title}, {category}: project details",
   "js.close": "close",

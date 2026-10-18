@@ -60,6 +60,11 @@
   --rich-gap: 1em;                               /* between paragraphs of running text */
 
   --gutter: clamp(16px, 2.8vw, 40px);
+  /* The text column: 1240px wide on every page, centred, never closer to the edges than the gutter.
+     --column-pad is the side padding that puts a full-width box's text in that column
+     (% resolves against the box's own containing block). */
+  --column: 1240px;
+  --column-pad: max(var(--gutter), (100% - var(--column)) / 2);
   --col-gap: clamp(12px, 1.4vw, 20px);
 
   /* ---------- Brand chrome ---------- */

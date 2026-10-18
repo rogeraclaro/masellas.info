@@ -20,6 +20,15 @@ export function indexFromHash(hash, anchors) {
   return anchors.indexOf(String(hash).replace(/^#/, ''));
 }
 
+// A section taller than the screen scrolls inside itself first: a step may only leave it from the
+// edge it pushes against (the bottom going down, the top going up). One that fits can always leave.
+// The 1px slack absorbs fractional scroll positions on zoomed / high-DPI screens.
+export function canLeave({ scrollTop, scrollHeight, clientHeight }, direction) {
+  const max = scrollHeight - clientHeight;
+  if (max <= 1) return true;
+  return direction === 'down' ? scrollTop >= max - 1 : scrollTop <= 1;
+}
+
 // Wheel and touch fire many events per gesture (trackpads keep firing during inertia).
 // A gesture is a run of events with no pause longer than `gap` ms; only its first event counts.
 export function createGestureGate(gap = 200) {

@@ -543,15 +543,21 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
     order = projects;
     projectsById = new Map(projects.map((project) => [project.id, project]));
     buildCloseButton();
-    // An empty list (a new collection) gets no filters at all, not a lone "all".
-    if (projects.length) renderFilters([...new Set(projects.map((project) => project.category))]);
-    updateCount();
+    if (projects.length) {
+      renderFilters([...new Set(projects.map((project) => project.category))]);
+      updateCount();
+    } else {
+      // An empty collection: one sentence in the count's place; no filters, no list hairline.
+      countEl.textContent = t('empty');
+      list.hidden = true;
+      pageEl.classList.add('page--empty');
+    }
     measureCubes();
     if (lenis) lenis.resize();
 
     if (animate) {
       // Pre-state for the appear animation; show() reveals what is in view.
-      gsap.set(linksOf(visibleRows()), { autoAlpha: 0 });
+      if (projects.length) gsap.set(linksOf(visibleRows()), { autoAlpha: 0 });
       document.querySelectorAll('.cube').forEach((cube) => bindCube(cube, cube.classList.contains('work-item') ? ROW_LEAVE_DELAY : 0));
       hoverQuery.addEventListener('change', () => {
         if (!hoverQuery.matches) gsap.set(document.querySelectorAll('.cube__inner'), { rotateX: 0 });

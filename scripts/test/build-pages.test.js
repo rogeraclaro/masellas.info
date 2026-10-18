@@ -111,6 +111,32 @@ test('the repo sources build nine pages with lang, hreflang, og:locale and the s
   assert.doesNotMatch(pages.find((p) => p.file === 'en/index.html').html, /name="robots"/, 'home stays indexable');
 });
 
+test('every page has one canonical link to its own absolute URL; the home has a description in its language', async () => {
+  const pages = await buildPages({ root: REPO, write: false });
+  for (const { file, html, lang, page } of pages) {
+    const prefix = lang === 'ca' ? '' : `${lang}/`;
+    const sub = page === 'home' ? '' : `${page}/`;
+    const canonicals = [...html.matchAll(/<link rel="canonical" href="([^"]*)">/g)].map((m) => m[1]);
+    assert.deepEqual(canonicals, [`https://masellas.info/${prefix}${sub}`], `${file}: canonical (no ?p=)`);
+    const descriptions = [...html.matchAll(/<meta name="description" content="([^"]*)">/g)].map((m) => m[1]);
+    assert.equal(descriptions.length, 1, `${file}: one description`);
+    if (page === 'home') assert.equal(descriptions[0], (await dictOf(lang))['home.description'], `${file}: home description`);
+  }
+  const home = (lang) => pages.find((p) => p.lang === lang && p.page === 'home').html;
+  assert.ok(home('ca').includes('<meta name="description" content="Web currículum de Roger Masellas, desenvolupador frontend.">'));
+  assert.ok(home('es').includes('<meta name="description" content="Web currículum de Roger Masellas, desarrollador frontend.">'));
+  assert.ok(home('en').includes('<meta name="description" content="Resumé site of Roger Masellas, frontend developer.">'));
+});
+
+test('the empty-collection sentence is in every language\'s page strings', async () => {
+  const pages = await buildPages({ root: REPO, write: false });
+  const expected = { ca: 'Encara no hi ha cap projecte.', es: 'Todavía no hay ningún proyecto.', en: 'No projects yet.' };
+  for (const { file, html, lang, page } of pages.filter((p) => p.page !== 'home')) {
+    const strings = JSON.parse(/<script type="application\/json" id="i18n">(.*?)<\/script>/s.exec(html)[1]);
+    assert.equal(strings.empty, expected[lang], `${file} (${page})`);
+  }
+});
+
 test('every page has the burger toggle, labelled in its language, wrapping both menus', async () => {
   const pages = await buildPages({ root: REPO, write: false });
   for (const { file, html, lang } of pages) {

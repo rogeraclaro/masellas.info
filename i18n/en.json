@@ -12,6 +12,7 @@
   "home.title": "Roger Masellas, Frontend Developer",
   "home.og_title": "Roger Masellas, Frontend Developer",
   "home.og_description": "Roger Masellas resumé site",
+  "home.description": "Resumé site of Roger Masellas, frontend developer.",
   "home.cv_label": "My PDF resumé:",
   "home.cv_note": "(most updated cv in english)",
   "home.linkedin_label": "My LinkedIn profile:",
@@ -45,5 +46,6 @@
   "js.visit_label": "visit site: {title} (opens in a new tab)",
   "js.next": "next project: {title}",
   "js.detail_title": "{title} — Projects (IA) — Roger Masellas",
-  "js.load_error": "The projects could not load. Try again in a minute."
+  "js.load_error": "The projects could not load. Try again in a minute.",
+  "js.empty": "No projects yet."
 }

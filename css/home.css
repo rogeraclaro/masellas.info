@@ -85,6 +85,24 @@ ul {
   visibility: visible;
 }
 
+/* Phones: a solid band in the section's own colour behind the burger toggle, so text that
+   scrolls up passes under it instead of showing through the translucent toggle (like the
+   project detail's band). Sticky inside the section's scroller; the negative margin keeps it
+   out of the layout. */
+@media (max-width: 720px) {
+  .section::before {
+    content: "";
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: block;
+    height: calc(var(--tap) + 2 * var(--chrome-inset));
+    margin-bottom: calc(-1 * (var(--tap) + 2 * var(--chrome-inset)));
+    background: inherit;
+    pointer-events: none;
+  }
+}
+
 .section__inner {
   display: flex;
   flex-direction: column;
@@ -141,7 +159,7 @@ ul {
 /* ---------- Some words ---------- */
 .intro {
   width: 100%;
-  max-width: 1240px;
+  max-width: var(--column);
   margin: 0 auto;
   font-family: var(--font-book);
   font-size: var(--fs-lead);

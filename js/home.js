@@ -4,7 +4,7 @@ import { setupGsap } from './shared/ease.js';
 import { splitTitle, titleIntro, hideTitle } from './shared/split-title.js';
 import { measureCube, bindCube } from './shared/cube.js';
 import { pageReady } from './shared/page-ready.js';
-import { step, jump, indexFromHash, createGestureGate } from './home/sections.js';
+import { step, jump, indexFromHash, createGestureGate, canLeave } from './home/sections.js';
 import { pageLang } from './shared/i18n.js';
 import { bindLangLinks } from './shared/lang-links.js';
 import { bindSiteMenu } from './shared/site-menu.js';
@@ -142,16 +142,15 @@ function go(move, { focus = false } = {}) {
   focusSection();
 }
 
-// A section taller than the screen scrolls first; it only hands over at its edge.
-function atEdge(direction) {
+// Which ways the current section can be left right now (canLeave: a tall one scrolls first).
+function exits() {
   const section = sections[current];
-  const max = section.scrollHeight - section.clientHeight;
-  if (max <= 1) return true;
-  return direction === 'down' ? section.scrollTop >= max - 1 : section.scrollTop <= 1;
+  return { up: canLeave(section, 'up'), down: canLeave(section, 'down') };
 }
 
-function stepBy(delta, options) {
-  if (!atEdge(delta > 0 ? 'down' : 'up')) return false;
+// `from`: the exits when the gesture began (default: now). Returns whether it changed section.
+function stepBy(delta, options, from = exits()) {
+  if (!from[delta > 0 ? 'down' : 'up']) return false;
   go(step(current, delta, sections.length), options);
   return true;
 }
@@ -159,24 +158,43 @@ function stepBy(delta, options) {
 /* ---------- Input ---------- */
 
 // One gesture = one step: only the first event of each wheel/touch gesture counts, so
-// trackpad inertia can never skip two sections. Gestures that start mid-scroll just scroll.
-function gestureHandler(gate, delta) {
+// trackpad inertia can never skip two sections. A gesture changes section only if the section
+// was already at that edge when it began; one that starts mid-scroll (or reaches the edge on
+// the way) just scrolls, and the next gesture moves on.
+
+// Touch: Observer reports a drag once it passes its tolerance, after the section has already
+// scrolled with the finger, so the exits are read when the finger lands.
+let touchExits = null;
+
+function touchHandler(gate, delta) {
   return (self) => {
     if (self.event && self.event.pointerType === 'mouse') return; // keep mouse text selection
     if (!gate.accept(performance.now()) || animating || menu.isOpen()) return;
-    stepBy(delta);
+    stepBy(delta, undefined, touchExits || exits());
   };
 }
 
+// Wheel: a plain, non-passive listener, so the browser waits for it before scrolling and the
+// edge is read before the scroll. (Observer reports wheel events a frame later, and a passive
+// listener lets the scroll run first: either way one notch could scroll a slightly-too-tall
+// section to its edge and then also change section.)
+function bindWheel() {
+  const gate = createGestureGate(200);
+  window.addEventListener('wheel', (event) => {
+    if (event.ctrlKey) return; // pinch zoom
+    if (!gate.accept(performance.now()) || animating || menu.isOpen()) return;
+    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return; // sideways
+    if (stepBy(Math.sign(event.deltaY))) event.preventDefault();
+  }, { passive: false });
+}
+
 function bindInput() {
-  if (window.Observer && gsap) {
+  bindWheel();
+  if (animate && window.Observer) {
     gsap.registerPlugin(window.Observer);
-    const wheel = createGestureGate(200);
-    window.Observer.create({ type: 'wheel', tolerance: 5, onDown: gestureHandler(wheel, 1), onUp: gestureHandler(wheel, -1) });
-    if (animate) {
-      const touch = createGestureGate(200);
-      window.Observer.create({ type: 'touch,pointer', tolerance: 30, onUp: gestureHandler(touch, 1), onDown: gestureHandler(touch, -1) });
-    }
+    window.addEventListener('pointerdown', () => { touchExits = exits(); }, { capture: true, passive: true });
+    const touch = createGestureGate(200);
+    window.Observer.create({ type: 'touch,pointer', tolerance: 30, onUp: touchHandler(touch, 1), onDown: touchHandler(touch, -1) });
   }
 
   const keys = { ArrowDown: 1, PageDown: 1, ArrowUp: -1, PageUp: -1 };
@@ -189,9 +207,14 @@ function bindInput() {
       return;
     }
     const delta = event.key === ' ' ? (event.shiftKey ? -1 : 1) : keys[event.key];
-    if (!delta) return;
-    if (animating) event.preventDefault();
-    else if (stepBy(delta, { focus: true })) event.preventDefault();
+    if (!delta || (event.key === ' ' && event.target.closest('button'))) return; // Space presses buttons
+    event.preventDefault();
+    if (animating || stepBy(delta, { focus: true })) return;
+    // Not at the edge yet: scroll the section like the browser would, wherever the focus is
+    // (with focus outside the section the browser would scroll nothing, html never scrolls).
+    const section = sections[current];
+    const distance = event.key.startsWith('Arrow') ? 40 : section.clientHeight * 0.85;
+    section.scrollBy({ top: delta * distance, behavior: animate ? 'smooth' : 'auto' });
   });
 
   for (const tab of tabs) {

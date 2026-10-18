@@ -95,7 +95,7 @@ ul {
 
 /* ---------- Header ---------- */
 .page-header {
-  padding: var(--space-top) var(--gutter) var(--space-after-title);
+  padding: var(--space-top) var(--column-pad) var(--space-after-title);
 }
 
 .page-bar {
@@ -115,11 +115,12 @@ ul {
   margin: 0;
 }
 
+/* The chips' padding hangs outside the column, so the first and last labels sit on its edges. */
 .filters {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  margin-left: calc(-1 * var(--space-2));
+  margin-inline: calc(-1 * var(--space-2));
 }
 
 .filters__sep {
@@ -183,7 +184,7 @@ ul {
 
 .work-list__error {
   margin: 0;
-  padding: var(--row-pad) var(--gutter);
+  padding: var(--row-pad) var(--column-pad);
   border-bottom: 1px solid var(--hairline);
   font-family: var(--font-book);
   font-size: var(--fs-lead);
@@ -213,7 +214,7 @@ ul {
   grid-template-columns: repeat(12, minmax(0, 1fr));
   column-gap: var(--col-gap);
   align-items: center;
-  padding: var(--row-pad) var(--gutter);
+  padding: var(--row-pad) var(--column-pad);
   overflow: hidden;
 }
 
@@ -252,9 +253,11 @@ ul {
   grid-column: 1 / span 7;
 }
 
+/* Wide rows: right-aligned on the column edge, under the last filter (thumbs to its left). */
 .work-item__meta {
   grid-column: 10 / span 3;
   display: flex;
+  flex-direction: row-reverse;
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-3);
@@ -300,7 +303,7 @@ ul {
 
 /* ---------- Footer ---------- */
 .page-footer {
-  padding: var(--space-section) var(--gutter) var(--space-6);
+  padding: var(--space-section) var(--column-pad) var(--space-6);
   font-family: var(--font-book);
   font-size: var(--fs-lead);
   line-height: var(--lh-lead);
@@ -309,6 +312,11 @@ ul {
 
 .page-footer p {
   margin: 0;
+}
+
+/* Empty collection (projects.js): no list between the header and the footer, so no section gap. */
+.page--empty .page-footer {
+  padding-top: var(--space-7);
 }
 
 /* ---------- Below 1200px: stacked rows, no hover roll ---------- */
@@ -322,6 +330,7 @@ ul {
 
   .work-item__meta {
     grid-column: 1 / -1;
+    flex-direction: row;
     margin-top: var(--space-2);
   }
 
@@ -411,8 +420,10 @@ html.detail-open {
   overscroll-behavior: contain;
 }
 
+/* The box holds the column plus its gutters, so the text sits in the same column as the list
+   and the home's "some words". */
 .detail__content {
-  max-width: 1240px;
+  max-width: calc(var(--column) + 2 * var(--gutter));
   margin: auto;
   padding: var(--space-top) var(--gutter) var(--space-section);
 }

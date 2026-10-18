@@ -12,6 +12,7 @@
   "home.title": "Roger Masellas, desenvolupador frontend",
   "home.og_title": "Roger Masellas, desenvolupador frontend",
   "home.og_description": "Web currículum de Roger Masellas",
+  "home.description": "Web currículum de Roger Masellas, desenvolupador frontend.",
   "home.cv_label": "El meu currículum en PDF:",
   "home.cv_note": "(el CV més actualitzat, en anglès)",
   "home.linkedin_label": "El meu perfil de LinkedIn:",
@@ -45,5 +46,6 @@
   "js.visit_label": "visita el web: {title} (s'obre en una pestanya nova)",
   "js.next": "projecte següent: {title}",
   "js.detail_title": "{title} — Projectes (IA) — Roger Masellas",
-  "js.load_error": "No s'han pogut carregar els projectes. Torna-ho a provar d'aquí a un minut."
+  "js.load_error": "No s'han pogut carregar els projectes. Torna-ho a provar d'aquí a un minut.",
+  "js.empty": "Encara no hi ha cap projecte."
 }

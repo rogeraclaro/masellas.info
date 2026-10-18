@@ -219,11 +219,11 @@ ul {
 }
 
 /* Rows must be tall enough for the coral face's info block:
-   2 description lines + 1 domain line (+4px gap) + vertical padding.
+   3 description lines + 1 domain line (+4px gap) + vertical padding.
    JS measures the row, so the cube depth follows automatically. */
 @media (min-width: 1200px) {
   .work-item .face--front {
-    min-height: calc(var(--row-pad) * 2 + var(--fs-small) * var(--lh-small) * 3 + var(--space-1));
+    min-height: calc(var(--row-pad) * 2 + var(--fs-small) * var(--lh-small) * 4 + var(--space-1));
   }
 }
 
@@ -250,7 +250,7 @@ ul {
 
 .face--before .work-item__title,
 .face--after .work-item__title {
-  grid-column: 1 / span 7;
+  grid-column: 1 / span 5;
 }
 
 /* Wide rows: right-aligned on the column edge, under the last filter (thumbs to its left). */
@@ -282,7 +282,7 @@ ul {
 }
 
 .work-item__info {
-  grid-column: 8 / span 5;
+  grid-column: 6 / span 7;
   font-family: var(--font-book);
   font-size: var(--fs-small);
   line-height: var(--lh-small);
@@ -291,7 +291,7 @@ ul {
 
 .work-item__desc {
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3; /* the 200-character maximum fits in 3 lines from 1200px up */
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

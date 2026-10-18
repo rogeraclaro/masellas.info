@@ -8,7 +8,8 @@ import { createStore, ConflictError } from './lib/store.js';
 import { verifyPassword, signSession, verifySession, createRateLimiter } from './lib/auth.js';
 import { validateProject, validateSomeWords, validateGlossary, uniqueSlug, isPermutation, slugOwner } from './lib/validation.js';
 import { glossaryPath, prepareGlossary, missingTerms, termUsage, withPendingTerms } from './lib/glossary.js';
-import { termKey } from './lib/rich-text.js';
+import { termKey, parseRichText } from './lib/rich-text.js';
+import { translateAll } from './lib/translate.js';
 import { LANGS } from './lib/languages.js';
 import { parseEnv, loadConfig } from './lib/config.js';
 import {
@@ -42,6 +43,8 @@ const SECURITY_HEADERS = {
 const COOKIE = 'admin_session';
 const SESSION_TTL = 12 * 60 * 60 * 1000;
 const MAX_BODY = 64 * 1024;
+// The longest translated field ("how I used AI", lib/validation.js).
+const TRANSLATE_MAX = 5000;
 
 class HttpError extends Error {
   constructor(status, body) {
@@ -132,6 +135,7 @@ export function createApp({
   glossaryFile = glossaryPath(dataFile),
   projectsAcFile = projectsAcPaths({ dataFile, publicFile }).projectsAcFile,
   projectsAcPublicFile = projectsAcPaths({ dataFile, publicFile }).projectsAcPublicFile,
+  translateFetch = globalThis.fetch, translateLimit = { max: 30, windowMs: 60 * 1000 },
 }) {
   // Older files (plain strings) are read as { ca, en, es } and stored that way on the next write.
   const store = createStore(dataFile, { migrate: migrateProjects });
@@ -146,6 +150,9 @@ export function createApp({
   const readGlossary = () => readOrEmpty(glossaryStore, { terms: [] });
   const readProjectsAc = () => readOrEmpty(acStore, { projects: [] });
   const limiter = createRateLimiter({ max: 5, windowMs: 15 * 60 * 1000 });
+  // Translations per client and minute, to go easy on the third-party translator. Every call is
+  // recorded as a "failure" of this limiter, so the window counts calls.
+  const translateLimiter = createRateLimiter(translateLimit);
   const cookieAttrs = `HttpOnly; SameSite=Strict; Path=${cookiePath}${cookieSecure ? '; Secure' : ''}`;
   // A private file plus its public copies: mutations run under If-Match, then republish.
   // Public writes (of every resource: the glossary republishes the others) run one at a time, in
@@ -321,6 +328,28 @@ export function createApp({
     return true;
   }
 
+  // { text, kind: 'rich' | 'plain', max? } (ca) -> { en: { text, warnings } | { error }, es: … }. Changes
+  // nothing, so no If-Match; the form fills en / es and the user saves as usual.
+  async function translate(req, res, body) {
+    const ip = clientIp(req);
+    if (translateLimiter.isBlocked(ip)) throw new HttpError(429, { error: 'too many translations, wait a minute and try again' });
+    const { text, kind, max } = body;
+    if (typeof text !== 'string' || !text.trim()) throw new HttpError(400, { error: 'text is required' });
+    if (text.length > TRANSLATE_MAX) throw new HttpError(400, { error: `text must be ${TRANSLATE_MAX} characters or fewer` });
+    if (kind !== 'rich' && kind !== 'plain') throw new HttpError(400, { error: 'kind must be rich or plain' });
+    if (max !== undefined && !(Number.isInteger(max) && max >= 1 && max <= TRANSLATE_MAX)) {
+      throw new HttpError(400, { error: `max must be a whole number from 1 to ${TRANSLATE_MAX}` });
+    }
+    if (kind === 'rich') {
+      const { errors } = parseRichText(text);
+      if (errors.length) throw new HttpError(400, { error: `fix the ca text first: ${errors.join(' ')}` });
+    }
+    translateLimiter.fail(ip);
+    const result = await translateAll(text.trim(), { kind, max, fetch: translateFetch });
+    const failed = Object.values(result).every((item) => item.error);
+    sendJson(res, failed ? 502 : 200, failed ? { error: `could not translate: ${result.en.error}`, ...result } : result);
+  }
+
   async function api(req, res, pathname) {
     const { method } = req;
     const body = method === 'GET' ? null : (checkCsrf(req), await readJson(req));
@@ -350,6 +379,7 @@ export function createApp({
     for (const collection of collections) {
       if (await projectRoutes(collection, req, res, pathname, body)) return;
     }
+    if (method === 'POST' && pathname === '/api/translate') return translate(req, res, body);
     if (method === 'GET' && pathname === '/api/some-words') {
       const { data, version } = await wordsStore.read();
       return sendJson(res, 200, { text: data.text, version });

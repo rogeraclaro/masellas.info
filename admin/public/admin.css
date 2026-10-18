@@ -261,3 +261,9 @@ textarea { resize: vertical; }
   .rich-field__help .format-help__table tbody th { grid-column: 1 / -1; padding-bottom: 0; font-size: 0.9em; }
   .rich-field__help .format-help__table thead th:first-child { display: none; }
 }
+
+/* "translate from ca" (per-language fields): at the end of the ca / en / es strip; its note under the field. */
+.lang-translate { margin-left: auto; padding: 2px 8px; font-size: 0.8em; }
+.lang-translate[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
+.translate-note:empty { display: none; }
+.translate-note--warn { color: var(--coral); }

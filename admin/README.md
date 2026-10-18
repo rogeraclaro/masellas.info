@@ -13,6 +13,19 @@ It keeps two files:
 - `DATA_FILE` — the private, full list (hidden projects included, with `visible`). Lives outside the web root. The API reads, writes and versions only this file.
 - `PUBLIC_FILE` — `projects/data/projects.json` in the web root. Rebuilt from `DATA_FILE` after every change and at boot, together with one file per language next to it: `projects.ca.json`, `projects.en.json`, `projects.es.json` (what `/projects/`, `/en/projects/`, `/es/projects/` fetch). Visible projects only, in order, without the `visible` field, translated fields flattened to plain text for that language (empty -> ca). `projects.json` itself is the ca version. Never edit them by hand; the next change overwrites them.
 
+### Machine translation ("translate from ca")
+
+Every translated field (category, description, "how I used AI" / "how it was made", "some words", a glossary explanation) has a "translate from ca" button at the end of its `ca / en / es` strip. It sends the ca text to `POST /api/translate` and fills en and es in the form; nothing is saved until you press save, so review both first. If en or es already has text, the first press asks "overwrite en / es?" (a second press within 5 s goes ahead). The button is disabled while ca is empty. Warnings show under the field, e.g. "es: check the bold: its end was lost." or a translation over the field's limit; if one language fails, the other is still filled.
+
+Engines (Softcatalà, the ones behind https://www.softcatala.org/traductor/; no key):
+
+- ca -> en: neural, `POST https://api.softcatala.org/v2/nmt/translate/` (`langpair=cat|eng`).
+- ca -> es: rule-based (Apertium), `POST https://api.softcatala.org/traductor/v1/translate` (`langpair=cat|spa`, `markUnknown=no`); the neural engine has no ca -> es. Spanish comes out literal: read it before saving.
+
+Markup protection (rich-text fields, `lib/translate.js`): `{{term}}` / `{{term|explanation}}` (the explanation stays in ca: give it its own en / es text if needed), `` `code` ``, backslash escapes and the line prefixes `## `, `- `, `> ` travel as tokens like `XQ3X` and come back unchanged; bold, strikethrough and link labels travel as `[XQ4X text]`, so the text is translated and the markers (and the link url) are put back around it. Both engines leave those tokens and square brackets alone. The result is checked with the rich-text parser; anything lost or broken becomes a warning, not an error. Plain fields are sent as they are.
+
+Limitations: the endpoints are undocumented and third-party (they can change or disappear; then the button reports the error and the rest of the admin is unaffected); machine translation needs review (articles before a `{{term}}` may not agree, e.g. "an {{PWA}}"). Each call times out after 20 s; the admin allows 30 translations per minute per client. To use another engine, change `ENGINES` / `callEngine` in `lib/translate.js`; the protection, the API and the UI stay the same.
+
 ## Projects (B.C.)
 
 A second collection of projects, older ones made without AI, shown at `/projects-ac/` (ca; `/en/projects-ac/`, `/es/projects-ac/`) exactly like `/projects/`. The "projects (B.C.)" tab opens the same view as "projects" (list, add, edit, hide, reorder, delete, slug rules, `ca / en / es` fields, rich text with formatting help and preview) on the other list; there the rich-text field is labelled "how it was made" (the field is still `ai` in the data and the API). Switching between the two closes the form; with unsaved changes it asks first ("discard changes?"). Slugs are unique per collection: the same slug may exist in both.
@@ -88,7 +101,7 @@ Environment variables only. `admin/.env` is read at boot if it exists; real envi
 npm test
 ```
 
-Uses `node:test`. Covers languages (migration, fallback), both project collections, validation per language, slugs, reorder checks, the file store (atomic write, backup, serialized writes, version conflicts), the public projection (regeneration, boot sync, migration, write failures), password hashing, session tokens, the rate limiter, and HTTP integration on an ephemeral port.
+Uses `node:test`. Covers languages (migration, fallback), both project collections, validation per language, slugs, reorder checks, the file store (atomic write, backup, serialized writes, version conflicts), the public projection (regeneration, boot sync, migration, write failures), password hashing, session tokens, the rate limiter, machine translation (markup protection, engine errors and timeouts, the endpoint; the network is mocked), and HTTP integration on an ephemeral port.
 
 ## How it works
 
@@ -102,6 +115,7 @@ Uses `node:test`. Covers languages (migration, fallback), both project collectio
 - `lib/rich-text.js` — pure parser for "some words" and "how I used AI" (blocks, styles, links, escapes). Also served to the admin UI and bundled into the home and projects pages by `scripts/build.sh`.
 - `lib/rich-text-dom.js` — browser renderer for parsed text (admin previews and help, home, project detail).
 - `lib/rich-text.css` — styles for rendered rich text; bundled into the site, served to the admin at `/rich-text.css`.
+- `lib/translate.js` — "translate from ca": the engines (`ENGINES`), markup protection and restore, timeouts and errors.
 - `lib/glossary.js` — glossary lookups, unknown terms, adding them as pending, where a term is used, the private file at boot.
 - `lib/term-tooltip.js` — the term tooltip (served to the admin previews, bundled into the site).
 - `public/rich-text-help.js` — the "formatting help" table (open / closed remembered in localStorage).
@@ -127,6 +141,7 @@ API (JSON, all under `/api`, session required except login, logout and session):
 | GET | `/api/some-words` | | `{ text: { ca, en, es }, version }` |
 | PUT | `/api/some-words` | `{ text: { ca, en, es } }` | ca 1–4000 chars, en / es 0–4000; republishes the public copies; `addedTerms` |
 | GET | `/api/glossary` | | `{ terms: [{ term, explanation: { ca, en, es } }], version }`, sorted; an empty `ca` = pending |
+| POST | `/api/translate` | `{ text, kind: "rich" \| "plain", max? }` | ca text (1–5000 chars; rich must parse) -> `{ en: { text, warnings }, es: … }`; a failed language has `{ error }` instead (502 if both fail). Changes nothing: no If-Match. 30 per minute per client (429). `max`: the field's limit, for the warning |
 | PUT | `/api/glossary` | `{ terms }` (the whole list) | errors keyed `terms.<i>.term`, `terms.<i>.explanation.<lang>`, `_usage`; republishes every public file; an empty `ca` is allowed (pending) |
 
 Project and "some words" saves answer with `addedTerms: [..]`, the terms that save added to the glossary as pending (`[]` if none), and, only if that glossary write failed, `glossaryError` (the save itself still succeeded).
@@ -135,7 +150,7 @@ Project and "some words" saves answer with `addedTerms: [..]`, the terms that sa
 
 Translated fields must be sent as an object with exactly `ca`, `en` and `es` text (a plain string is rejected); their errors come back keyed `<field>.<lang>`, e.g. `category.en`.
 
-Mutations need `Content-Type: application/json` and `If-Match: <version>`. A stale version gets 409, a missing one 428. A foreign `Origin` gets 403. If the private save works but the public file cannot be written, the response is 500 with the new `version`; the change is kept and the public file is rebuilt on the next change or restart.
+Mutations need `Content-Type: application/json` and `If-Match: <version>` (`/api/translate` only the first: it changes nothing). A stale version gets 409, a missing one 428. A foreign `Origin` gets 403. If the private save works but the public file cannot be written, the response is 500 with the new `version`; the change is kept and the public file is rebuilt on the next change or restart.
 
 ## Notes
 

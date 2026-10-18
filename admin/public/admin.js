@@ -127,9 +127,10 @@ import { hasChanges } from './ui-state.js';
 
   /* ---------- Per-language fields ----------
      index.html marks the ca control with data-langs; this adds an en and an es copy (one shown
-     at a time) and a ca / en / es tab strip that also tells which languages are empty. */
+     at a time) and a ca / en / es tab strip that also tells which languages are empty.
+     translate: 'rich' | 'plain' adds a "translate from ca" button that fills en and es (see translator()). */
 
-  function langField(base, { onChange = () => {} } = {}) {
+  function langField(base, { onChange = () => {}, translate = null } = {}) {
     const name = base.id.replace(/^f-/, '');
     const label = document.querySelector(`label[for="${base.id}"]`);
     const required = base.required;
@@ -176,6 +177,11 @@ import { hasChanges } from './ui-state.js';
 
     let current = 'ca';
     const isEmpty = (lang) => !inputs[lang].value.trim();
+    // Bumped by set(): a translation that answers after the form was refilled is dropped.
+    let generation = 0;
+    const translateButton = translate
+      ? translator({ inputs, strip, after: statusEl, kind: translate, label: () => label.textContent, isEmpty, generation: () => generation })
+      : null;
 
     function refresh() {
       for (const lang of LANGS) {
@@ -188,6 +194,7 @@ import { hasChanges } from './ui-state.js';
       }
       const fallback = LANGS.filter((lang) => lang !== 'ca' && isEmpty(lang));
       statusEl.textContent = fallback.length && !isEmpty('ca') ? `${fallback.join(', ')} empty: the site shows the ca text there.` : '';
+      translateButton?.refresh();
     }
 
     function select(lang, { focus = false } = {}) {
@@ -212,10 +219,111 @@ import { hasChanges } from './ui-state.js';
       current: () => current,
       value: () => Object.fromEntries(LANGS.map((lang) => [lang, inputs[lang].value])),
       set(value) {
+        generation += 1;
+        translateButton?.reset();
         for (const lang of LANGS) inputs[lang].value = (value && value[lang]) ?? '';
         select('ca');
       },
       select,
+    };
+  }
+
+  /* "translate from ca": sends the ca text to api/translate and fills en and es in the form (nothing is
+     saved; the user reviews and saves as usual). If en or es already has text, the first press turns the
+     button into "overwrite en / es?" for a few seconds and a second press goes ahead (as "delete").
+     Warnings (markup the translator may have broken, a text over the field's limit) and errors show
+     under the field. */
+  const TRANSLATE_LABEL = 'translate from ca';
+  const TARGETS = LANGS.filter((lang) => lang !== 'ca');
+
+  function translator({ inputs, strip, after, kind, label, isEmpty, generation }) {
+    const button = el('button', 'btn lang-translate', TRANSLATE_LABEL);
+    button.type = 'button';
+    const note = el('p', 'hint translate-note');
+    note.setAttribute('aria-live', 'polite');
+    strip.append(button);
+    after.after(note);
+    const max = inputs.ca.maxLength > 0 ? inputs.ca.maxLength : undefined;
+    let busy = false;
+    let armTimer = 0;
+
+    function disarm() {
+      clearTimeout(armTimer);
+      delete button.dataset.confirm;
+      button.classList.remove('btn--danger');
+      if (!busy) button.textContent = TRANSLATE_LABEL;
+    }
+
+    function refresh() {
+      button.disabled = isEmpty('ca') && !busy;
+      button.setAttribute('aria-label', button.dataset.confirm ? `${button.textContent} (${label()})` : `${label()}: translate from ca into en and es`);
+    }
+
+    function show(data, message = '') {
+      const lines = [];
+      const filled = TARGETS.filter((lang) => typeof data[lang]?.text === 'string');
+      if (filled.length) lines.push(`filled ${filled.join(' and ')} from ca: review, then save.`);
+      for (const lang of TARGETS) {
+        if (data[lang]?.error) lines.push(`${lang}: not translated (${data[lang].error}).`);
+        for (const warning of data[lang]?.warnings ?? []) lines.push(`${lang}: ${warning}`);
+      }
+      if (message) lines.push(message);
+      note.textContent = lines.join(' ');
+      note.classList.toggle('translate-note--warn', lines.length > (filled.length ? 1 : 0) || !filled.length);
+    }
+
+    async function run() {
+      if (busy || isEmpty('ca')) return;
+      const filled = TARGETS.filter((lang) => !isEmpty(lang));
+      if (filled.length && !button.dataset.confirm) {
+        button.dataset.confirm = '1';
+        button.textContent = `overwrite ${filled.join(' / ')}?`;
+        button.classList.add('btn--danger');
+        armTimer = setTimeout(() => { disarm(); refresh(); }, 5000);
+        refresh();
+        return;
+      }
+      disarm();
+      busy = true;
+      const started = generation();
+      // aria-disabled (not disabled) keeps the focus on the button while it works.
+      button.setAttribute('aria-disabled', 'true');
+      button.setAttribute('aria-busy', 'true');
+      button.textContent = 'translating…';
+      note.textContent = '';
+      let data = null;
+      let message = '';
+      try {
+        data = await api('POST', 'api/translate', { text: inputs.ca.value, kind, max }, { ifMatch: null, track: false });
+      } catch (err) {
+        if (err.status === 401) return;
+        data = err.body?.en || err.body?.es ? err.body : {};
+        if (!data.en && !data.es) message = err.status ? `could not translate: ${err.message}.` : 'could not reach the server. try again.';
+      } finally {
+        busy = false;
+        button.textContent = TRANSLATE_LABEL;
+        button.removeAttribute('aria-disabled');
+        button.removeAttribute('aria-busy');
+        refresh();
+      }
+      if (generation() !== started) return; // the form was refilled meanwhile
+      for (const lang of TARGETS) {
+        if (typeof data[lang]?.text !== 'string') continue;
+        inputs[lang].value = data[lang].text;
+        inputs[lang].dispatchEvent(new Event('input', { bubbles: true })); // tabs, counts, previews, change tracking
+      }
+      show(data, message);
+    }
+
+    button.addEventListener('click', run);
+    button.addEventListener('blur', () => { if (button.dataset.confirm) { disarm(); refresh(); } });
+    return {
+      refresh,
+      reset() {
+        disarm();
+        note.textContent = '';
+        note.classList.remove('translate-note--warn');
+      },
     };
   }
 
@@ -265,7 +373,7 @@ import { hasChanges } from './ui-state.js';
 
   const langFields = {};
   for (const name of ['category', 'description', 'ai']) {
-    langFields[name] = langField($(`f-${name}`), { onChange: () => updateCount() });
+    langFields[name] = langField($(`f-${name}`), { onChange: () => updateCount(), translate: name === 'ai' ? 'rich' : 'plain' });
   }
 
   /* ---------- List ---------- */
@@ -651,7 +759,7 @@ import { hasChanges } from './ui-state.js';
 
   /* ---------- Some words ---------- */
 
-  const words = langField($('f-words'), { onChange: () => renderWordsPreview() });
+  const words = langField($('f-words'), { onChange: () => renderWordsPreview(), translate: 'rich' });
   let wordsVersion = null;
   let wordsTimer = 0;
 
@@ -813,7 +921,7 @@ import { hasChanges } from './ui-state.js';
     refreshPreviews();
   }
 
-  const explanation = langField($('f-explanation'), { onChange: () => updateExplanationCount() });
+  const explanation = langField($('f-explanation'), { onChange: () => updateExplanationCount(), translate: 'plain' });
 
   function updateExplanationCount() {
     $('explanation-count').textContent = `${explanation.inputs[explanation.current()].value.length} / 300 · plain text · empty ca = pending (a plain word on the site)`;

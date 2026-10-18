@@ -571,7 +571,7 @@ html.detail-open {
 .detail-link--big {
   display: inline-block;
   font-family: var(--font-bold);
-  font-size: var(--fs-h2);
+  font-size: 1.5rem;
   line-height: var(--lh-h2);
   letter-spacing: var(--ls-display);
   text-decoration: none;

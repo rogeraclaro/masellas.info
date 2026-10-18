@@ -56,7 +56,7 @@
   --space-10: 128px;
   --space-top: clamp(72px, 14vh, 160px);         /* page top, clears the fixed menu */
   --space-after-title: clamp(16px, 3vw, 40px);   /* under a display title */
-  --space-section: clamp(64px, 10vw, 140px);     /* between page sections */
+  --space-section: clamp(40px, 10vw, 64px);     /* between page sections */
   --rich-gap: 1em;                               /* between paragraphs of running text */
 
   --gutter: clamp(16px, 2.8vw, 40px);

@@ -25,13 +25,15 @@ Text format for "some words" and a project's "how I used AI" (validated on save;
 - links only as `[text](https://…)`, `[text](http://…)` or `[text](mailto:…)`; the text may contain bold, strikethrough and code; any other scheme, relative URL or stray bracket is rejected with a message that quotes the link
 - a backslash makes the next character literal when it is one of `*` `~` `\` `` ` `` `[` `]` `(` `)` `>` `-` `#` (e.g. `\*not bold\*`, `\- not a list`)
 - unclosed `**`, `~~` or `` ` `` is rejected with a message that quotes where; a lone `*` or `~` is plain text
-- `{{term}}`: a term explained by the glossary; `{{term|explanation}}`: with its own explanation (plain text, 1–300 characters; everything after the first `|`). The term is plain text, 1–60 characters, allowed inside bold / strikethrough, not inside a link label (and literal inside code); `\{` `\}` are literal braces. A `{{term}}` the glossary does not have blocks saving. On the site a term is a button with a dotted underline; hover, focus or tap shows the explanation (`lib/term-tooltip.js`).
+- `{{term}}`: a term explained by the glossary; `{{term|explanation}}`: with its own explanation (plain text, 1–300 characters; everything after the first `|`). The term is plain text, 1–60 characters, allowed inside bold / strikethrough, not inside a link label (and literal inside code); `\{` `\}` are literal braces. A `{{term}}` the glossary does not have (ignoring case) is added to it on save, pending a definition, and shows as the plain word until defined (a term with `{` or `}` cannot be a glossary term and is refused on save). On the site a term is a button with a dotted underline; hover, focus or tap shows the explanation (`lib/term-tooltip.js`).
 
 ## Glossary
 
-The "glossary" view lists the terms (`glossary.json` next to `DATA_FILE`, created empty at boot; same atomic write, `.bak` and If-Match versions as the other files). A term is shared by every language and unique ignoring case; its explanation is per language (ca required, en / es fall back to ca), plain text, up to 300 characters. Deleting or renaming a term that a text still uses as `{{term}}` is refused with the list of places.
+The "glossary" view lists the terms (`glossary.json` next to `DATA_FILE`, created empty at boot; same atomic write, `.bak` and If-Match versions as the other files). A term is shared by every language and unique ignoring case; its explanation is per language (en / es fall back to ca), plain text, up to 300 characters. Deleting or renaming a term that a text still uses as `{{term}}` is refused with the list of places (pending terms included).
 
-The site never reads the glossary: when publishing, every `{{term}}` in "how I used AI" and "some words" becomes `{{term|<explanation in that language>}}` in the public files (`lib/rich-text.js` `resolveTerms`). Saving the glossary republishes all public files. The static fallback in the pages (`scripts/build-pages.mjs`, from `i18n/*.json`) has no glossary: `{{term|…}}` works there, a bare `{{term}}` shows just the word.
+Pending terms: saving a project (POST / PUT) or "some words" with a `{{term}}` the glossary does not have adds it, as first written (ca first, then en, es; once, ignoring case), with an empty explanation `{ "ca": "", "en": "", "es": "" }`. `{{term|explanation}}` is never added. Pending means an empty ca; en / es may be filled. The admin lists pending terms first, marked "pending", with a count on the glossary tab; the project and "some words" forms say which terms a save added. The glossary write happens on the server after the text is saved (same store: atomic, `.bak`, new version; no write when nothing is new) and before publishing. If it fails, the text stays saved and published, the response is still 2xx with `addedTerms: []` and a `glossaryError` message; saving that text again retries.
+
+The site never reads the glossary: when publishing, every `{{term}}` in "how I used AI" and "some words" becomes `{{term|<explanation in that language>}}` in the public files (`lib/rich-text.js` `resolveTerms`). A pending term with no explanation for that language (nor ca) stays a bare `{{term}}`, which the site and the static fallback show as the plain word, without a tooltip. Saving the glossary republishes all public files. The static fallback in the pages (`scripts/build-pages.mjs`, from `i18n/*.json`) has no glossary: `{{term|…}}` works there, a bare `{{term}}` shows just the word.
 
 Node 22, zero npm dependencies.
 
@@ -94,7 +96,7 @@ Uses `node:test`. Covers languages (migration, fallback), validation per languag
 - `lib/rich-text.js` — pure parser for "some words" and "how I used AI" (blocks, styles, links, escapes). Also served to the admin UI and bundled into the home and projects pages by `scripts/build.sh`.
 - `lib/rich-text-dom.js` — browser renderer for parsed text (admin previews and help, home, project detail).
 - `lib/rich-text.css` — styles for rendered rich text; bundled into the site, served to the admin at `/rich-text.css`.
-- `lib/glossary.js` — glossary lookups, unknown terms, where a term is used, the private file at boot.
+- `lib/glossary.js` — glossary lookups, unknown terms, adding them as pending, where a term is used, the private file at boot.
 - `lib/term-tooltip.js` — the term tooltip (served to the admin previews, bundled into the site).
 - `public/rich-text-help.js` — the "formatting help" table (open / closed remembered in localStorage).
 - `lib/envfile.js` — the `.env` update behind `hash-password --env`.
@@ -109,14 +111,16 @@ API (JSON, all under `/api`, session required except login, logout and session):
 | GET | `/api/session` | | `{ loggedIn }`, always 200 |
 | GET | `/api/config` | | `{ publicUrl }` |
 | GET | `/api/projects` | | `{ projects, version }`; translated fields as `{ ca, en, es }` |
-| POST | `/api/projects` | project fields, optional `position: "top"`, optional `id` | 201; without `id` one is made from the title |
-| PUT | `/api/projects/:id` | any project fields, including a new `id` | a new `id` keeps the position; the old address is not redirected |
+| POST | `/api/projects` | project fields, optional `position: "top"`, optional `id` | 201; without `id` one is made from the title; `addedTerms` (see below) |
+| PUT | `/api/projects/:id` | any project fields, including a new `id` | a new `id` keeps the position; the old address is not redirected; `addedTerms` |
 | DELETE | `/api/projects/:id` | | |
 | PUT | `/api/order` | `{ ids }` | exact permutation of current ids |
 | GET | `/api/some-words` | | `{ text: { ca, en, es }, version }` |
-| PUT | `/api/some-words` | `{ text: { ca, en, es } }` | ca 1–4000 chars, en / es 0–4000; republishes the public copies |
-| GET | `/api/glossary` | | `{ terms: [{ term, explanation: { ca, en, es } }], version }`, sorted |
-| PUT | `/api/glossary` | `{ terms }` (the whole list) | errors keyed `terms.<i>.term`, `terms.<i>.explanation.<lang>`, `_usage`; republishes every public file |
+| PUT | `/api/some-words` | `{ text: { ca, en, es } }` | ca 1–4000 chars, en / es 0–4000; republishes the public copies; `addedTerms` |
+| GET | `/api/glossary` | | `{ terms: [{ term, explanation: { ca, en, es } }], version }`, sorted; an empty `ca` = pending |
+| PUT | `/api/glossary` | `{ terms }` (the whole list) | errors keyed `terms.<i>.term`, `terms.<i>.explanation.<lang>`, `_usage`; republishes every public file; an empty `ca` is allowed (pending) |
+
+Project and "some words" saves answer with `addedTerms: [..]`, the terms that save added to the glossary as pending (`[]` if none), and, only if that glossary write failed, `glossaryError` (the save itself still succeeded).
 
 `id` is the url slug (`/projects/?p=<id>`): lowercase a-z, 0-9 and single hyphens, 1-60 characters, no hyphen at either end (`lib/slug.js`, also used by the form to pre-fill it from the title). An id another project uses is rejected with a 400 field error, `already used by <title>`.
 

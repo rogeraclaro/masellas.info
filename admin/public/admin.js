@@ -96,6 +96,7 @@ import { hasChanges } from './ui-state.js';
     if (err.body && err.body.version) {
       // Saved privately but the public file failed: reflect the saved state.
       target(err.message);
+      if (err.body.addedTerms?.length) loadGlossary().catch(() => {});
       await loadProjects();
       return;
     }
@@ -214,14 +215,33 @@ import { hasChanges } from './ui-state.js';
 
   // Live preview of one language of a rich-text field, with the parser and renderer the site uses.
   // Problems are listed above it; the server rejects the same ones on save.
-  // {{term}}s come from the glossary, in the language on show (or ca), as on the site.
+  // {{term}}s come from the glossary, in the language on show (or ca), as on the site. Terms it lacks
+  // are added on save, pending; pending terms show as plain words until defined.
   function renderPreview(source, preview, problems, options, lang = 'ca') {
     const { blocks, errors } = parseRichText(source);
     const lookup = glossaryLookup(lang);
-    const missing = [...new Set(bareTerms(blocks).filter((term) => !lookup(term.key)).map((term) => term.label))];
+    const known = new Set(glossary.terms.map((entry) => termKey(entry.term)));
+    const undefinedTerms = bareTerms(blocks).filter((term) => !lookup(term.key));
+    const labels = (terms) => [...new Set(terms.map((term) => `"${term.label}"`))].join(', ');
+    const missing = undefinedTerms.filter((term) => !known.has(term.key));
+    const pending = undefinedTerms.filter((term) => known.has(term.key));
     preview.replaceChildren(...renderRichText(blocks, { ...options, lookup }));
-    const problemsText = [...errors, ...missing.map((term) => `"${term}" is not in the glossary: add it to the glossary or write {{${term}|explanation}}.`)];
-    problems.textContent = problemsText.length ? `not saved like this: ${problemsText.join(' ')}` : '';
+    problems.textContent = [
+      errors.length ? `not saved like this: ${errors.join(' ')}` : '',
+      missing.length ? `not in the glossary yet: ${labels(missing)}. saving adds them, pending a definition.` : '',
+      pending.length ? `pending a definition in the glossary: ${labels(pending)}. shown as plain words until defined.` : '',
+    ].filter(Boolean).join(' ');
+  }
+
+  // Status after saving a text: terms added to the glossary (and the glossary reloaded, so its view
+  // has the new version), or why they could not be.
+  function savedStatus(data) {
+    const added = data.addedTerms ?? [];
+    if (added.length) loadGlossary().catch(() => {});
+    return [
+      added.length ? `saved. added to the glossary (pending definition): ${added.join(', ')}.` : 'saved',
+      data.glossaryError ?? '',
+    ].filter(Boolean).join(' ');
   }
 
   bindTermTooltips();
@@ -547,7 +567,7 @@ import { hasChanges } from './ui-state.js';
         editingId = saved.id;
         keepPlace(Object.values(langFields), () => fillForm(saved));
       }
-      setFormStatus('saved');
+      setFormStatus(savedStatus(data));
     } catch (err) {
       if (err.status === 400 && err.body.errors) showErrors(err.body.errors);
       else await handleError(err, (message) => { $('form-error').textContent = message; });
@@ -624,7 +644,7 @@ import { hasChanges } from './ui-state.js';
       const shown = words.current();
       words.set(data.text);
       words.select(shown);
-      setWordsStatus('saved');
+      setWordsStatus(savedStatus(data));
     } catch (err) {
       if (err.status === 401) return;
       if (err.status === 400 && err.body.errors) {
@@ -639,6 +659,7 @@ import { hasChanges } from './ui-state.js';
       } else if (err.body && err.body.version) {
         wordsVersion = err.body.version; // saved privately, public copy pending
         setWordsStatus(err.message);
+        if (err.body.addedTerms?.length) loadGlossary().catch(() => {});
       } else {
         wordsFailed(err, err.status ? `could not save: ${err.message}.` : 'could not reach the server. try again.');
       }
@@ -683,18 +704,35 @@ import { hasChanges } from './ui-state.js';
     updateCount();
   }
 
+  // Pending = no ca explanation yet (added automatically from a saved text).
+  const isPending = (entry) => !entry.explanation.ca.trim();
+
+  // Pending terms first, then the rest (each group in glossary order). data-index is the position in
+  // glossary.terms, not on screen.
   function renderGlossary() {
-    const rows = glossary.terms.map((entry, index) => {
-      const row = el('tr');
+    const order = glossary.terms.map((entry, index) => ({ entry, index }));
+    order.sort((a, b) => Number(isPending(b.entry)) - Number(isPending(a.entry)));
+    const rows = order.map(({ entry, index }) => {
+      const pending = isPending(entry);
+      const row = el('tr', pending ? 'glossary-table__row--pending' : '');
       row.dataset.index = String(index);
       const term = el('th', '', entry.term);
       term.scope = 'row';
-      const other = (lang) => el('td', entry.explanation[lang] ? '' : 'glossary-table__fallback', entry.explanation[lang] || 'uses ca');
+      if (pending) term.append(' ', el('span', 'tag', 'pending'));
+      const other = (lang) => el('td', entry.explanation[lang] ? '' : 'glossary-table__fallback', entry.explanation[lang] || (pending ? '—' : 'uses ca'));
+      const ca = pending ? el('td', 'glossary-table__fallback', 'no definition yet: shown as a plain word') : el('td', '', entry.explanation.ca);
       const actions = el('td', 'glossary-table__actions');
-      actions.append(button('edit', 'edit', `edit ${entry.term}`), button('delete', 'delete', `delete ${entry.term}`));
-      row.append(term, el('td', '', entry.explanation.ca), other('en'), other('es'), actions);
+      actions.append(button(pending ? 'define' : 'edit', 'edit', `${pending ? 'define' : 'edit'} ${entry.term}`), button('delete', 'delete', `delete ${entry.term}`));
+      row.append(term, ca, other('en'), other('es'), actions);
       return row;
     });
+    const pendingCount = glossary.terms.filter(isPending).length;
+    const tab = document.querySelector('.view-tab[data-view="glossary"]');
+    tab.replaceChildren(document.createTextNode('glossary'));
+    if (pendingCount) tab.append(' ', el('span', 'view-tab__count', `${pendingCount} pending`));
+    $('glossary-pending').textContent = pendingCount
+      ? `${pendingCount} ${pendingCount === 1 ? 'term is' : 'terms are'} pending a definition (listed first). until defined, the site shows them as plain words.`
+      : '';
     if (!rows.length) {
       const empty = el('td', 'empty', 'no terms yet.');
       empty.colSpan = 5;
@@ -709,9 +747,15 @@ import { hasChanges } from './ui-state.js';
     return row;
   }
 
+  // Also after a text save added terms: an open term form keeps pointing at the same term.
   async function loadGlossary() {
     const data = await api('GET', 'api/glossary', undefined, { track: false });
+    const editingKey = editingTerm === null ? null : termKey(glossary.terms[editingTerm]?.term ?? '');
     glossary = { terms: data.terms };
+    if (editingKey !== null) {
+      const index = glossary.terms.findIndex((entry) => termKey(entry.term) === editingKey);
+      editingTerm = index === -1 ? null : index;
+    }
     glossaryVersion = data.version;
     renderGlossary();
     refreshPreviews();
@@ -720,7 +764,7 @@ import { hasChanges } from './ui-state.js';
   const explanation = langField($('f-explanation'), { onChange: () => updateExplanationCount() });
 
   function updateExplanationCount() {
-    $('explanation-count').textContent = `${explanation.inputs[explanation.current()].value.length} / 300 · plain text`;
+    $('explanation-count').textContent = `${explanation.inputs[explanation.current()].value.length} / 300 · plain text · empty ca = pending (a plain word on the site)`;
   }
 
   function clearTermErrors() {
@@ -761,7 +805,7 @@ import { hasChanges } from './ui-state.js';
 
   function closeTermForm() {
     $('term-editor').hidden = true;
-    const row = editingTerm === null ? null : $('glossary-rows').children[editingTerm];
+    const row = editingTerm === null ? null : $('glossary-rows').querySelector(`[data-index="${editingTerm}"]`);
     const target = row?.querySelector('[data-action="edit"]') || termReturnFocus;
     editingTerm = null;
     savedTerm = null;

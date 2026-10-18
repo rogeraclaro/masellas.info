@@ -130,3 +130,11 @@ test('publishing resolves glossary terms per language (fallback ca) and keeps in
   assert.equal(await text('en'), '{{RAG|retrieval-augmented generation}}');
   assert.equal(await text('es'), '{{RAG|generació augmentada}}', 'empty es text falls back to ca, then resolves for es (ca explanation)');
 });
+
+test('a pending term (ca explanation empty) is published bare, so the site shows just the word', () => {
+  const pending = { terms: [{ term: 'Vibe coding', explanation: { ca: '', en: 'coding by prompting', es: '' } }] };
+  const data = { projects: [{ ...project('t', true), ai: { ca: 'Amb {{Vibe coding}}.', en: 'With {{vibe coding}}.', es: '' } }] };
+  assert.equal(toPublic(data, 'ca', pending).projects[0].ai, 'Amb {{Vibe coding}}.');
+  assert.equal(toPublic(data, 'es', pending).projects[0].ai, 'Amb {{Vibe coding}}.');
+  assert.equal(toPublic(data, 'en', pending).projects[0].ai, 'With {{vibe coding|coding by prompting}}.', 'a language that has an explanation uses it');
+});

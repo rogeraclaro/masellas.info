@@ -158,7 +158,7 @@ function explanationText(v, opts) {
 }
 
 // Terms are shared by every language and unique ignoring case; explanations are per language
-// (ca required). Returns the terms sorted alphabetically, ignoring case.
+// (an empty ca = pending: not defined yet, published as the plain word). Returns the terms sorted alphabetically, ignoring case.
 export function validateGlossary(input) {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
     return { value: {}, errors: { _body: 'expected a JSON object' } };
@@ -183,7 +183,7 @@ export function validateGlossary(input) {
     else if (/[|{}]/.test(term.value)) errors[`${at}.term`] = 'term cannot contain | { or }';
     else if (seen.has(termKey(term.value))) errors[`${at}.term`] = `${seen.get(termKey(term.value))} is already in the glossary (terms ignore case)`;
     else seen.set(termKey(term.value), term.value);
-    const explanation = perLanguage(item.explanation, `${at}.explanation`, explanationText, { min: 1, label: 'explanation' });
+    const explanation = perLanguage(item.explanation, `${at}.explanation`, explanationText, { label: 'explanation' });
     if (explanation.errors) Object.assign(errors, explanation.errors);
     if (!term.error && explanation.value) terms.push({ term: term.value, explanation: explanation.value });
   });

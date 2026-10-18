@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { createStore, ConflictError } from './lib/store.js';
 import { verifyPassword, signSession, verifySession, createRateLimiter } from './lib/auth.js';
 import { validateProject, validateSomeWords, validateGlossary, uniqueSlug, isPermutation, slugOwner } from './lib/validation.js';
-import { glossaryPath, prepareGlossary, missingTerms, termUsage } from './lib/glossary.js';
+import { glossaryPath, prepareGlossary, missingTerms, termUsage, withPendingTerms } from './lib/glossary.js';
 import { termKey } from './lib/rich-text.js';
 import { LANGS } from './lib/languages.js';
 import { parseEnv, loadConfig } from './lib/config.js';
@@ -150,7 +150,10 @@ export function createApp({
       publishQueue = run.catch(() => {});
       return run;
     };
-    return async function mutate(req, res, status, fn) {
+    // termTexts: the saved rich texts whose unknown {{term}}s join the glossary as pending (content
+    // saves only; the response then carries addedTerms). Done after the content is saved and before
+    // publishing, so the public files are built with the updated glossary.
+    return async function mutate(req, res, status, fn, { termTexts = null } = {}) {
       const expected = req.headers['if-match'];
       if (!expected) throw new HttpError(428, { error: 'If-Match header required' });
       let data;
@@ -161,14 +164,15 @@ export function createApp({
         if (err instanceof ConflictError) throw new HttpError(409, { error: 'data changed elsewhere', version: err.version });
         throw err;
       }
+      const terms = termTexts ? await addPendingTerms(termTexts) : {};
       try {
         await publish(data);
       } catch (err) {
         // The private file is the source of truth; the next change (or boot) rebuilds the public copy.
         console.error(`admin: public file write failed: ${err.message}`);
-        throw new HttpError(500, { error: 'saved, but the public file could not be updated. it will be retried on the next change.', version });
+        throw new HttpError(500, { error: 'saved, but the public file could not be updated. it will be retried on the next change.', version, ...terms });
       }
-      sendJson(res, status, { ...shape(data), version });
+      sendJson(res, status, { ...shape(data), version, ...terms });
     };
   }
   const mutate = resource(store, async (data) => writePublic(publicFile, data, await readGlossary()), (data) => ({ projects: data.projects }));
@@ -179,23 +183,44 @@ export function createApp({
     await writeSomeWordsPublic(someWordsPublicFile, words, glossary);
   }, (data) => ({ terms: data.terms }));
 
-  // {{term}}s (without their own explanation) must be in the glossary. value: { ca, en, es } or undefined.
-  async function termErrors(field, label, value) {
-    if (!value) return {};
+  // {{term}}s (without their own explanation) the glossary lacks are added to it on save, so they must
+  // be valid glossary terms (no { or }, see validateGlossary). value: { ca, en, es } or undefined.
+  async function assertTermsAddable(field, label, value) {
+    if (!value) return;
     const keys = new Set((await readGlossary()).terms.map((entry) => termKey(entry.term)));
     const errors = {};
     for (const lang of LANGS) {
-      const missing = missingTerms(value[lang], keys);
-      if (missing.length) {
-        errors[`${field}.${lang}`] = missing.map((term) => `${label} (${lang}): "${term}" is not in the glossary: add it to the glossary or write {{${term}|explanation}}`).join(' ');
+      const bad = missingTerms(value[lang], keys).filter((term) => /[{}]/.test(term));
+      if (bad.length) {
+        errors[`${field}.${lang}`] = bad.map((term) => `${label} (${lang}): "${term}" cannot be a glossary term ({ and } are not allowed): rename it or write {{${term}|explanation}}`).join(' ');
       }
     }
-    return errors;
-  }
-  const assertTermsKnown = async (...args) => {
-    const errors = await termErrors(...args);
     if (Object.keys(errors).length) throw invalid(errors);
-  };
+  }
+
+  // Appends the texts' unknown {{term}}s to the glossary as pending. Runs after the content is saved:
+  // a failure here never undoes that save; it is reported as glossaryError (status stays 2xx) and the
+  // terms are added on the next save of a text that uses them. No write when nothing is new, so the
+  // glossary version (and an open glossary view) only changes when a term was added.
+  async function addPendingTerms(texts) {
+    let wanted;
+    try {
+      wanted = withPendingTerms(await readGlossary(), texts).added;
+      if (!wanted.length) return { addedTerms: [] };
+      let added = [];
+      // Recomputed on the current file, inside the store's queue (the glossary may have changed).
+      await glossaryStore.update(null, (current) => {
+        const next = withPendingTerms(current, texts);
+        added = next.added;
+        return next.glossary;
+      });
+      return { addedTerms: added };
+    } catch (err) {
+      console.error(`admin: glossary write failed: ${err.message}`);
+      const names = (wanted ?? []).map((term) => `"${term}"`).join(', ') || 'the new terms';
+      return { addedTerms: [], glossaryError: `saved, but ${names} could not be added to the glossary (shown as plain words until then). save again to retry.` };
+    }
+  }
 
   // Behind the proxy every socket is 127.0.0.1; only then trust its headers (otherwise they are spoofable).
   function clientIp(req) {
@@ -211,6 +236,8 @@ export function createApp({
     if (index === -1) throw new HttpError(404, { error: 'project not found' });
     return index;
   };
+  // A per-language value in language order (ca first, so a term keeps its ca spelling), or none.
+  const textsOf = (value) => (value ? LANGS.map((lang) => value[lang]) : []);
   const invalid = (errors) => new HttpError(400, { error: 'validation failed', errors });
   // Checked inside the mutation, against the data it is about to change.
   const assertSlugFree = (projects, slug, exceptId) => {
@@ -252,14 +279,14 @@ export function createApp({
       const { position, ...fields } = body;
       const { value, errors } = validateProject(fields);
       if (Object.keys(errors).length) throw invalid(errors);
-      await assertTermsKnown('ai', 'how I used AI', value.ai);
+      await assertTermsAddable('ai', 'how I used AI', value.ai);
       return mutate(req, res, 201, (data) => {
         if (value.id) assertSlugFree(data.projects, value.id);
         const project = { id: value.id || uniqueSlug(value.title, data.projects.map((p) => p.id)), ...value };
         if (position === 'top') data.projects.unshift(project);
         else data.projects.push(project);
         return data;
-      });
+      }, { termTexts: textsOf(value.ai) });
     }
     if (method === 'PUT' && pathname === '/api/order') {
       return mutate(req, res, 200, (data) => {
@@ -278,8 +305,8 @@ export function createApp({
     if (method === 'PUT' && pathname === '/api/some-words') {
       const { value, errors } = validateSomeWords(body);
       if (Object.keys(errors).length) throw invalid(errors);
-      await assertTermsKnown('text', 'text', value.text);
-      return mutateWords(req, res, 200, () => ({ text: value.text }));
+      await assertTermsAddable('text', 'text', value.text);
+      return mutateWords(req, res, 200, () => ({ text: value.text }), { termTexts: textsOf(value.text) });
     }
     if (method === 'GET' && pathname === '/api/glossary') {
       const { data, version } = await glossaryStore.read();
@@ -315,14 +342,14 @@ export function createApp({
       }
       const { value, errors } = validateProject(body, { partial: true });
       if (Object.keys(errors).length) throw invalid(errors);
-      await assertTermsKnown('ai', 'how I used AI', value.ai);
+      await assertTermsAddable('ai', 'how I used AI', value.ai);
       return mutate(req, res, 200, (data) => {
         const index = findIndex(data.projects, id);
         if (value.id) assertSlugFree(data.projects, value.id, id);
         // A new id replaces the old one in place: same position, no alias for the old address.
         data.projects[index] = { ...data.projects[index], ...value };
         return data;
-      });
+      }, { termTexts: textsOf(value.ai) });
     }
     throw new HttpError(404, { error: 'not found' });
   }

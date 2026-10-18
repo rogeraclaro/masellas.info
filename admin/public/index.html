@@ -154,7 +154,8 @@
 	</main>
 	<main class="content" id="view-glossary" hidden>
 		<h2 class="heading heading--small">glossary</h2>
-		<p class="hint">explanations for {{term}} in "some words" and "how I used AI". the site shows them as tooltips, in each language (empty en / es use ca). a term still used somewhere cannot be deleted.</p>
+		<p class="hint">explanations for {{term}} in "some words" and "how I used AI". the site shows them as tooltips, in each language (empty en / es use ca). a {{term}} saved in a text that is not here yet is added automatically, pending a definition. a term still used somewhere cannot be deleted.</p>
+		<p id="glossary-pending" class="hint glossary-pending" aria-live="polite"></p>
 		<div class="toolbar">
 			<button id="new-term" type="button" class="btn btn--primary">new term</button>
 			<p id="glossary-status" class="status" role="status" aria-live="polite"></p>
@@ -172,7 +173,7 @@
 				</div>
 				<div class="field">
 					<label for="f-explanation">explanation</label>
-					<textarea id="f-explanation" name="explanation" rows="3" maxlength="300" required aria-describedby="explanation-count e-explanation" data-langs></textarea>
+					<textarea id="f-explanation" name="explanation" rows="3" maxlength="300" aria-describedby="explanation-count e-explanation" data-langs></textarea>
 					<p id="explanation-count" class="hint">0 / 300 · plain text</p>
 					<p id="e-explanation" class="field-error"></p>
 				</div>

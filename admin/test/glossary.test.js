@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { validateGlossary } from '../lib/validation.js';
-import { glossaryLookup, missingTerms, termUsage, glossaryPath } from '../lib/glossary.js';
+import { glossaryLookup, missingTerms, termUsage, glossaryPath, withPendingTerms } from '../lib/glossary.js';
 
 const entry = (term, ca, en = '', es = '') => ({ term, explanation: { ca, en, es } });
 
@@ -13,11 +13,10 @@ test('validateGlossary trims, sorts alphabetically (case-insensitive) and accept
   assert.deepEqual(validateGlossary({ terms: [] }), { value: { terms: [] }, errors: {} });
 });
 
-test('validateGlossary rejects duplicates (case-insensitive), bad lengths, a missing ca and "}}"', () => {
+test('validateGlossary rejects duplicates (case-insensitive), bad lengths and "}}"', () => {
   assert.match(validateGlossary({ terms: [entry('RAG', 'a'), entry(' rag', 'b')] }).errors['terms.1.term'], /RAG.*already/);
   assert.match(validateGlossary({ terms: [entry('', 'a')] }).errors['terms.0.term'], /required/);
   assert.match(validateGlossary({ terms: [entry('x'.repeat(61), 'a')] }).errors['terms.0.term'], /60/);
-  assert.match(validateGlossary({ terms: [entry('RAG', '')] }).errors['terms.0.explanation.ca'], /\(ca\) is required/);
   assert.match(validateGlossary({ terms: [entry('RAG', 'a', 'x'.repeat(301))] }).errors['terms.0.explanation.en'], /300/);
   assert.match(validateGlossary({ terms: [entry('RAG', 'a }} b')] }).errors['terms.0.explanation.ca'], /\}\}/);
   assert.match(validateGlossary({ terms: [entry('a|b', 'x')] }).errors['terms.0.term'], /\|/);
@@ -56,4 +55,33 @@ test('termUsage finds every bare use of a term, in any language, ignoring inline
 
 test('glossaryPath sits next to DATA_FILE', () => {
   assert.equal(glossaryPath('/priv/data/projects.json'), '/priv/data/glossary.json');
+});
+
+test('validateGlossary accepts a pending term: empty ca, en / es empty or filled', () => {
+  const { value, errors } = validateGlossary({ terms: [entry('RAG', ''), entry('MCP', '  ', 'model context protocol')] });
+  assert.deepEqual(errors, {});
+  assert.deepEqual(value.terms, [entry('MCP', '', 'model context protocol'), entry('RAG', '')]);
+});
+
+test('glossaryLookup gives no explanation for a pending term (ca empty) unless that language has one', () => {
+  const pending = { terms: [entry('RAG', ''), entry('MCP', '', 'model context protocol')] };
+  assert.equal(glossaryLookup(pending, 'ca')('rag'), null);
+  assert.equal(glossaryLookup(pending, 'en')('rag'), null);
+  assert.equal(glossaryLookup(pending, 'es')('mcp'), null);
+  assert.equal(glossaryLookup(pending, 'en')('mcp'), 'model context protocol');
+});
+
+test('withPendingTerms adds missing bare terms once, as first written, with an empty explanation', () => {
+  const current = { terms: [entry('RAG', 'generació augmentada')] };
+  const { glossary: next, added } = withPendingTerms(current, [
+    'Amb {{Vibe coding}} i {{rag}} i {{Agent|propi}}.',
+    'With {{vibe CODING}} and **{{MCP}}** and `{{code}}`.',
+    undefined,
+    '{{mcp}}',
+  ]);
+  assert.deepEqual(added, ['Vibe coding', 'MCP']);
+  assert.deepEqual(next.terms, [entry('MCP', ''), entry('RAG', 'generació augmentada'), entry('Vibe coding', '')], 'sorted like the glossary');
+  assert.deepEqual(current.terms, [entry('RAG', 'generació augmentada')], 'input untouched');
+  assert.deepEqual(withPendingTerms(current, ['{{RAG}} and {{x|own}}']), { glossary: current, added: [] });
+  assert.deepEqual(withPendingTerms({}, ['{{New}}']).added, ['New'], 'a glossary without terms');
 });

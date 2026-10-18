@@ -1,5 +1,6 @@
 // The glossary behind {{term}}: lookups, which texts use a term, and its private file. Pure except
-// prepareGlossary (boot). Explanations are per language; an empty en / es falls back to ca.
+// prepareGlossary (boot). Explanations are per language; an empty en / es falls back to ca; an empty
+// ca means the term is pending (added automatically from a text, not defined yet).
 import { writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
@@ -38,6 +39,26 @@ export function missingTerms(text, keys) {
   const missing = new Map();
   for (const term of bareKeys(text)) if (!keys.has(term.key) && !missing.has(term.key)) missing.set(term.key, term.label);
   return [...missing.values()];
+}
+
+// A term written as {{term}} that the glossary lacks joins it pending: explanation { ca: '', … } (empty
+// ca = pending; it publishes as the plain word until defined). texts: rich texts (undefined skipped).
+// Returns { glossary, added: [labels as first written] }; the same glossary object when nothing is added.
+export function withPendingTerms(glossary, texts) {
+  const terms = glossary?.terms ?? [];
+  const keys = new Set(terms.map((entry) => termKey(entry.term)));
+  const added = [];
+  for (const text of texts) {
+    if (typeof text !== 'string') continue;
+    for (const label of missingTerms(text, keys)) {
+      keys.add(termKey(label));
+      added.push(label);
+    }
+  }
+  if (!added.length) return { glossary, added };
+  const pending = added.map((term) => ({ term, explanation: Object.fromEntries(LANGS.map((lang) => [lang, ''])) }));
+  const sorted = [...terms, ...pending].sort((a, b) => termKey(a.term).localeCompare(termKey(b.term)));
+  return { glossary: { ...glossary, terms: sorted }, added };
 }
 
 // Where a glossary term is used without an inline explanation, e.g. '"Ledger" how I used AI (en)'.

@@ -482,27 +482,14 @@ test('the shared rich-text modules are served for the UI, nothing else from lib/
   }
 });
 
-test('glossary: GET/PUT with versions, terms checked on save, republish, and used terms cannot be deleted', async () => {
+test('glossary: GET/PUT with versions, republish, and used terms cannot be deleted', async () => {
   assert.equal((await call(base, 'GET', '/api/glossary')).status, 401);
   let res = await call(base, 'GET', '/api/glossary', { cookie });
   let json = await res.json();
   assert.deepEqual(json.terms, []);
   let { version } = json;
 
-  // A project text using an unknown term cannot be saved.
-  let projects = await (await call(base, 'GET', '/api/projects', { cookie })).json();
-  res = await call(base, 'PUT', '/api/projects/ledger', { cookie, version: projects.version, body: { ai: only('Amb {{RAG}}.', 'With {{RAG}}.', '') } });
-  assert.equal(res.status, 400);
-  const unknown = (await res.json()).errors;
-  assert.match(unknown['ai.ca'], /"RAG" is not in the glossary: add it to the glossary or write \{\{RAG\|explanation\}\}/);
-  assert.ok(unknown['ai.en']);
-  res = await call(base, 'PUT', '/api/some-words', { cookie, version: (await (await call(base, 'GET', '/api/some-words', { cookie })).json()).version, body: { text: only('{{RAG}}') } });
-  assert.equal(res.status, 400);
-  assert.match((await res.json()).errors['text.ca'], /not in the glossary/);
-
   assert.equal((await call(base, 'PUT', '/api/glossary', { cookie, body: { terms: [] } })).status, 428);
-  res = await call(base, 'PUT', '/api/glossary', { cookie, version, body: { terms: [{ term: 'RAG', explanation: only('') }] } });
-  assert.equal(res.status, 400);
   res = await call(base, 'PUT', '/api/glossary', { cookie, version, body: { terms: [{ term: 'RAG', explanation: only('generació augmentada', 'retrieval-augmented generation', '') }, { term: 'Agent', explanation: only('agent') }] } });
   assert.equal(res.status, 200);
   json = await res.json();
@@ -510,8 +497,8 @@ test('glossary: GET/PUT with versions, terms checked on save, republish, and use
   assert.equal((await call(base, 'PUT', '/api/glossary', { cookie, version, body: { terms: [] } })).status, 409, 'stale version');
   ({ version } = json);
 
-  // Now the project saves, and its public files are resolved per language.
-  projects = await (await call(base, 'GET', '/api/projects', { cookie })).json();
+  // A project using the terms is published resolved per language.
+  let projects = await (await call(base, 'GET', '/api/projects', { cookie })).json();
   res = await call(base, 'PUT', '/api/projects/ledger', { cookie, version: projects.version, body: { ai: only('Amb {{RAG}}.', 'With {{rag}}.', '') } });
   assert.equal(res.status, 200);
   const web = path.dirname(publicFile);
@@ -532,4 +519,97 @@ test('glossary: GET/PUT with versions, terms checked on save, republish, and use
   assert.match(blocked.errors._usage, /"RAG".*"Ledger" how I used AI \(ca\).*"Ledger" how I used AI \(en\)/);
   res = await call(base, 'PUT', '/api/glossary', { cookie, version, body: { terms: [{ term: 'RAG', explanation: only('nova') }] } });
   assert.equal(res.status, 200, 'an unused term can go');
+});
+
+const glossaryNow = async () => (await call(base, 'GET', '/api/glossary', { cookie })).json();
+const projectsVersion = async () => (await (await call(base, 'GET', '/api/projects', { cookie })).json()).version;
+const wordsVersion = async () => (await (await call(base, 'GET', '/api/some-words', { cookie })).json()).version;
+const pendingEntry = (term) => ({ term, explanation: only('') });
+
+test('saving a project adds its unknown {{term}}s to the glossary as pending (once, case-insensitive, not inline ones)', async () => {
+  const before = await glossaryNow();
+  let res = await call(base, 'PUT', '/api/projects/ledger', { cookie, version: await projectsVersion(), body: { ai: only('Amb {{RAG}} i {{Vibe coding}} i {{Own|propi}}.', 'With {{vibe CODING}} and {{Tokens}}.', '{{tokens}}') } });
+  assert.equal(res.status, 200);
+  let json = await res.json();
+  assert.deepEqual(json.addedTerms, ['Vibe coding', 'Tokens']);
+  assert.ok(json.projects.find((p) => p.id === 'ledger'));
+  const after = await glossaryNow();
+  assert.notEqual(after.version, before.version);
+  assert.deepEqual(after.terms.find((t) => t.term === 'Vibe coding'), pendingEntry('Vibe coding'));
+  assert.deepEqual(after.terms.find((t) => t.term === 'Tokens'), pendingEntry('Tokens'));
+  assert.ok(!after.terms.some((t) => t.term === 'Own'), 'an inline explanation is not added');
+  assert.ok(!after.terms.some((t) => t.term === 'vibe CODING'), 'added once, as first written');
+
+  // Pending terms publish as the bare word (no tooltip); known ones still resolve.
+  const ca = JSON.parse(await readFile(path.join(path.dirname(publicFile), 'projects.ca.json'), 'utf8')).projects.find((p) => p.id === 'ledger').ai;
+  assert.equal(ca, 'Amb {{RAG|nova}} i {{Vibe coding}} i {{Own|propi}}.');
+
+  // Saving again changes nothing in the glossary.
+  res = await call(base, 'PUT', '/api/projects/ledger', { cookie, version: await projectsVersion(), body: { title: 'Ledger' } });
+  assert.deepEqual((await res.json()).addedTerms, []);
+  res = await call(base, 'PUT', '/api/projects/ledger', { cookie, version: await projectsVersion(), body: { ai: only('{{vibe coding}} {{RAG}}') } });
+  assert.deepEqual((await res.json()).addedTerms, []);
+  assert.equal((await glossaryNow()).version, after.version, 'nothing new: glossary untouched');
+
+  // New projects too.
+  res = await call(base, 'POST', '/api/projects', { cookie, version: await projectsVersion(), body: { title: 'Term Probe', category: only('tool'), year: 2026, url: 'https://probe.example.com', ai: only('{{Embeddings}}') } });
+  assert.equal(res.status, 201);
+  json = await res.json();
+  assert.deepEqual(json.addedTerms, ['Embeddings']);
+  res = await call(base, 'DELETE', '/api/projects/term-probe', { cookie, version: json.version });
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).addedTerms, undefined, 'only content saves report addedTerms');
+});
+
+test('saving "some words" adds its unknown {{term}}s as pending too', async () => {
+  const res = await call(base, 'PUT', '/api/some-words', { cookie, version: await wordsVersion(), body: { text: only('I use {{Prompting}} and {{tokens}}.', '{{PROMPTING}}') } });
+  assert.equal(res.status, 200);
+  assert.deepEqual((await res.json()).addedTerms, ['Prompting']);
+  assert.deepEqual((await glossaryNow()).terms.find((t) => t.term === 'Prompting'), pendingEntry('Prompting'));
+});
+
+test('a term the glossary cannot hold ({ or } in it) is still refused on save', async () => {
+  const res = await call(base, 'PUT', '/api/some-words', { cookie, version: await wordsVersion(), body: { text: only('{{a{b}}') } });
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).errors['text.ca'], /"a\{b" cannot be a glossary term.*\{\{a\{b\|explanation\}\}/);
+});
+
+test('pending terms: used ones cannot be deleted; defining one publishes it', async () => {
+  let { terms, version } = await glossaryNow();
+  let res = await call(base, 'PUT', '/api/glossary', { cookie, version, body: { terms: terms.filter((t) => t.term !== 'Prompting') } });
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).errors._usage, /"Prompting".*some words \(ca\)/);
+
+  terms = terms.map((t) => (t.term === 'Vibe coding' ? { term: t.term, explanation: only('programar demanant', 'coding by asking') } : t));
+  res = await call(base, 'PUT', '/api/glossary', { cookie, version, body: { terms } });
+  assert.equal(res.status, 200);
+  const en = JSON.parse(await readFile(path.join(path.dirname(publicFile), 'projects.en.json'), 'utf8')).projects.find((p) => p.id === 'ledger').ai;
+  assert.match(en, /\{\{vibe coding\|coding by asking\}\}/);
+});
+
+test('if the glossary cannot be written the content save is kept, with a glossaryError warning', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'admin-glossfail-'));
+  const privateFile = path.join(dir, 'projects.json');
+  await writeFile(privateFile, `${JSON.stringify(seed, null, 2)}\n`);
+  await writeFile(path.join(dir, 'some-words.json'), `${JSON.stringify({ text: 'Hello.' }, null, 2)}\n`);
+  await mkdir(path.join(dir, 'web'));
+  const webFile = path.join(dir, 'web', 'projects.json');
+  const { app, base: other } = await boot({ dataFile: privateFile, publicFile: webFile, glossaryFile: path.join(dir, 'missing', 'glossary.json') });
+  try {
+    const login = await call(other, 'POST', '/api/login', { body: { password: PASSWORD } });
+    const session = login.headers.get('set-cookie').split(';')[0];
+    const { version } = await (await call(other, 'GET', '/api/projects', { cookie: session })).json();
+    const res = await call(other, 'PUT', '/api/projects/ledger', { cookie: session, version, body: { ai: only('Amb {{Lost}}.') } });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.deepEqual(body.addedTerms, []);
+    assert.match(body.glossaryError, /"Lost" could not be added to the glossary/);
+    assert.match(body.version, /^[0-9a-f]{64}$/);
+    const onDisk = JSON.parse(await readFile(privateFile, 'utf8'));
+    assert.equal(onDisk.projects.find((p) => p.id === 'ledger').ai.ca, 'Amb {{Lost}}.', 'content kept');
+    const ca = JSON.parse(await readFile(path.join(dir, 'web', 'projects.ca.json'), 'utf8')).projects.find((p) => p.id === 'ledger').ai;
+    assert.equal(ca, 'Amb {{Lost}}.', 'and published, the term as the bare word');
+  } finally {
+    app.close();
+  }
 });

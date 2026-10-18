@@ -223,6 +223,11 @@ textarea { resize: vertical; }
 .glossary-table thead th { color: var(--bone-60); }
 .glossary-table tbody th { font-family: var(--font-bold); }
 .glossary-table__fallback { color: var(--bone-60); }
+.glossary-table__row--pending th, .glossary-table__row--pending td { border-top-color: var(--coral); }
+.glossary-pending { color: var(--coral); }
+.glossary-pending:empty { display: none; }
+.tag { display: inline-block; margin-left: 4px; padding: 0 6px; border: 1px solid var(--coral); color: var(--coral); font-family: var(--font-book); font-size: 0.75em; vertical-align: middle; }
+.view-tab__count { font-family: var(--font-book); font-size: 0.85em; }
 .glossary-table__actions { white-space: nowrap; text-align: right; }
 .glossary-table__actions .btn + .btn { margin-left: 6px; }
 @media (max-width: 720px) {

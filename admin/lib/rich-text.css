@@ -108,7 +108,7 @@
   top: 0;
   left: 0;
   z-index: 90; /* over the menus (70) and the project detail (60) */
-  max-width: min(32ch, calc(100vw - 16px));
+  max-width: min(64ch, calc(100vw - 16px));
   padding: var(--space-2, 8px) var(--space-3, 12px);
   border-radius: 0;
   background: var(--bone, #e4e1ce);

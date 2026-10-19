@@ -114,7 +114,7 @@
   background: var(--bone, #e4e1ce);
   color: var(--charcoal, #272525);
   font-family: var(--font-book);
-  font-size: var(--fs-small, 0.95rem);
+  font-size: 0.9rem;
   font-weight: 400;
   line-height: var(--lh-small, 1.35);
   letter-spacing: var(--ls-text, normal);

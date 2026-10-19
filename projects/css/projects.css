@@ -389,7 +389,7 @@ html.detail-open {
 .detail {
   position: fixed;
   inset: 0;
-  z-index: 60; /* under the fixed menu (70), which stays visible but inert */
+  z-index: 60; /* under the fixed menu (70), which stays visible and usable */
   overflow: hidden;
   background: var(--coral);
   color: var(--charcoal);

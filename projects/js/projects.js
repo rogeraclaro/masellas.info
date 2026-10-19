@@ -232,7 +232,6 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
      The URL is the source of truth: clicks push a history entry, popstate syncs to it. */
 
   const pageEl = document.getElementById('page');
-  const menuEl = document.querySelector('.menu').closest('nav');
   const overlay = document.querySelector('.detail-overlay');
   const detail = document.getElementById('detail');
   const scroller = detail.querySelector('.detail__scroller');
@@ -332,8 +331,7 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
   }
 
   function lockBackground(locked) {
-    pageEl.inert = locked;
-    menuEl.inert = locked;
+    pageEl.inert = locked; // the menus stay usable over the detail
     root.classList.toggle('detail-open', locked);
     if (lenis) {
       if (locked) lenis.stop();

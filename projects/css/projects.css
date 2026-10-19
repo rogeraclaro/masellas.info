@@ -499,7 +499,7 @@ html.detail-open {
 }
 
 .detail__ai {
-  margin-top: var(--space-section);
+  margin-top: 2.5rem;
 }
 
 .detail__heading {
@@ -541,7 +541,7 @@ html.detail-open {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-  margin-top: var(--space-after-title);
+  margin-top: 1rem;
 }
 
 .detail__tools li {
@@ -554,7 +554,7 @@ html.detail-open {
 }
 
 .detail__visit {
-  margin: var(--space-after-title) 0 0;
+  margin: 1rem 0 0;
   font-family: var(--font-book);
   font-size: var(--fs-body);
   line-height: var(--lh-lead);
@@ -562,8 +562,8 @@ html.detail-open {
 }
 
 .detail__next {
-  margin-top: var(--space-section);
-  padding-top: var(--space-after-title);
+  margin-top: 2rem;
+  padding-top: 1rem;
   border-top: 1px solid var(--hairline-on-coral);
 }
 

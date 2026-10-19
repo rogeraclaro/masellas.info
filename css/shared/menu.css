@@ -35,8 +35,8 @@
 }
 
 .menu__tab[aria-current] .face--front {
-  background: var(--menu-active);
-  color: var(--tab-fg-active);
+  background: var(--menu-hover);
+  color: var(--tab-fg);
 }
 
 .menu__tab .face--before,

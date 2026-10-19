@@ -18,13 +18,14 @@ Server layout:
   projects/data/projects.<lang>.json                   public list per language (ca, en, es), rebuilt by the admin
   projects/data/projects-ac.<lang>.json                projects (B.C.) public list per language, rebuilt by the admin (no legacy copy)
   projects/data/some-words.<lang>.json                 home "some words" text per language, rebuilt by the admin
+  projects/data/menu.<lang>.json                       menu tab tooltips per language (from the glossary), rebuilt by the admin (no legacy copy)
   projects/data/projects.json, some-words.json         legacy copies (= ca), see admin/README.md
 /home/rogermasellas/masellas-admin/app/                admin code (deployed)
   .env                                                 config + secrets (never deployed)
 /home/rogermasellas/masellas-admin/data/projects.json  private list, hidden projects included
 /home/rogermasellas/masellas-admin/data/projects-ac.json private projects (B.C.) list (created empty on first boot)
 /home/rogermasellas/masellas-admin/data/some-words.json  private copy of the "some words" text
-/home/rogermasellas/masellas-admin/data/glossary.json    glossary for {{term}} tooltips (created empty on first boot)
+/home/rogermasellas/masellas-admin/data/glossary.json    glossary for {{term}} and menu tooltips (created at first boot with the "projects (B.C.)" menu term, pending)
 ```
 
 ## Languages
@@ -35,6 +36,7 @@ The site is in Catalan (principal, at the root: `/`, `/projects/`, `/projects-ac
 - Text lives in `i18n/ca.json`, `i18n/en.json`, `i18n/es.json` (flat keys). `home.words` uses the admin's rich-text format. Keys starting with `js.` are injected into the projects page as `<script type="application/json" id="i18n">` and read by `js/shared/i18n.js`.
 - `node scripts/build-pages.mjs` (run by `scripts/build.sh`) writes the nine `index.html` files, each starting with a "generated" comment. It fails if any language misses a key another has, a value is empty, a template uses an unknown key, or `home.words` has a bad link. Edit the templates and dictionaries, never the generated pages, and commit the generated pages.
 - Projects and "some words" content are translated in the admin; the pages fetch `/projects/data/projects.<lang>.json`, `/projects/data/projects-ac.<lang>.json` and `/projects/data/some-words.<lang>.json`. The repo holds empty `projects-ac.<lang>.json` seeds (`{ "projects": [] }`) so the page works when served from the repo; on the server the admin creates and owns them.
+- The "projects (B.C.)" menu tab has a tooltip on mouse hover and keyboard focus (a tap just follows the link). Its text is the glossary term `projects (B.C.)`, which the admin publishes as `/projects/data/menu.<lang>.json` (`{ "tooltips": { "projects-ac": "…" } }`); `js/shared/menu-tips.js` (in the home and projects bundles) fetches it. Empty (term pending) or not loaded: no tooltip. The repo holds empty seeds so the pages work from the repo.
 - Switching language between pages at the same `data-page-x` is a short crossfade (transition type `fade`), not a slide.
 
 ## Front-end build

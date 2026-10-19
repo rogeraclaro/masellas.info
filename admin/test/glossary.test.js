@@ -1,7 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { validateGlossary } from '../lib/validation.js';
-import { glossaryLookup, missingTerms, termUsage, glossaryPath, withPendingTerms } from '../lib/glossary.js';
+import { mkdtemp, readFile, writeFile, stat } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { glossaryLookup, missingTerms, termUsage, glossaryPath, withPendingTerms, MENU_TERMS, withMenuTerms, prepareGlossary } from '../lib/glossary.js';
 
 const entry = (term, ca, en = '', es = '') => ({ term, explanation: { ca, en, es } });
 
@@ -91,4 +94,37 @@ test('termUsage also finds uses in the projects (B.C.) collection, labelled "how
   const projectsAc = { projects: [{ id: 'mill', title: 'Mill', ai: { ca: '', en: 'With {{RAG}}.', es: '' } }] };
   assert.deepEqual(termUsage({ projects, projectsAc, words: { text: '' } }, 'rag'), ['projects (B.C.) "Mill" how it was made (en)']);
   assert.deepEqual(termUsage({ projects, words: { text: '' } }, 'rag'), [], 'the collection is optional');
+});
+
+test('the menu terms: projects (B.C.) is the fixed term behind the projects-ac menu tab', () => {
+  assert.deepEqual(MENU_TERMS, { 'projects-ac': 'projects (B.C.)' });
+});
+
+test('withMenuTerms adds a missing menu term as pending, and leaves a present one (any case) alone', () => {
+  const { glossary: next, added } = withMenuTerms({ terms: [entry('RAG', 'generació augmentada')] });
+  assert.deepEqual(added, ['projects (B.C.)']);
+  assert.deepEqual(next.terms, [entry('projects (B.C.)', ''), entry('RAG', 'generació augmentada')]);
+  const defined = { terms: [entry('Projects (b.c.)', 'abans de la IA')] };
+  assert.deepEqual(withMenuTerms(defined), { glossary: defined, added: [] });
+  assert.deepEqual(withMenuTerms({}).added, ['projects (B.C.)'], 'a glossary without terms');
+});
+
+test('termUsage counts a menu term as used by the menu, so it cannot be deleted', () => {
+  assert.deepEqual(termUsage({ projects: { projects: [] }, words: { text: '' } }, 'projects (b.c.)'), ['the site menu']);
+  const projects = { projects: [{ id: 'l', title: 'Ledger', ai: { ca: 'Amb {{projects (B.C.)}}.', en: '', es: '' } }] };
+  assert.deepEqual(termUsage({ projects, words: { text: '' } }, 'projects (b.c.)'), ['the site menu', '"Ledger" how I used AI (ca)']);
+});
+
+test('prepareGlossary creates the glossary with the menu terms pending (0600), and adds them to an existing one', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'admin-glossary-'));
+  const glossaryFile = path.join(dir, 'data', 'glossary.json');
+  assert.deepEqual(await prepareGlossary({ glossaryFile }), { created: true, added: ['projects (B.C.)'] });
+  assert.deepEqual(JSON.parse(await readFile(glossaryFile, 'utf8')), { terms: [entry('projects (B.C.)', '')] });
+  assert.equal((await stat(glossaryFile)).mode & 0o777, 0o600);
+  assert.deepEqual(await prepareGlossary({ glossaryFile }), { created: false, added: [] }, 'nothing to add');
+
+  await writeFile(glossaryFile, JSON.stringify({ terms: [entry('RAG', 'x')] }), { mode: 0o600 });
+  assert.deepEqual(await prepareGlossary({ glossaryFile }), { created: false, added: ['projects (B.C.)'] });
+  assert.deepEqual(JSON.parse(await readFile(glossaryFile, 'utf8')).terms, [entry('projects (B.C.)', ''), entry('RAG', 'x')]);
+  assert.equal((await stat(glossaryFile)).mode & 0o777, 0o600, 'still private after the update');
 });

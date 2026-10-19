@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile, readdir, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { toPublic, writePublic, prepareFiles, writeSomeWordsPublic, projectsAcPaths, prepareProjectsAc } from '../lib/publish.js';
+import { toPublic, writePublic, prepareFiles, writeSomeWordsPublic, projectsAcPaths, prepareProjectsAc, menuPaths, toMenuPublic, writeMenuPublic } from '../lib/publish.js';
 
 const project = (id, visible) => ({
   id, title: id.toUpperCase(), category: 'tool', year: 2026, description: '', url: `https://${id}.example.com`, visible, thumbs: [],
@@ -170,4 +170,30 @@ test('prepareProjectsAc creates an empty private list (0600) once and publishes 
   assert.deepEqual(await prepareProjectsAc({ projectsAcFile, projectsAcPublicFile, glossary }), { created: false });
   const ca = JSON.parse(await readFile(path.join(dir, 'web', 'projects-ac.ca.json'), 'utf8'));
   assert.deepEqual(ca.projects.map((p) => [p.id, p.ai]), [['old', 'Amb {{RAG|generació augmentada}}.']]);
+});
+
+const menuGlossary = { terms: [{ term: 'Projects (B.C.)', explanation: { ca: 'abans de la IA', en: 'before AI', es: '' } }] };
+
+test('menuPaths sits next to PUBLIC_FILE', () => {
+  assert.deepEqual(menuPaths({ publicFile: '/web/projects/data/projects.json' }), { menuPublicFile: '/web/projects/data/menu.json' });
+});
+
+test('toMenuPublic gives each menu tooltip in the language (fallback ca), or empty when pending or missing', () => {
+  assert.deepEqual(toMenuPublic(menuGlossary, 'en'), { tooltips: { 'projects-ac': 'before AI' } });
+  assert.deepEqual(toMenuPublic(menuGlossary, 'es'), { tooltips: { 'projects-ac': 'abans de la IA' } });
+  const pending = { terms: [{ term: 'projects (B.C.)', explanation: { ca: '', en: 'before AI', es: '' } }] };
+  assert.deepEqual(toMenuPublic(pending, 'ca'), { tooltips: { 'projects-ac': '' } });
+  assert.deepEqual(toMenuPublic(pending, 'en'), { tooltips: { 'projects-ac': 'before AI' } }, 'like a {{term}}: a language with its own text uses it');
+  assert.deepEqual(toMenuPublic(null, 'ca'), { tooltips: { 'projects-ac': '' } });
+});
+
+test('writeMenuPublic writes menu.<lang>.json only (no legacy copy), atomically, mode 0644', async () => {
+  const menuPublicFile = path.join(dir, 'web', 'menu.json');
+  await writeMenuPublic(menuPublicFile, menuGlossary);
+  assert.deepEqual((await readdir(path.join(dir, 'web'))).sort(), ['menu.ca.json', 'menu.en.json', 'menu.es.json']);
+  for (const [lang, text] of [['ca', 'abans de la IA'], ['en', 'before AI'], ['es', 'abans de la IA']]) {
+    const file = path.join(dir, 'web', `menu.${lang}.json`);
+    assert.deepEqual(JSON.parse(await readFile(file, 'utf8')), { tooltips: { 'projects-ac': text } }, lang);
+    assert.equal((await stat(file)).mode & 0o777, 0o644, lang);
+  }
 });

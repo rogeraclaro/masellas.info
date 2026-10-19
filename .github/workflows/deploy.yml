@@ -145,7 +145,8 @@ jobs:
             /projects/data/projects.json /projects/data/some-words.json \
             /projects/data/projects.ca.json /projects/data/projects.en.json /projects/data/projects.es.json \
             /projects/data/projects-ac.ca.json /projects/data/projects-ac.en.json /projects/data/projects-ac.es.json \
-            /projects/data/some-words.ca.json /projects/data/some-words.en.json /projects/data/some-words.es.json; do
+            /projects/data/some-words.ca.json /projects/data/some-words.en.json /projects/data/some-words.es.json \
+            /projects/data/menu.ca.json /projects/data/menu.en.json /projects/data/menu.es.json; do
             curl -fsS --retry 5 --retry-delay 2 --retry-all-errors "https://masellas.info$path" > /dev/null
             echo "ok: $path"
           done

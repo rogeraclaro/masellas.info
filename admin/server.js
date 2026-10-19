@@ -14,6 +14,7 @@ import { LANGS } from './lib/languages.js';
 import { parseEnv, loadConfig } from './lib/config.js';
 import {
   writePublic, prepareFiles, someWordsPaths, writeSomeWordsPublic, prepareSomeWords, projectsAcPaths, writeProjectsAcPublic, prepareProjectsAc,
+  menuPaths, writeMenuPublic,
 } from './lib/publish.js';
 import { migrateProjects, migrateSomeWords } from './lib/languages.js';
 
@@ -135,6 +136,7 @@ export function createApp({
   glossaryFile = glossaryPath(dataFile),
   projectsAcFile = projectsAcPaths({ dataFile, publicFile }).projectsAcFile,
   projectsAcPublicFile = projectsAcPaths({ dataFile, publicFile }).projectsAcPublicFile,
+  menuPublicFile = menuPaths({ publicFile }).menuPublicFile,
   translateFetch = globalThis.fetch, translateLimit = { max: 30, windowMs: 60 * 1000 },
 }) {
   // Older files (plain strings) are read as { ca, en, es } and stored that way on the next write.
@@ -208,6 +210,7 @@ export function createApp({
     await writePublic(publicFile, projects, glossary);
     await writeSomeWordsPublic(someWordsPublicFile, words, glossary);
     await writeProjectsAcPublic(projectsAcPublicFile, projectsAc, glossary);
+    await writeMenuPublic(menuPublicFile, glossary);
   }, (data) => ({ terms: data.terms }));
 
   // {{term}}s (without their own explanation) the glossary lacks are added to it on save, so they must
@@ -448,9 +451,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     process.exit(1);
   }
   try {
-    const { created } = await prepareGlossary(config);
-    if (created) console.log(`admin: created an empty glossary (${config.glossaryFile})`);
+    const { created, added } = await prepareGlossary(config);
+    if (created) console.log(`admin: created the glossary (${config.glossaryFile})`);
+    if (added.length) console.log(`admin: added the menu term(s) ${added.join(', ')} to the glossary, pending`);
     const glossary = JSON.parse(readFileSync(config.glossaryFile, 'utf8'));
+    await writeMenuPublic(config.menuPublicFile, glossary);
     const { seeded } = await prepareFiles({ ...config, glossary });
     if (seeded) console.log(`admin: seeded DATA_FILE from PUBLIC_FILE (${config.dataFile})`);
     // Last resort for "some words": the default committed in the repo (absent on the server,

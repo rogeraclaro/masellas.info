@@ -1,6 +1,6 @@
 // Env-only configuration with a tiny .env parser (no dotenv dependency).
 import path from 'node:path';
-import { someWordsPaths, projectsAcPaths } from './publish.js';
+import { someWordsPaths, projectsAcPaths, menuPaths } from './publish.js';
 import { glossaryPath } from './glossary.js';
 
 export function parseEnv(text) {
@@ -40,6 +40,7 @@ export function loadConfig(env) {
     someWordsPublicFile: env.SOME_WORDS_PUBLIC_FILE || derived.someWordsPublicFile,
     glossaryFile: glossaryPath(env.DATA_FILE), // next to DATA_FILE, no variable needed
     ...projectsAcPaths({ dataFile: env.DATA_FILE, publicFile: env.PUBLIC_FILE }), // projects (B.C.), likewise
+    ...menuPaths({ publicFile: env.PUBLIC_FILE }), // menu tooltips, likewise
     passwordHash: env.ADMIN_PASSWORD_HASH,
     sessionSecret: env.SESSION_SECRET,
     cookieSecure: env.COOKIE_SECURE !== 'false',

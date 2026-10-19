@@ -8,6 +8,7 @@ import { step, jump, indexFromHash, createGestureGate, canLeave } from './home/s
 import { pageLang } from './shared/i18n.js';
 import { bindLangLinks } from './shared/lang-links.js';
 import { bindSiteMenu } from './shared/site-menu.js';
+import { loadMenuTips } from './shared/menu-tips.js';
 // Same parser the admin validates with (admin/lib is deployed as-is; esbuild bundles it here).
 import { parseRichText, RICH_TEXT_MAX } from '../admin/lib/rich-text.js';
 import { renderRichText } from '../admin/lib/rich-text-dom.js';
@@ -245,6 +246,7 @@ async function init() {
   bindInput();
   bindLangLinks(document.querySelector('.lang-nav'));
   bindTermTooltips({ gsap: animate ? gsap : null, ease: alpha });
+  loadMenuTips(pageLang());
 
   // Never blocks "the point"; a deep link to "some words" waits briefly (max 1.5 s) for its text.
   const wordsReady = wordsSection

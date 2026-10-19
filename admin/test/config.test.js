@@ -70,3 +70,7 @@ test('loadConfig derives the projects (B.C.) files from DATA_FILE / PUBLIC_FILE 
   assert.equal(config.projectsAcFile, '/srv/projects-ac.json');
   assert.equal(config.projectsAcPublicFile, '/var/www/projects/data/projects-ac.json');
 });
+
+test('loadConfig derives the menu tooltip files from PUBLIC_FILE (no new vars)', () => {
+  assert.equal(loadConfig(good).menuPublicFile, '/var/www/projects/data/menu.json');
+});

@@ -1,11 +1,12 @@
 // The glossary behind {{term}}: lookups, which texts use a term, and its private file. Pure except
 // prepareGlossary (boot). Explanations are per language; an empty en / es falls back to ca; an empty
 // ca means the term is pending (added automatically from a text, not defined yet).
-import { writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { parseRichText, termKey } from './rich-text.js';
 import { LANGS, localize, pick } from './languages.js';
+import { writeAtomic } from './store.js';
 
 // Next to DATA_FILE, like some-words.json: no extra configuration.
 export const glossaryPath = (dataFile) => path.join(path.dirname(dataFile), 'glossary.json');
@@ -61,11 +62,20 @@ export function withPendingTerms(glossary, texts) {
   return { glossary: { ...glossary, terms: sorted }, added };
 }
 
+// Fixed terms behind the site menu's tooltips: tab key (data-menu-tip in the pages, a key of
+// menu.<lang>.json) -> glossary term. They are always in the glossary (added pending at boot) and
+// always count as used, so they cannot be deleted or renamed.
+export const MENU_TERMS = { 'projects-ac': 'projects (B.C.)' };
+const MENU_KEYS = new Set(Object.values(MENU_TERMS).map(termKey));
+
+// The menu terms the glossary lacks join it pending, like a {{term}} in a saved text.
+export const withMenuTerms = (glossary) => withPendingTerms(glossary, Object.values(MENU_TERMS).map((term) => `{{${term}}}`));
+
 // Where a glossary term is used without an inline explanation, e.g. '"Ledger" how I used AI (en)' or,
 // in projects (B.C.), 'projects (B.C.) "Mill" how it was made (ca)'.
 export function termUsage({ projects, projectsAc, words }, key) {
   const uses = (text) => bareKeys(text).some((term) => term.key === key);
-  const places = [];
+  const places = MENU_KEYS.has(key) ? ['the site menu'] : [];
   const collections = [[projects, (title) => `"${title}" how I used AI`], [projectsAc, (title) => `projects (B.C.) "${title}" how it was made`]];
   for (const [collection, where] of collections) {
     for (const project of collection?.projects ?? []) {
@@ -78,10 +88,15 @@ export function termUsage({ projects, projectsAc, words }, key) {
   return places;
 }
 
-// Boot: create an empty glossary once (mode 0600, like the other private files).
+// Boot: create the glossary once (mode 0600, like the other private files), then make sure it has the
+// menu terms (atomic rewrite, still 0600, only when one is missing). added: the menu terms it added.
 export async function prepareGlossary({ glossaryFile }) {
-  if (existsSync(glossaryFile)) return { created: false };
-  await mkdir(path.dirname(glossaryFile), { recursive: true });
-  await writeFile(glossaryFile, `${JSON.stringify({ terms: [] }, null, 2)}\n`, { mode: 0o600 });
-  return { created: true };
+  const created = !existsSync(glossaryFile);
+  if (created) {
+    await mkdir(path.dirname(glossaryFile), { recursive: true });
+    await writeFile(glossaryFile, `${JSON.stringify({ terms: [] }, null, 2)}\n`, { mode: 0o600 });
+  }
+  const { glossary, added } = withMenuTerms(JSON.parse(await readFile(glossaryFile, 'utf8')));
+  if (added.length) await writeAtomic(glossaryFile, `${JSON.stringify(glossary, null, 2)}\n`, 0o600);
+  return { created, added };
 }

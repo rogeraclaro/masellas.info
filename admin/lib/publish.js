@@ -5,8 +5,8 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { writeAtomic } from './store.js';
 import { LANGS, DEFAULT_LANG, pick, localizedFile, migrateProjects, migrateSomeWords } from './languages.js';
-import { resolveTerms } from './rich-text.js';
-import { glossaryLookup } from './glossary.js';
+import { resolveTerms, termKey } from './rich-text.js';
+import { glossaryLookup, MENU_TERMS } from './glossary.js';
 
 // Rich text for one language with its {{term}}s explained from the glossary (in that language, or ca),
 // so the site never needs the glossary itself.
@@ -107,3 +107,16 @@ export async function prepareProjectsAc({ projectsAcFile, projectsAcPublicFile, 
   await writeProjectsAcPublic(projectsAcPublicFile, data, glossary);
   return { created };
 }
+
+/* ---------- site menu tooltips (the projects (B.C.) tab), from the glossary's menu terms ---------- */
+
+// Next to PUBLIC_FILE (no extra configuration). Public: menu.<lang>.json only (no legacy copy).
+export const menuPaths = ({ publicFile }) => ({ menuPublicFile: path.join(path.dirname(publicFile), 'menu.json') });
+
+// { tooltips: { <tab key>: plain text in lang (or ca), '' while the term is pending } }
+export function toMenuPublic(glossary, lang) {
+  const lookup = glossaryLookup(glossary, lang);
+  return { tooltips: Object.fromEntries(Object.entries(MENU_TERMS).map(([tab, term]) => [tab, lookup(termKey(term)) ?? ''])) };
+}
+
+export const writeMenuPublic = (menuPublicFile, glossary) => writeLanguages(menuPublicFile, (lang) => toMenuPublic(glossary, lang), { legacy: false });

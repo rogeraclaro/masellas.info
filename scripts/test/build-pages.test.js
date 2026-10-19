@@ -238,3 +238,18 @@ test('an override for a key no dictionary has fails the build', async () => {
   const root = await fixture({ ca: dict, en: dict, es: dict });
   await assert.rejects(buildPages({ root, write: false }), /projects_ac\.projects\.typo/);
 });
+
+test('on every page only the projects (B.C.) tab is a tooltip link, described by an empty hidden element', async () => {
+  const pages = await buildPages({ root: REPO, write: false });
+  for (const { file, html } of pages) {
+    const menu = /<ul class="menu">([\s\S]*?)<\/ul>/.exec(html)[1];
+    const tips = [...menu.matchAll(/<a class="menu__tab cube" href="([^"]*)"[^>]*\bdata-menu-tip="([^"]*)"[^>]*>/g)];
+    assert.deepEqual(tips.map(([, href, key]) => [href.replace(/^\/(en|es)\//, '/'), key]), [['/projects-ac/', 'projects-ac']], file);
+    const tag = tips[0][0];
+    assert.match(tag, /\sdata-term-link[\s>]/, `${file}: tooltip target for term-tooltip.js`);
+    const id = /aria-describedby="([^"]+)"/.exec(tag)?.[1];
+    assert.ok(id, `${file}: aria-describedby`);
+    assert.equal(html.split(`id="${id}"`).length, 2, `${file}: one element with id ${id}`);
+    assert.match(menu, new RegExp(`<span id="${id}" hidden></span>`), `${file}: hidden, empty until menu-tips.js fills it`);
+  }
+});

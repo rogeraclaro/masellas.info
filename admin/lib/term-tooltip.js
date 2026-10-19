@@ -3,9 +3,11 @@
 // term + explanation once through aria-describedby; the floating bubble is visual only.
 // One bubble per page, content via textContent. Browser only; shared by the home, the project detail
 // and the admin previews (served by the admin, bundled by the site).
+// A link with data-term-link (the projects (B.C.) menu tab, js/shared/menu-tips.js) is a target too,
+// with the same aria-describedby, but a tap only follows the link: no touch toggle.
 //   mouse: show after 100 ms, hide 150 ms after leaving (time to move onto the bubble)
 //   keyboard: show on focus, hide on blur or Esc
-//   touch / pen: tap toggles; tapping elsewhere, scrolling or Esc hides
+//   touch / pen: tap toggles (not on a data-term-link); tapping elsewhere, scrolling or Esc hides
 const SHOW_DELAY = 100;
 const HIDE_DELAY = 150;
 const MARGIN = 8; // from the viewport edges
@@ -34,7 +36,7 @@ export function bindTermTooltips({ gsap = null, ease = 'power1.out' } = {}) {
   let pointerDownAt = 0;
   let shownAt = 0;
 
-  const termOf = (node) => (node instanceof Element ? node.closest('.term') : null);
+  const termOf = (node) => (node instanceof Element ? node.closest('.term, [data-term-link]') : null);
   const explanationOf = (term) => {
     const id = term.getAttribute('aria-describedby');
     return (id && document.getElementById(id)?.textContent) || '';
@@ -118,7 +120,8 @@ export function bindTermTooltips({ gsap = null, ease = 'power1.out' } = {}) {
   document.addEventListener('click', (event) => {
     const term = termOf(event.target);
     // Touch / pen tap toggles. Mouse already shows on hover; keyboard (detail 0) already on focus.
-    if (!term || lastPointer === 'mouse' || event.detail === 0) return;
+    // A term link's tap navigates, without a bubble.
+    if (!term || lastPointer === 'mouse' || event.detail === 0 || term.hasAttribute('data-term-link')) return;
     if (current === term) hide();
     else show(term);
   });

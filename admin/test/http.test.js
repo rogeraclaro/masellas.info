@@ -711,3 +711,19 @@ test('projects (B.C.): glossary pending terms on save, usage protection and repu
   assert.equal(res.status, 200);
   assert.equal((await acPublic('en')).projects[0].ai, 'Amb {{Lingo|jargon}} i {{RAG|nova}}.', 'glossary save republishes projects (B.C.)');
 });
+
+test('glossary: saving it publishes the menu tooltips; the menu term cannot be deleted', async () => {
+  const menu = async (lang) => JSON.parse(await readFile(path.join(path.dirname(publicFile), `menu.${lang}.json`), 'utf8'));
+  let { terms, version } = await glossaryNow();
+  terms = [...terms.filter((t) => t.term !== 'projects (B.C.)'), { term: 'projects (B.C.)', explanation: only('abans de la IA', 'before AI') }];
+  let res = await call(base, 'PUT', '/api/glossary', { cookie, version, body: { terms } });
+  assert.equal(res.status, 200);
+  ({ version } = await res.json());
+  assert.deepEqual(await menu('en'), { tooltips: { 'projects-ac': 'before AI' } });
+  assert.deepEqual(await menu('es'), { tooltips: { 'projects-ac': 'abans de la IA' } }, 'empty es falls back to ca');
+
+  res = await call(base, 'PUT', '/api/glossary', { cookie, version, body: { terms: terms.filter((t) => t.term !== 'projects (B.C.)') } });
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).errors._usage, /"projects \(B\.C\.\)" is still used in the site menu/);
+  assert.deepEqual(await menu('ca'), { tooltips: { 'projects-ac': 'abans de la IA' } }, 'unchanged');
+});

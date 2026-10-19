@@ -48,7 +48,7 @@ Text format for "some words" and a project's "how I used AI" (projects (B.C.): "
 
 ## Glossary
 
-The "glossary" view lists the terms (`glossary.json` next to `DATA_FILE`, created empty at boot; same atomic write, `.bak` and If-Match versions as the other files). A term is shared by every language and unique ignoring case; its explanation is per language (en / es fall back to ca), plain text, up to 300 characters. Deleting or renaming a term that a text still uses as `{{term}}` is refused with the list of places (pending terms included).
+The "glossary" view lists the terms (`glossary.json` next to `DATA_FILE`, created empty at boot; same atomic write, `.bak` and If-Match versions as the other files). A term is shared by every language and unique ignoring case; its explanation is per language (en / es fall back to ca), plain text, up to 300 characters. Deleting or renaming a term that a text still uses as `{{term}}` is refused with the list of places (pending terms included). The term `projects (B.C.)` is fixed: it is the tooltip of the site's "projects (B.C.)" menu tab (`MENU_TERMS` in `lib/glossary.js`). Boot adds it, pending, when the glossary lacks it, and it always counts as used ("the site menu"), so it cannot be deleted or renamed. Every boot and glossary save writes it to `dirname(PUBLIC_FILE)/menu.<lang>.json` (ca, en, es; no legacy copy; atomic, 0644) as `{ "tooltips": { "projects-ac": "<plain text in that language, or ca; empty while pending>" } }`.
 
 Pending terms: saving a project (POST / PUT) or "some words" with a `{{term}}` the glossary does not have adds it, as first written (ca first, then en, es; once, ignoring case), with an empty explanation `{ "ca": "", "en": "", "es": "" }`. `{{term|explanation}}` is never added. Pending means an empty ca; en / es may be filled. The admin lists pending terms first, marked "pending", with a count on the glossary tab; the project and "some words" forms say which terms a save added. The glossary write happens on the server after the text is saved (same store: atomic, `.bak`, new version; no write when nothing is new) and before publishing. If it fails, the text stays saved and published, the response is still 2xx with `addedTerms: []` and a `glossaryError` message; saving that text again retries.
 
@@ -116,7 +116,7 @@ Uses `node:test`. Covers languages (migration, fallback), both project collectio
 - `lib/rich-text-dom.js` — browser renderer for parsed text (admin previews and help, home, project detail).
 - `lib/rich-text.css` — styles for rendered rich text; bundled into the site, served to the admin at `/rich-text.css`.
 - `lib/translate.js` — "translate from ca": the engines (`ENGINES`), markup protection and restore, timeouts and errors.
-- `lib/glossary.js` — glossary lookups, unknown terms, adding them as pending, where a term is used, the private file at boot.
+- `lib/glossary.js` — glossary lookups, unknown terms, adding them as pending, the fixed menu terms, where a term is used, the private file at boot.
 - `lib/term-tooltip.js` — the term tooltip (served to the admin previews, bundled into the site).
 - `public/rich-text-help.js` — the "formatting help" table (open / closed remembered in localStorage).
 - `lib/envfile.js` — the `.env` update behind `hash-password --env`.
@@ -142,7 +142,7 @@ API (JSON, all under `/api`, session required except login, logout and session):
 | PUT | `/api/some-words` | `{ text: { ca, en, es } }` | ca 1–4000 chars, en / es 0–4000; republishes the public copies; `addedTerms` |
 | GET | `/api/glossary` | | `{ terms: [{ term, explanation: { ca, en, es } }], version }`, sorted; an empty `ca` = pending |
 | POST | `/api/translate` | `{ text, kind: "rich" \| "plain", max? }` | ca text (1–5000 chars; rich must parse) -> `{ en: { text, warnings }, es: … }`; a failed language has `{ error }` instead (502 if both fail). Changes nothing: no If-Match. 30 per minute per client (429). `max`: the field's limit, for the warning |
-| PUT | `/api/glossary` | `{ terms }` (the whole list) | errors keyed `terms.<i>.term`, `terms.<i>.explanation.<lang>`, `_usage`; republishes every public file; an empty `ca` is allowed (pending) |
+| PUT | `/api/glossary` | `{ terms }` (the whole list) | errors keyed `terms.<i>.term`, `terms.<i>.explanation.<lang>`, `_usage`; republishes every public file (menu tooltips included); an empty `ca` is allowed (pending) |
 
 Project and "some words" saves answer with `addedTerms: [..]`, the terms that save added to the glossary as pending (`[]` if none), and, only if that glossary write failed, `glossaryError` (the save itself still succeeded).
 

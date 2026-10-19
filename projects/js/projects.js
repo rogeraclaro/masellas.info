@@ -8,6 +8,7 @@ import { pageReady } from '../../js/shared/page-ready.js';
 import { loadStrings, pageLang } from '../../js/shared/i18n.js';
 import { bindLangLinks } from '../../js/shared/lang-links.js';
 import { bindSiteMenu } from '../../js/shared/site-menu.js';
+import { loadMenuTips } from '../../js/shared/menu-tips.js';
 // "how I used AI" uses the same rich-text format as the home's "some words" (validated by the admin).
 import { parseRichText } from '../../admin/lib/rich-text.js';
 import { renderRichText } from '../../admin/lib/rich-text-dom.js';
@@ -540,6 +541,7 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
     bindSiteMenu();
     bindLangLinks(document.querySelector('.lang-nav'));
     bindTermTooltips({ gsap: animate ? gsap : null, ease: ALPHA });
+    loadMenuTips(pageLang());
     titleEl.tabIndex = -1; // focus target when a deep-linked detail closes
     const [projects] = await Promise.all([loadProjects(), document.fonts ? document.fonts.ready : null]);
     if (!projects) {

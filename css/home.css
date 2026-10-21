@@ -156,7 +156,7 @@ ul {
   margin-top: var(--space-after-title);
 }
 
-.home-notice {
+.section--coral .home-notice {
   margin-bottom: var(--space-after-title);
 }
 

@@ -156,6 +156,10 @@ ul {
   margin-top: var(--space-after-title);
 }
 
+.home-notice {
+  margin-bottom: var(--space-after-title);
+}
+
 /* ---------- Some words ---------- */
 .intro {
   width: 100%;

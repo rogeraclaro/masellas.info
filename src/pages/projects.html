@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<!-- Shared by projects (IA) and projects (B.C.): see PAGES in scripts/build-pages.mjs. -->
+<!-- Shared by projects (IA) and projects (B.C.): see PAGES in scripts/build-pages.mjs. The projects / projects-ld
+     markers are filled for crawlers by the admin on the server (admin/lib/seo-pages.js). -->
 <html lang="{{lang}}" data-page-x="{{page_x}}">
 <head>
 	<meta charset="utf-8">
@@ -7,10 +8,10 @@
 	<title>{{projects.title}}</title>
 	<link rel="canonical" href="{{page_url}}">
 	{{{alternates}}}
-	<meta name="robots" content="noindex, nofollow">
 	<meta name="author" content="Roger Masellas">
 	<meta name="description" content="{{projects.description}}">
 	{{{og_locale}}}
+	<!-- projects-ld:start --><!-- projects-ld:end -->
 	<script>document.documentElement.className += ' js';</script>
 	<link rel="preload" href="/tipos/aglt-bold-webfont.woff2" as="font" type="font/woff2" crossorigin>
 	<link rel="stylesheet" href="/projects/css/projects.min.css">
@@ -60,7 +61,7 @@
 		</div>
 	</header>
 
-	<ul class="work-list" id="projects-list" tabindex="-1" aria-label="{{projects.list_label}}" data-collection="{{collection}}"></ul>
+	<ul class="work-list" id="projects-list" tabindex="-1" aria-label="{{projects.list_label}}" data-collection="{{collection}}"><!-- projects:start --><!-- projects:end --></ul>
 </main>
 
 <footer class="page-footer">

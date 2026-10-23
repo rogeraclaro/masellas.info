@@ -195,7 +195,9 @@ ul {
   border-bottom: 1px solid var(--hairline);
 }
 
-.js .work-item {
+/* data-static: the crawler copy of the rows, replaced by the script (also without motion) */
+.js .work-item,
+.no-motion .work-item[data-static] {
   visibility: hidden;
 }
 

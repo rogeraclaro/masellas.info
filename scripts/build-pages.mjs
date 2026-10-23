@@ -118,6 +118,29 @@ export function pageDictionary(page, dict) {
   return merged;
 }
 
+// A page's URL in every language, plus x-default (= ca): the <head> alternates and the sitemap.
+const alternatesOf = (page) => [...LANGUAGES, { ...DEFAULT, code: 'x-default' }]
+  .map((language) => ({ code: language.code, url: `${SITE}${language.prefix}${page.path}` }));
+
+// sitemap.xml: every page in every language, each with its alternates.
+export function sitemapXml() {
+  const urls = PAGES.flatMap((page) => LANGUAGES.map((lang) => [
+    '\t<url>',
+    `\t\t<loc>${SITE}${lang.prefix}${page.path}</loc>`,
+    ...alternatesOf(page).map(({ code, url }) => `\t\t<xhtml:link rel="alternate" hreflang="${code}" href="${url}"/>`),
+    '\t</url>',
+  ].join('\n')));
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">',
+    ...urls,
+    '</urlset>',
+    '',
+  ].join('\n');
+}
+
+export const robotsTxt = () => `User-agent: *\nAllow: /\nDisallow: /admin/\n\nSitemap: ${SITE}/sitemap.xml\n`;
+
 // Values the build adds to the dictionary for one page in one language.
 function buildValues(page, lang, dict) {
   const href = (language) => `${language.prefix}${page.path}`;
@@ -131,9 +154,7 @@ function buildValues(page, lang, dict) {
     '\t</ul>',
     '</nav>',
   ].join('\n');
-  const alternates = [...LANGUAGES, { ...DEFAULT, code: 'x-default' }]
-    .map((language) => `<link rel="alternate" hreflang="${language.code}" href="${SITE}${href(language)}">`)
-    .join('\n');
+  const alternates = alternatesOf(page).map(({ code, url }) => `<link rel="alternate" hreflang="${code}" href="${url}">`).join('\n');
   const ogLocale = [
     `<meta property="og:locale" content="${lang.ogLocale}">`,
     ...LANGUAGES.filter((language) => language !== lang).map((language) => `<meta property="og:locale:alternate" content="${language.ogLocale}">`),
@@ -187,7 +208,7 @@ async function readDictionaries(root) {
   return dicts;
 }
 
-// Returns [{ file, html, lang, page }]; writes them under root unless write is false.
+// Returns [{ file, html, lang, page }]; writes them, sitemap.xml and robots.txt under root unless write is false.
 export async function buildPages({ root, write = true }) {
   const dicts = await readDictionaries(root);
   checkDictionaries(dicts);
@@ -213,6 +234,8 @@ export async function buildPages({ root, write = true }) {
       await mkdir(path.dirname(path.join(root, file)), { recursive: true });
       await writeFile(path.join(root, file), html);
     }
+    await writeFile(path.join(root, 'sitemap.xml'), sitemapXml());
+    await writeFile(path.join(root, 'robots.txt'), robotsTxt());
   }
   return pages;
 }
@@ -221,7 +244,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   try {
     const pages = await buildPages({ root });
-    console.log(`pages: ${pages.map((p) => p.file).join(' ')}`);
+    console.log(`pages: ${pages.map((p) => p.file).join(' ')} sitemap.xml robots.txt`);
   } catch (err) {
     console.error(`build-pages: ${err.message}`);
     process.exit(1);

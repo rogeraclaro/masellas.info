@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRichText, resolveTerms, termKey } from '../lib/rich-text.js';
+import { parseRichText, resolveTerms, termKey, richTextPlain } from '../lib/rich-text.js';
 
 const text = (value) => ({ type: 'text', value });
 const br = { type: 'br' };
@@ -274,4 +274,10 @@ test('resolveTerms fills bare terms from a lookup, keeps inline explanations, co
   assert.equal(resolveTerms('no terms here', lookup), 'no terms here');
   const resolved = parseRichText(resolveTerms('{{RAG}}', lookup));
   assert.deepEqual(resolved.blocks[0].parts, [term('RAG', 'retrieval-augmented generation')]);
+});
+
+test('richTextPlain drops the markup: blocks split by blank lines, list items as "- ", terms and links as their label', () => {
+  const input = '## Title\n\n**bold** ~~gone~~ `x*y` and [a link](https://x.example) for {{RAG|retrieval}}\nnext line\n\n- one\n- **two**\n\n> quoted\n> more';
+  assert.equal(richTextPlain(input), 'Title\n\nbold gone x*y and a link for RAG\nnext line\n\n- one\n- two\n\nquoted\nmore');
+  assert.equal(richTextPlain(''), '');
 });

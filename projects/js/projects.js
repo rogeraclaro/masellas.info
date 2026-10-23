@@ -542,14 +542,17 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
     loadMenuTips(pageLang());
     titleEl.tabIndex = -1; // focus target when a deep-linked detail closes
     const [projects] = await Promise.all([loadProjects(), document.fonts ? document.fonts.ready : null]);
+    // The rows already in the list are the admin's copy for crawlers (admin/lib/seo-pages.js), not built
+    // for the animations: they give way to the live rows, or to the error when there is no data.
     if (!projects) {
+      list.replaceChildren();
       list.after(el('p', 'work-list__error', t('load_error')));
       await pageReady();
       intro();
       return;
     }
 
-    list.append(...projects.map(renderRow));
+    list.replaceChildren(...projects.map(renderRow));
     order = projects;
     projectsById = new Map(projects.map((project) => [project.id, project]));
     buildCloseButton();

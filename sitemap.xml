@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+	<url>
+		<loc>https://masellas.info/</loc>
+		<xhtml:link rel="alternate" hreflang="ca" href="https://masellas.info/"/>
+		<xhtml:link rel="alternate" hreflang="en" href="https://masellas.info/en/"/>
+		<xhtml:link rel="alternate" hreflang="es" href="https://masellas.info/es/"/>
+		<xhtml:link rel="alternate" hreflang="x-default" href="https://masellas.info/"/>
+	</url>
+	<url>
+		<loc>https://masellas.info/en/</loc>
+		<xhtml:link rel="alternate" hreflang="ca" href="https://masellas.info/"/>
+		<xhtml:link rel="alternate" hreflang="en" href="https://masellas.info/en/"/>
+		<xhtml:link rel="alternate" hreflang="es" href="https://masellas.info/es/"/>
+		<xhtml:link rel="alternate" hreflang="x-default" href="https://masellas.info/"/>
+	</url>
+	<url>
+		<loc>https://masellas.info/es/</loc>
+		<xhtml:link rel="alternate" hreflang="ca" href="https://masellas.info/"/>
+		<xhtml:link rel="alternate" hreflang="en" href="https://masellas.info/en/"/>
+		<xhtml:link rel="alternate" hreflang="es" href="https://masellas.info/es/"/>
+		<xhtml:link rel="alternate" hreflang="x-default" href="https://masellas.info/"/>
+	</url>
+	<url>
+		<loc>https://masellas.info/projects/</loc>
+		<xhtml:link rel="alternate" hreflang="ca" href="https://masellas.info/projects/"/>
+		<xhtml:link rel="alternate" hreflang="en" href="https://masellas.info/en/projects/"/>
+		<xhtml:link rel="alternate" hreflang="es" href="https://masellas.info/es/projects/"/>
+		<xhtml:link rel="alternate" hreflang="x-default" href="https://masellas.info/projects/"/>
+	</url>
+	<url>
+		<loc>https://masellas.info/en/projects/</loc>
+		<xhtml:link rel="alternate" hreflang="ca" href="https://masellas.info/projects/"/>
+		<xhtml:link rel="alternate" hreflang="en" href="https://masellas.info/en/projects/"/>
+		<xhtml:link rel="alternate" hreflang="es" href="https://masellas.info/es/projects/"/>
+		<xhtml:link rel="alternate" hreflang="x-default" href="https://masellas.info/projects/"/>
+	</url>
+	<url>
+		<loc>https://masellas.info/es/projects/</loc>
+		<xhtml:link rel="alternate" hreflang="ca" href="https://masellas.info/projects/"/>
+		<xhtml:link rel="alternate" hreflang="en" href="https://masellas.info/en/projects/"/>
+		<xhtml:link rel="alternate" hreflang="es" href="https://masellas.info/es/projects/"/>
+		<xhtml:link rel="alternate" hreflang="x-default" href="https://masellas.info/projects/"/>
+	</url>
+	<url>
+		<loc>https://masellas.info/projects-ac/</loc>
+		<xhtml:link rel="alternate" hreflang="ca" href="https://masellas.info/projects-ac/"/>
+		<xhtml:link rel="alternate" hreflang="en" href="https://masellas.info/en/projects-ac/"/>
+		<xhtml:link rel="alternate" hreflang="es" href="https://masellas.info/es/projects-ac/"/>
+		<xhtml:link rel="alternate" hreflang="x-default" href="https://masellas.info/projects-ac/"/>
+	</url>
+	<url>
+		<loc>https://masellas.info/en/projects-ac/</loc>
+		<xhtml:link rel="alternate" hreflang="ca" href="https://masellas.info/projects-ac/"/>
+		<xhtml:link rel="alternate" hreflang="en" href="https://masellas.info/en/projects-ac/"/>
+		<xhtml:link rel="alternate" hreflang="es" href="https://masellas.info/es/projects-ac/"/>
+		<xhtml:link rel="alternate" hreflang="x-default" href="https://masellas.info/projects-ac/"/>
+	</url>
+	<url>
+		<loc>https://masellas.info/es/projects-ac/</loc>
+		<xhtml:link rel="alternate" hreflang="ca" href="https://masellas.info/projects-ac/"/>
+		<xhtml:link rel="alternate" hreflang="en" href="https://masellas.info/en/projects-ac/"/>
+		<xhtml:link rel="alternate" hreflang="es" href="https://masellas.info/es/projects-ac/"/>
+		<xhtml:link rel="alternate" hreflang="x-default" href="https://masellas.info/projects-ac/"/>
+	</url>
+</urlset>

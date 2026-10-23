@@ -222,6 +222,15 @@ export function parseRichText(input) {
   return { blocks, errors };
 }
 
+// The text without its markup (llms.txt, JSON-LD): blocks split by blank lines, list items as "- ",
+// terms and links as their label.
+export function richTextPlain(input) {
+  const inline = (parts) => parts.map((part) => (part.type === 'br' ? '\n' : plainText([part]))).join('');
+  return parseRichText(input).blocks
+    .map((block) => (block.type === 'ul' ? block.items.map((item) => `- ${inline(item)}`).join('\n') : inline(block.parts)))
+    .join('\n\n');
+}
+
 // Publishing: every {{term}} without its own explanation becomes {{term|<lookup(key)>}} (unknown
 // keys stay as they are). Follows the parser's rules, so code spans and escaped braces are untouched.
 export function resolveTerms(text, lookup) {

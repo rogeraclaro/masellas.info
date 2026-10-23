@@ -81,8 +81,9 @@ jobs:
           EOF
           chmod 600 ~/.ssh/config
 
-      # Order matters: the admin is updated and restarted BEFORE the pages, so the
-      # per-language data files already hold the live content when new pages go out.
+      # Order matters: the pages go out BEFORE the admin restarts, because on boot the admin
+      # rewrites the projects pages with the live list for crawlers (admin/lib/seo-pages.js);
+      # a site sync after it would put the empty lists back until the next save.
 
       # Fresh server only: the admin seeds its private data from these legacy files.
       - name: Seed legacy public data (fresh server only)
@@ -97,6 +98,20 @@ jobs:
             --exclude='/.env' --exclude='/data/' --exclude='/test/' --exclude='node_modules/' --exclude='.DS_Store' \
             admin/ "deploy-target:$APP_DIR"
 
+      - name: Sync site (no perms, no delete)
+        run: |
+          # --checksum: CI checkouts have fresh mtimes, so compare content instead;
+          # identical files (e.g. the root-owned christian/) are left alone.
+          # No -t either: setting mtimes on files we don't own fails.
+          # Pages: index.html, projects/, projects-ac/ (ca) plus en/ and es/; their sources (src/, i18n/) stay here.
+          # projects/data/*.json (every language + the legacy files) and llms.txt belong to the admin.
+          rsync -rlz --checksum \
+            --exclude='.git/' --exclude='.github/' --exclude='.gitignore' --exclude='.claude/' \
+            --exclude='/admin/' --exclude='/scripts/' --exclude='/src/' --exclude='/i18n/' \
+            --exclude='.playwright-mcp/' --exclude='.DS_Store' --exclude='/package.json' \
+            --exclude='/projects/data/*.json' --exclude='/llms.txt' --exclude='*.md' \
+            ./ "deploy-target:$SITE_DIR"
+
       - name: Restart admin (pm2)
         run: |
           ssh deploy-target 'bash -s' <<'EOF'
@@ -107,15 +122,28 @@ jobs:
             echo "::error::~/masellas-admin/app/.env is missing. Run the one-time setup in DEPLOY.md."
             exit 1
           fi
+          # The data files exist from earlier runs, so the pages tell when this boot has published:
+          # they must be newer than a stamp taken before the reload (1 s apart, for coarse mtimes).
+          stamp=$(mktemp)
+          sleep 1
           pm2 startOrReload ecosystem.config.cjs --update-env
           pm2 save
+          site=~/htdocs/masellas.info
           # Wait for the restarted admin to publish the per-language files from live data
-          # (projects-ac.ca.json: projects (B.C.), created empty by the admin on its first boot).
+          # (projects-ac.ca.json: projects (B.C.), created empty by the admin on its first boot)
+          # and to rewrite the six projects pages for crawlers.
+          published() {
+            [ -f "$site/projects/data/projects.ca.json" ] && [ -f "$site/projects/data/projects-ac.ca.json" ] || return 1
+            for page in projects projects-ac en/projects en/projects-ac es/projects es/projects-ac; do
+              [ "$site/$page/index.html" -nt "$stamp" ] || return 1
+            done
+          }
           for i in $(seq 1 20); do
-            [ -f ~/htdocs/masellas.info/projects/data/projects.ca.json ] && [ -f ~/htdocs/masellas.info/projects/data/projects-ac.ca.json ] && exit 0
+            published && { rm -f "$stamp"; exit 0; }
             sleep 0.5
           done
-          echo "::error::admin did not publish projects.ca.json and projects-ac.ca.json within 10s"
+          rm -f "$stamp"
+          echo "::error::admin did not publish projects.ca.json and projects-ac.ca.json, or did not rewrite the projects pages, within 10s (see pm2 logs masellas-admin)"
           exit 1
           EOF
 
@@ -125,20 +153,6 @@ jobs:
           rsync -rltz --ignore-existing projects/data/*.json \
             "deploy-target:${SITE_DIR}projects/data/"
 
-      - name: Sync site (no perms, no delete)
-        run: |
-          # --checksum: CI checkouts have fresh mtimes, so compare content instead;
-          # identical files (e.g. the root-owned christian/) are left alone.
-          # No -t either: setting mtimes on files we don't own fails.
-          # Pages: index.html, projects/, projects-ac/ (ca) plus en/ and es/; their sources (src/, i18n/) stay here.
-          # projects/data/*.json (every language + the legacy files) belong to the admin.
-          rsync -rlz --checksum \
-            --exclude='.git/' --exclude='.github/' --exclude='.gitignore' --exclude='.claude/' \
-            --exclude='/admin/' --exclude='/scripts/' --exclude='/src/' --exclude='/i18n/' \
-            --exclude='.playwright-mcp/' --exclude='.DS_Store' --exclude='/package.json' \
-            --exclude='/projects/data/*.json' --exclude='*.md' \
-            ./ "deploy-target:$SITE_DIR"
-
       - name: Smoke check
         run: |
           for path in /en/ /es/projects/ /projects-ac/ /en/projects-ac/ \
@@ -147,6 +161,16 @@ jobs:
             /projects/data/projects-ac.ca.json /projects/data/projects-ac.en.json /projects/data/projects-ac.es.json \
             /projects/data/some-words.ca.json /projects/data/some-words.en.json /projects/data/some-words.es.json \
             /projects/data/menu.ca.json /projects/data/menu.en.json /projects/data/menu.es.json; do
+            curl -fsS --retry 5 --retry-delay 2 --retry-all-errors "https://masellas.info$path" > /dev/null
+            echo "ok: $path"
+          done
+          # Server-rendered rows: only when the live list has projects (an empty list is legitimate).
+          if curl -fsS --retry 5 --retry-delay 2 --retry-all-errors https://masellas.info/projects/data/projects.ca.json | grep -q '"id"'; then
+            curl -fsS --retry 5 --retry-delay 2 --retry-all-errors https://masellas.info/projects/ | grep -q 'href="?p=' \
+              || { echo "::error::/projects/ has no server-rendered project links"; exit 1; }
+            echo "ok: /projects/ lists projects for crawlers"
+          fi
+          for path in /robots.txt /sitemap.xml /llms.txt; do
             curl -fsS --retry 5 --retry-delay 2 --retry-all-errors "https://masellas.info$path" > /dev/null
             echo "ok: $path"
           done

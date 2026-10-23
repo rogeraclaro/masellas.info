@@ -727,3 +727,29 @@ test('glossary: saving it publishes the menu tooltips; the menu term cannot be d
   assert.match((await res.json()).errors._usage, /"projects \(B\.C\.\)" is still used in the site menu/);
   assert.deepEqual(await menu('ca'), { tooltips: { 'projects-ac': 'abans de la IA' } }, 'unchanged');
 });
+
+test('saving a project rewrites the projects pages in the web root for crawlers (and llms.txt)', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'admin-seo-http-'));
+  const site = path.join(dir, 'site');
+  await mkdir(path.join(site, 'projects', 'data'), { recursive: true });
+  await mkdir(path.join(dir, 'private'));
+  await writeFile(path.join(site, 'index.html'), '<html></html>');
+  const page = '<head><!-- projects-ld:start --><!-- projects-ld:end --></head><ul><!-- projects:start --><!-- projects:end --></ul>';
+  await writeFile(path.join(site, 'projects', 'index.html'), page);
+  const privateFile = path.join(dir, 'private', 'projects.json');
+  await writeFile(privateFile, `${JSON.stringify(seed, null, 2)}\n`);
+  const { app, base: other } = await boot({ dataFile: privateFile, publicFile: path.join(site, 'projects', 'data', 'projects.json') });
+  try {
+    const login = await call(other, 'POST', '/api/login', { body: { password: PASSWORD } });
+    const session = login.headers.get('set-cookie').split(';')[0];
+    const { version } = await (await call(other, 'GET', '/api/projects', { cookie: session })).json();
+    const res = await call(other, 'PUT', '/api/projects/ledger', { cookie: session, version, body: { title: 'Ledger Two' } });
+    assert.equal(res.status, 200);
+    const html = await readFile(path.join(site, 'projects', 'index.html'), 'utf8');
+    assert.match(html, /href="\?p=ledger" data-static><span class="work-item__title">Ledger Two</);
+    assert.match(html, /"@type":"ItemList"/);
+    assert.match(await readFile(path.join(site, 'llms.txt'), 'utf8'), /\[Ledger Two\]\(https:\/\/masellas\.info\/en\/projects\/\?p=ledger\)/);
+  } finally {
+    app.close();
+  }
+});

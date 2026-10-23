@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { renderTemplate, checkDictionaries, richTextHtml, buildPages, LANGUAGES } from '../build-pages.mjs';
+import { renderTemplate, checkDictionaries, richTextHtml, buildPages, sitemapXml, robotsTxt, LANGUAGES } from '../build-pages.mjs';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -106,9 +106,7 @@ test('the repo sources build nine pages with lang, hreflang, og:locale and the s
   const projects = pages.find((p) => p.file === 'es/projects/index.html').html;
   const strings = JSON.parse(/<script type="application\/json" id="i18n">(.*?)<\/script>/s.exec(projects)[1]);
   assert.equal(typeof strings.filter_all, 'string');
-  assert.match(projects, /<meta name="robots" content="noindex, nofollow">/);
-  assert.match(pages.find((p) => p.file === 'projects-ac/index.html').html, /<meta name="robots" content="noindex, nofollow">/);
-  assert.doesNotMatch(pages.find((p) => p.file === 'en/index.html').html, /name="robots"/, 'home stays indexable');
+  for (const { file, html } of pages) assert.doesNotMatch(html, /name="robots"/, `${file} stays indexable`);
 });
 
 test('every page has one canonical link to its own absolute URL; the home has a description in its language', async () => {
@@ -167,6 +165,53 @@ test('buildPages writes the files when asked', async () => {
   await buildPages({ root });
   assert.match(await readFile(path.join(root, 'es/projects/index.html'), 'utf8'), /<p>Projects<\/p>/);
   assert.match(await readFile(path.join(root, 'index.html'), 'utf8'), /^<!-- generated/);
+  assert.equal(await readFile(path.join(root, 'sitemap.xml'), 'utf8'), sitemapXml());
+  assert.equal(await readFile(path.join(root, 'robots.txt'), 'utf8'), robotsTxt());
+});
+
+test('sitemap.xml lists the nine pages by absolute URL, each with the same hreflang alternates as its <head>', async () => {
+  const xml = sitemapXml();
+  assert.match(xml, /^<\?xml version="1\.0" encoding="UTF-8"\?>\n<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9" xmlns:xhtml="http:\/\/www\.w3\.org\/1999\/xhtml">/);
+  const entries = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]);
+  const pages = await buildPages({ root: REPO, write: false });
+  assert.equal(entries.length, pages.length);
+  for (const { file, html } of pages) {
+    const canonical = /<link rel="canonical" href="([^"]*)">/.exec(html)[1];
+    const entry = entries.find((e) => e.includes(`<loc>${canonical}</loc>`));
+    assert.ok(entry, `${file} is in the sitemap`);
+    const inHead = [...html.matchAll(/<link rel="alternate" hreflang="([\w-]+)" href="([^"]*)">/g)].map((m) => `${m[1]} ${m[2]}`);
+    const inMap = [...entry.matchAll(/<xhtml:link rel="alternate" hreflang="([\w-]+)" href="([^"]*)"\/>/g)].map((m) => `${m[1]} ${m[2]}`);
+    assert.deepEqual(inMap, inHead, file);
+    assert.ok(inMap.includes(`x-default ${canonical.replace(/\/(en|es)\//, '/')}`), `${file}: x-default is the ca page`);
+  }
+});
+
+test('robots.txt allows everything but the admin and points at the sitemap', () => {
+  assert.equal(robotsTxt(), 'User-agent: *\nAllow: /\nDisallow: /admin/\n\nSitemap: https://masellas.info/sitemap.xml\n');
+});
+
+test('the projects pages have the markers the admin fills for crawlers: rows in the list, JSON-LD in the head', async () => {
+  const pages = await buildPages({ root: REPO, write: false });
+  for (const { file, html } of pages.filter((p) => p.page !== 'home')) {
+    assert.match(html, /<ul class="work-list" id="projects-list"[^>]*><!-- projects:start --><!-- projects:end --><\/ul>/, file);
+    assert.match(/<head>[\s\S]*<\/head>/.exec(html)[0], /<!-- projects-ld:start --><!-- projects-ld:end -->/, file);
+  }
+});
+
+test('the home describes Roger Masellas as a schema.org Person', async () => {
+  const pages = await buildPages({ root: REPO, write: false });
+  for (const { file, html } of pages.filter((p) => p.page === 'home')) {
+    const blocks = [...html.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/gs)].map((m) => JSON.parse(m[1]));
+    assert.equal(blocks.length, 1, file);
+    assert.deepEqual(blocks[0], {
+      '@context': 'https://schema.org',
+      '@type': 'Person',
+      name: 'Roger Masellas',
+      url: 'https://masellas.info/',
+      jobTitle: 'Frontend Developer',
+      sameAs: ['https://www.linkedin.com/in/roger-masellas/'],
+    }, file);
+  }
 });
 
 const dictOf = async (lang) => JSON.parse(await readFile(path.join(REPO, 'i18n', `${lang}.json`), 'utf8'));

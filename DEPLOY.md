@@ -5,10 +5,10 @@ Pushing to `main` runs `.github/workflows/deploy.yml`:
 1. `test` — `npm test` in `admin/` and `npm test` at the repo root (site logic), on Node 22.
 2. `deploy` (GitHub environment `production`):
    - builds the pages and bundles with `scripts/build.sh` and versions their URLs with `scripts/cache-bust.sh`.
-   - rsyncs the site to `/home/rogermasellas/htdocs/masellas.info/` (including `en/` and `es/`, never `src/` or `i18n/`). It does not delete anything and does not change ownership or permissions.
    - copies each `projects/data/*.json` only if the server does not have it yet. After that the admin owns them.
    - rsyncs `admin/` to `/home/rogermasellas/masellas-admin/app/` with `--delete`. `.env` and `data/` are protected.
-   - reloads the app with pm2 under `rogermasellas` (and waits until it has published `projects.ca.json` and `projects-ac.ca.json`), then smoke-checks `/en/`, `/es/projects/`, `/projects-ac/`, `/en/projects-ac/`, every `/projects/data/*.json` and `/admin/`.
+   - rsyncs the site to `/home/rogermasellas/htdocs/masellas.info/` (including `en/` and `es/`, `robots.txt` and `sitemap.xml`, never `src/`, `i18n/` or `llms.txt`). It does not delete anything and does not change ownership or permissions. This runs before the admin reload: the admin then rewrites the six projects pages with the live list (see "Crawlers" below), which a later sync would undo.
+   - reloads the app with pm2 under `rogermasellas` (and waits until it has published `projects.ca.json` and `projects-ac.ca.json` and rewritten the six projects pages, i.e. they are newer than a stamp taken before the reload), then smoke-checks `/en/`, `/es/projects/`, `/projects-ac/`, `/en/projects-ac/`, every `/projects/data/*.json`, `/robots.txt`, `/sitemap.xml`, `/llms.txt` and `/admin/`, and, when the live `projects.ca.json` has projects, that `/projects/` has `?p=` links.
 
 Server layout:
 
@@ -20,6 +20,8 @@ Server layout:
   projects/data/some-words.<lang>.json                 home "some words" text per language, rebuilt by the admin
   projects/data/menu.<lang>.json                       menu tab tooltips per language (from the glossary), rebuilt by the admin (no legacy copy)
   projects/data/projects.json, some-words.json         legacy copies (= ca), see admin/README.md
+  robots.txt, sitemap.xml                              from the repo (scripts/build-pages.mjs)
+  llms.txt                                             projects in en for AI crawlers, rebuilt by the admin
 /home/rogermasellas/masellas-admin/app/                admin code (deployed)
   .env                                                 config + secrets (never deployed)
 /home/rogermasellas/masellas-admin/data/projects.json  private list, hidden projects included
@@ -38,6 +40,10 @@ The site is in Catalan (principal, at the root: `/`, `/projects/`, `/projects-ac
 - Projects and "some words" content are translated in the admin; the pages fetch `/projects/data/projects.<lang>.json`, `/projects/data/projects-ac.<lang>.json` and `/projects/data/some-words.<lang>.json`. The repo holds empty `projects-ac.<lang>.json` seeds (`{ "projects": [] }`) so the page works when served from the repo; on the server the admin creates and owns them.
 - The "projects (B.C.)" menu tab has a tooltip on mouse hover and keyboard focus (a tap just follows the link). Its text is the glossary term `projects (B.C.)`, which the admin publishes as `/projects/data/menu.<lang>.json` (`{ "tooltips": { "projects-ac": "…" } }`); `js/shared/menu-tips.js` (in the home and projects bundles) fetches it. Empty (term pending) or not loaded: no tooltip. The repo holds empty seeds so the pages work from the repo.
 - Switching language between pages at the same `data-page-x` is a short crossfade (transition type `fade`), not a slide.
+
+## Crawlers
+
+The projects pages load their list with JS, so crawlers that do not run it would see an empty page. The admin (`admin/lib/seo-pages.js`) fills two marker pairs in each of the six projects pages in the web root (`<!-- projects:start/end -->` in the list: one `<li><a class="work-item" href="?p=<id>" data-static>` row per project; `<!-- projects-ld:start/end -->` in `<head>`: a JSON-LD `ItemList` of `CreativeWork`) and writes `/llms.txt`, at boot and after every projects, projects (B.C.) or glossary save. The page script replaces those rows with its own once the data has loaded (and removes them if it cannot load); CSS keeps them hidden meanwhile, so JS users see no change. The repo's pages keep the markers empty. `scripts/build-pages.mjs` also writes `robots.txt` (everything but `/admin/`, plus the sitemap) and `sitemap.xml` (the nine pages with their hreflang alternates), and the home has a JSON-LD `Person`.
 
 ## Front-end build
 

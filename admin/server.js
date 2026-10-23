@@ -16,6 +16,7 @@ import {
   writePublic, prepareFiles, someWordsPaths, writeSomeWordsPublic, prepareSomeWords, projectsAcPaths, writeProjectsAcPublic, prepareProjectsAc,
   menuPaths, writeMenuPublic,
 } from './lib/publish.js';
+import { writeSeoFiles } from './lib/seo-pages.js';
 import { migrateProjects, migrateSomeWords } from './lib/languages.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -197,11 +198,17 @@ export function createApp({
   const collections = [
     {
       path: '/api/projects', order: '/api/order', store, aiLabel: 'how I used AI',
-      mutate: resource(store, async (data) => writePublic(publicFile, data, await readGlossary()), projectsShape),
+      mutate: resource(store, async (data) => {
+        await writePublic(publicFile, data, await readGlossary());
+        await writeSeoFiles({ publicFile, log });
+      }, projectsShape),
     },
     {
       path: '/api/projects-ac', order: '/api/order-ac', store: acStore, aiLabel: 'how it was made',
-      mutate: resource(acStore, async (data) => writeProjectsAcPublic(projectsAcPublicFile, data, await readGlossary()), projectsShape),
+      mutate: resource(acStore, async (data) => {
+        await writeProjectsAcPublic(projectsAcPublicFile, data, await readGlossary());
+        await writeSeoFiles({ publicFile, log });
+      }, projectsShape),
     },
   ].map((collection) => ({ ...collection, item: new RegExp(`^${collection.path}/([^/]+)$`) }));
   const mutateWords = resource(wordsStore, async (data) => writeSomeWordsPublic(someWordsPublicFile, data, await readGlossary()), (data) => ({ text: data.text }));
@@ -211,6 +218,7 @@ export function createApp({
     await writeSomeWordsPublic(someWordsPublicFile, words, glossary);
     await writeProjectsAcPublic(projectsAcPublicFile, projectsAc, glossary);
     await writeMenuPublic(menuPublicFile, glossary);
+    await writeSeoFiles({ publicFile, log });
   }, (data) => ({ terms: data.terms }));
 
   // {{term}}s (without their own explanation) the glossary lacks are added to it on save, so they must
@@ -465,6 +473,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     if (words.seeded) console.log(`admin: seeded ${config.someWordsFile} from ${words.seeded}`);
     const { created: acCreated } = await prepareProjectsAc({ ...config, glossary });
     if (acCreated) console.log(`admin: created an empty projects (B.C.) list (${config.projectsAcFile})`);
+    await writeSeoFiles({ publicFile: config.publicFile }); // logs and skips on any problem
   } catch (err) {
     console.error(`admin: ${err.message}`);
     process.exit(1);

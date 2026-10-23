@@ -54,6 +54,10 @@ Pending terms: saving a project (POST / PUT) or "some words" with a `{{term}}` t
 
 The site never reads the glossary: when publishing, every `{{term}}` in "how I used AI", "how it was made" and "some words" becomes `{{term|<explanation in that language>}}` in the public files (`lib/rich-text.js` `resolveTerms`). A pending term with no explanation for that language (nor ca) stays a bare `{{term}}`, which the site and the static fallback show as the plain word, without a tooltip. Saving the glossary republishes all public files. The static fallback in the pages (`scripts/build-pages.mjs`, from `i18n/*.json`) has no glossary: `{{term|…}}` works there, a bare `{{term}}` shows just the word.
 
+## Crawler copies
+
+Every publish of projects or projects (B.C.) (each save, a glossary save, and boot) also rewrites, for crawlers that do not run JS, the projects pages in the web root (`lib/seo-pages.js`): between `<!-- projects:start -->` / `<!-- projects:end -->` one row per public project (title, category, year, description, linking to `?p=<id>`), and between `<!-- projects-ld:start -->` / `<!-- projects-ld:end -->` in `<head>` a JSON-LD `ItemList` of `CreativeWork` (url `<page>?p=<id>`, `dateCreated`, `keywords` from tools, `image` from the first thumb, `text`: the "how I used AI" text as plain text). It reads the public `<collection>.<lang>.json` files it has just written, so the page in each language gets that language. It also writes `/llms.txt` (the pages, then every en project). Atomic, 0644, no backup. The web root is two levels above `PUBLIC_FILE` (`<web root>/projects/data/projects.json`); with any other `PUBLIC_FILE` (e.g. a local scratch copy) nothing is written. A missing page, a page without markers or a failed write is logged and skipped: it never fails a save or the boot. The text in `llms.txt` and the page list mirror `i18n/en.json` and `scripts/build-pages.mjs` (`DESCRIPTION`, `PAGES`; a test checks they match).
+
 Node 22, zero npm dependencies.
 
 ## Run
@@ -101,7 +105,7 @@ Environment variables only. `admin/.env` is read at boot if it exists; real envi
 npm test
 ```
 
-Uses `node:test`. Covers languages (migration, fallback), both project collections, validation per language, slugs, reorder checks, the file store (atomic write, backup, serialized writes, version conflicts), the public projection (regeneration, boot sync, migration, write failures), password hashing, session tokens, the rate limiter, machine translation (markup protection, engine errors and timeouts, the endpoint; the network is mocked), and HTTP integration on an ephemeral port.
+Uses `node:test`. Covers languages (migration, fallback), both project collections, validation per language, slugs, reorder checks, the file store (atomic write, backup, serialized writes, version conflicts), the public projection (regeneration, boot sync, migration, write failures), password hashing, session tokens, the rate limiter, machine translation (markup protection, engine errors and timeouts, the endpoint; the network is mocked), the crawler copies (rows, JSON-LD, `llms.txt`, skips), and HTTP integration on an ephemeral port.
 
 ## How it works
 
@@ -116,6 +120,7 @@ Uses `node:test`. Covers languages (migration, fallback), both project collectio
 - `lib/rich-text-dom.js` — browser renderer for parsed text (admin previews and help, home, project detail).
 - `lib/rich-text.css` — styles for rendered rich text; bundled into the site, served to the admin at `/rich-text.css`.
 - `lib/translate.js` — "translate from ca": the engines (`ENGINES`), markup protection and restore, timeouts and errors.
+- `lib/seo-pages.js` — the crawler copies: rows and JSON-LD in the projects pages, `llms.txt`.
 - `lib/glossary.js` — glossary lookups, unknown terms, adding them as pending, the fixed menu terms, where a term is used, the private file at boot.
 - `lib/term-tooltip.js` — the term tooltip (served to the admin previews, bundled into the site).
 - `public/rich-text-help.js` — the "formatting help" table (open / closed remembered in localStorage).

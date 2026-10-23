@@ -108,7 +108,7 @@ jobs:
           # belong to the admin, and so do the project pages (<collection>/<id>/index.html): they are not
           # in the repo, and with no --delete this sync never touches them.
           rsync -rlz --checksum \
-            --exclude='.git/' --exclude='.github/' --exclude='.gitignore' --exclude='.claude/' \
+            --exclude='.git/' --exclude='.github/' --exclude='.gitignore' --exclude='.claude/' --exclude='.atl/' \
             --exclude='/admin/' --exclude='/scripts/' --exclude='/src/' --exclude='/i18n/' \
             --exclude='.playwright-mcp/' --exclude='.DS_Store' --exclude='/package.json' \
             --exclude='/projects/data/*.json' --exclude='/llms.txt' --exclude='/sitemap-projects.xml' --exclude='*.md' \

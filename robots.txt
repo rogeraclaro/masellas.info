@@ -3,3 +3,4 @@ Allow: /
 Disallow: /admin/
 
 Sitemap: https://masellas.info/sitemap.xml
+Sitemap: https://masellas.info/sitemap-projects.xml

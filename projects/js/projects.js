@@ -7,6 +7,7 @@ import { buildCube, measureCube as measureShared, bindCube as bindShared, clearL
 import { pageReady } from '../../js/shared/page-ready.js';
 import { loadStrings, pageLang } from '../../js/shared/i18n.js';
 import { bindLangLinks } from '../../js/shared/lang-links.js';
+import { projectHref, projectIdFrom } from '../../js/shared/project-url.js';
 import { bindSiteMenu } from '../../js/shared/site-menu.js';
 import { loadMenuTips } from '../../js/shared/menu-tips.js';
 // "how I used AI" uses the same rich-text format as the home's "some words" (validated by the admin).
@@ -32,6 +33,8 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
   const list = document.getElementById('projects-list');
   // projects (IA) and projects (B.C.) share this bundle; the page names its data (set by the build).
   const collection = list.dataset.collection || 'projects';
+  // The list's own path (e.g. /en/projects/); each project is at <list path><id>/ (see project-url.js).
+  const listPath = list.dataset.listPath || window.location.pathname;
   const countEl = document.querySelector('.page-count');
   const filtersEl = document.querySelector('.filters');
   const titleEl = document.querySelector('[data-split]');
@@ -226,7 +229,7 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
     pendingFilter = null;
   }
 
-  /* ---------- Detail view (?p=<id>) ----------
+  /* ---------- Detail view (<list path><id>/, legacy ?p=<id>) ----------
      Open: the coral panel slides up from 100vh while the list page drifts to -33vh under
      a dark overlay (1.4s expo.inOut), then the title rolls in. Close is the exact reverse.
      The URL is the source of truth: clicks push a history entry, popstate syncs to it. */
@@ -238,7 +241,8 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
   const content = detail.querySelector('.detail__content');
   const detailTitle = document.getElementById('detail-title');
   const nextLink = detail.querySelector('.detail__next a');
-  const pageTitle = document.title;
+  // A project page (the admin's copy for crawlers) has the project's title: closing restores the list's.
+  const pageTitle = list.dataset.listTitle || document.title;
   const SLIDE = { duration: 1.4, ease: 'expo.inOut' };
 
   let order = [];
@@ -254,12 +258,9 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
   let detailLenis = null;
   let closeBtn = null;
 
-  function detailHref(id) {
-    return `?p=${encodeURIComponent(id)}`;
-  }
-
-  const idFromUrl = () => new URLSearchParams(window.location.search).get('p');
-  const listUrl = () => window.location.pathname;
+  const detailHref = (id) => projectHref(listPath, id);
+  const idFromUrl = () => projectIdFrom(listPath, window.location);
+  const listUrl = () => listPath;
   const reveals = () => content.querySelectorAll('[data-reveal]:not([hidden])');
   const plainClick = (event) => event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
 
@@ -475,7 +476,7 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
       history.replaceState(null, '', listUrl());
       return;
     }
-    history.replaceState({ p: id, depth: 0 }, '', window.location.href);
+    history.replaceState({ p: id, depth: 0 }, '', detailHref(id)); // a legacy ?p=<id> becomes the path form
     openDetail(id, { instant: true });
   }
 
@@ -484,7 +485,7 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
 
     list.addEventListener('click', (event) => {
       const link = event.target.closest('a.work-item');
-      if (!link || !plainClick(event)) return; // modified clicks open the real ?p= link
+      if (!link || !plainClick(event)) return; // modified clicks open the real project page
       event.preventDefault();
       if (transitioning || currentId) return;
       history.pushState({ p: link.dataset.id, depth: 1 }, '', detailHref(link.dataset.id));
@@ -537,7 +538,7 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
   async function init() {
     splitTitle(titleEl, titleEl.textContent.trim());
     bindSiteMenu();
-    bindLangLinks(document.querySelector('.lang-nav'));
+    bindLangLinks(document.querySelector('.lang-nav'), { listPath });
     bindTermTooltips({ gsap: animate ? gsap : null, ease: ALPHA });
     loadMenuTips(pageLang());
     titleEl.tabIndex = -1; // focus target when a deep-linked detail closes

@@ -56,7 +56,7 @@ The site never reads the glossary: when publishing, every `{{term}}` in "how I u
 
 ## Crawler copies
 
-Every publish of projects or projects (B.C.) (each save, a glossary save, and boot) also rewrites, for crawlers that do not run JS, the projects pages in the web root (`lib/seo-pages.js`): between `<!-- projects:start -->` / `<!-- projects:end -->` one row per public project (title, category, year, description, linking to `?p=<id>`), and between `<!-- projects-ld:start -->` / `<!-- projects-ld:end -->` in `<head>` a JSON-LD `ItemList` of `CreativeWork` (url `<page>?p=<id>`, `dateCreated`, `keywords` from tools, `image` from the first thumb, `text`: the "how I used AI" text as plain text). It reads the public `<collection>.<lang>.json` files it has just written, so the page in each language gets that language. It also writes `/llms.txt` (the pages, then every en project). Atomic, 0644, no backup. The web root is two levels above `PUBLIC_FILE` (`<web root>/projects/data/projects.json`); with any other `PUBLIC_FILE` (e.g. a local scratch copy) nothing is written. A missing page, a page without markers or a failed write is logged and skipped: it never fails a save or the boot. The text in `llms.txt` and the page list mirror `i18n/en.json` and `scripts/build-pages.mjs` (`DESCRIPTION`, `PAGES`; a test checks they match).
+Every publish of projects or projects (B.C.) (each save, a glossary save, and boot) also rewrites, for crawlers that do not run JS, the projects pages in the web root (`lib/seo-pages.js`): between `<!-- projects:start -->` / `<!-- projects:end -->` one row per public project (title, category, year, description, linking to `/<collection>/<id>/`), and between `<!-- projects-ld:start -->` / `<!-- projects-ld:end -->` in `<head>` a JSON-LD `ItemList` of `CreativeWork` (url `<page><id>/`, `dateCreated`, `keywords` from tools, `image` from the first thumb, `text`: the "how I used AI" text as plain text). It reads the public `<collection>.<lang>.json` files it has just written, so the page in each language gets that language. For each public project and language it writes `<collection dir>/<id>/index.html` from that projects page (title in the page's `detail_title` format, description, canonical, hreflang to the languages that have the project, `og:*`, a JSON-LD `CreativeWork` between the projects-ld markers, the switcher links, and `#detail` filled in, rich text through `lib/rich-text-html.js`), and `/sitemap-projects.xml`. It only writes or deletes `<collection dir>/<id>/index.html` (and that directory once empty): ids that are not slugs, and directories it does not own (an `index.html` without its first-line marker, other files, symlinks: e.g. `projects/data/`), are skipped with a log line and keep the legacy `?p=<id>` link; its own pages for ids no longer public in that language are removed. It also writes `/llms.txt` (the pages, then every en project). Atomic, 0644, no backup. The web root is two levels above `PUBLIC_FILE` (`<web root>/projects/data/projects.json`); with any other `PUBLIC_FILE` (e.g. a local scratch copy) nothing is written. A missing page, a page without markers or a failed write is logged and skipped: it never fails a save or the boot. The text in `llms.txt` and the page list mirror `i18n/en.json` and `scripts/build-pages.mjs` (`DESCRIPTION`, `PAGES`; a test checks they match).
 
 Node 22, zero npm dependencies.
 
@@ -105,7 +105,7 @@ Environment variables only. `admin/.env` is read at boot if it exists; real envi
 npm test
 ```
 
-Uses `node:test`. Covers languages (migration, fallback), both project collections, validation per language, slugs, reorder checks, the file store (atomic write, backup, serialized writes, version conflicts), the public projection (regeneration, boot sync, migration, write failures), password hashing, session tokens, the rate limiter, machine translation (markup protection, engine errors and timeouts, the endpoint; the network is mocked), the crawler copies (rows, JSON-LD, `llms.txt`, skips), and HTTP integration on an ephemeral port.
+Uses `node:test`. Covers languages (migration, fallback), both project collections, validation per language, slugs, reorder checks, the file store (atomic write, backup, serialized writes, version conflicts), the public projection (regeneration, boot sync, migration, write failures), password hashing, session tokens, the rate limiter, machine translation (markup protection, engine errors and timeouts, the endpoint; the network is mocked), the crawler copies (rows, JSON-LD, project pages, ownership and removal, sitemap, `llms.txt`, skips), and HTTP integration on an ephemeral port.
 
 ## How it works
 
@@ -120,7 +120,8 @@ Uses `node:test`. Covers languages (migration, fallback), both project collectio
 - `lib/rich-text-dom.js` — browser renderer for parsed text (admin previews and help, home, project detail).
 - `lib/rich-text.css` — styles for rendered rich text; bundled into the site, served to the admin at `/rich-text.css`.
 - `lib/translate.js` — "translate from ca": the engines (`ENGINES`), markup protection and restore, timeouts and errors.
-- `lib/seo-pages.js` — the crawler copies: rows and JSON-LD in the projects pages, `llms.txt`.
+- `lib/seo-pages.js` — the crawler copies: rows and JSON-LD in the projects pages, the project pages, `sitemap-projects.xml`, `llms.txt`.
+- `lib/rich-text-html.js` — rich text as an HTML string, same markup as `rich-text-dom.js` (the home fallback in `scripts/build-pages.mjs`, the project pages).
 - `lib/glossary.js` — glossary lookups, unknown terms, adding them as pending, the fixed menu terms, where a term is used, the private file at boot.
 - `lib/term-tooltip.js` — the term tooltip (served to the admin previews, bundled into the site).
 - `public/rich-text-help.js` — the "formatting help" table (open / closed remembered in localStorage).
@@ -151,7 +152,7 @@ API (JSON, all under `/api`, session required except login, logout and session):
 
 Project and "some words" saves answer with `addedTerms: [..]`, the terms that save added to the glossary as pending (`[]` if none), and, only if that glossary write failed, `glossaryError` (the save itself still succeeded).
 
-`id` is the url slug (`/projects/?p=<id>`): lowercase a-z, 0-9 and single hyphens, 1-60 characters, no hyphen at either end (`lib/slug.js`, also used by the form to pre-fill it from the title). An id another project uses is rejected with a 400 field error, `already used by <title>`.
+`id` is the url slug (`/projects/<id>/`): lowercase a-z, 0-9 and single hyphens, 1-60 characters, no hyphen at either end (`lib/slug.js`, also used by the form to pre-fill it from the title). An id another project uses is rejected with a 400 field error, `already used by <title>`.
 
 Translated fields must be sent as an object with exactly `ca`, `en` and `es` text (a plain string is rejected); their errors come back keyed `<field>.<lang>`, e.g. `category.en`.
 

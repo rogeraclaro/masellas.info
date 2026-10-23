@@ -1,0 +1,7 @@
+:root{
+--ease:ease-in-out; /* @kind other */
+--dur-link:0.25s; /* @kind other */
+--dur-section:700ms; /* @kind other */
+--ease-section:ease; /* @kind other */
+--wipe-distance:500px;
+}

@@ -104,12 +104,14 @@ jobs:
           # identical files (e.g. the root-owned christian/) are left alone.
           # No -t either: setting mtimes on files we don't own fails.
           # Pages: index.html, projects/, projects-ac/ (ca) plus en/ and es/; their sources (src/, i18n/) stay here.
-          # projects/data/*.json (every language + the legacy files) and llms.txt belong to the admin.
+          # projects/data/*.json (every language + the legacy files), llms.txt and sitemap-projects.xml
+          # belong to the admin, and so do the project pages (<collection>/<id>/index.html): they are not
+          # in the repo, and with no --delete this sync never touches them.
           rsync -rlz --checksum \
             --exclude='.git/' --exclude='.github/' --exclude='.gitignore' --exclude='.claude/' \
             --exclude='/admin/' --exclude='/scripts/' --exclude='/src/' --exclude='/i18n/' \
             --exclude='.playwright-mcp/' --exclude='.DS_Store' --exclude='/package.json' \
-            --exclude='/projects/data/*.json' --exclude='/llms.txt' --exclude='*.md' \
+            --exclude='/projects/data/*.json' --exclude='/llms.txt' --exclude='/sitemap-projects.xml' --exclude='*.md' \
             ./ "deploy-target:$SITE_DIR"
 
       - name: Restart admin (pm2)
@@ -131,9 +133,11 @@ jobs:
           site=~/htdocs/masellas.info
           # Wait for the restarted admin to publish the per-language files from live data
           # (projects-ac.ca.json: projects (B.C.), created empty by the admin on its first boot)
-          # and to rewrite the six projects pages for crawlers.
+          # and to rewrite the six projects pages for crawlers (and the project pages; sitemap-projects.xml
+          # is written last).
           published() {
             [ -f "$site/projects/data/projects.ca.json" ] && [ -f "$site/projects/data/projects-ac.ca.json" ] || return 1
+            [ "$site/sitemap-projects.xml" -nt "$stamp" ] || return 1
             for page in projects projects-ac en/projects en/projects-ac es/projects es/projects-ac; do
               [ "$site/$page/index.html" -nt "$stamp" ] || return 1
             done
@@ -143,7 +147,7 @@ jobs:
             sleep 0.5
           done
           rm -f "$stamp"
-          echo "::error::admin did not publish projects.ca.json and projects-ac.ca.json, or did not rewrite the projects pages, within 10s (see pm2 logs masellas-admin)"
+          echo "::error::admin did not publish projects.ca.json and projects-ac.ca.json, or did not rewrite the projects pages and sitemap-projects.xml, within 10s (see pm2 logs masellas-admin)"
           exit 1
           EOF
 
@@ -164,13 +168,22 @@ jobs:
             curl -fsS --retry 5 --retry-delay 2 --retry-all-errors "https://masellas.info$path" > /dev/null
             echo "ok: $path"
           done
-          # Server-rendered rows: only when the live list has projects (an empty list is legitimate).
-          if curl -fsS --retry 5 --retry-delay 2 --retry-all-errors https://masellas.info/projects/data/projects.ca.json | grep -q '"id"'; then
-            curl -fsS --retry 5 --retry-delay 2 --retry-all-errors https://masellas.info/projects/ | grep -q 'href="?p=' \
-              || { echo "::error::/projects/ has no server-rendered project links"; exit 1; }
+          # Server-rendered rows and the first project's page: only when the live list has projects
+          # (an empty list is legitimate).
+          # Pages are read whole before grep (no pipe that grep -q could cut short under pipefail).
+          get() { curl -fsS --retry 5 --retry-delay 2 --retry-all-errors "https://masellas.info$1"; }
+          id=$(get /projects/data/projects.ca.json | { grep -o '"id": *"[a-z0-9-]*"' || true; } | head -n 1 | sed 's/.*"\([a-z0-9-]*\)"$/\1/')
+          if [ -n "$id" ]; then
+            list=$(get /projects/)
+            grep -qF "href=\"/projects/$id/\"" <<<"$list" \
+              || { echo "::error::/projects/ has no server-rendered link to /projects/$id/"; exit 1; }
             echo "ok: /projects/ lists projects for crawlers"
+            page=$(get "/projects/$id/")
+            grep -qF "<link rel=\"canonical\" href=\"https://masellas.info/projects/$id/\">" <<<"$page" \
+              || { echo "::error::/projects/$id/ is not that project's page"; exit 1; }
+            echo "ok: /projects/$id/"
           fi
-          for path in /robots.txt /sitemap.xml /llms.txt; do
+          for path in /robots.txt /sitemap.xml /sitemap-projects.xml /llms.txt; do
             curl -fsS --retry 5 --retry-delay 2 --retry-all-errors "https://masellas.info$path" > /dev/null
             echo "ok: $path"
           done

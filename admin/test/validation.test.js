@@ -150,7 +150,7 @@ test('id (the url slug) is optional and validated when given', () => {
 });
 
 const goodSlugs = ['a', 'fenya', 'olive-mill', 'web-app-2', '2026', 'x'.repeat(60)];
-const badSlugs = ['', '   ', 'Fenya', 'olive mill', 'olive--mill', '-fenya', 'fenya-', 'café', 'olive_mill', 'a/b', 'x'.repeat(61), 42, null];
+const badSlugs = ['', '   ', 'Fenya', 'olive mill', 'olive--mill', '-fenya', 'fenya-', 'café', 'olive_mill', 'a/b', 'x'.repeat(61), 42, null, 'data', 'css', 'js'];
 
 for (const slug of goodSlugs) {
   test(`checkSlug accepts ${JSON.stringify(slug).slice(0, 20)}`, () => {
@@ -165,7 +165,7 @@ for (const slug of badSlugs) {
 }
 
 test('slugify output always passes checkSlug', () => {
-  for (const title of ['Olive Mill', '  Café & Crème!  ', '***', 'a'.repeat(200), 'Fenya — 2026']) {
+  for (const title of ['Olive Mill', '  Café & Crème!  ', '***', 'a'.repeat(200), 'Fenya — 2026', 'Data', 'JS']) {
     assert.deepEqual(checkSlug(slugify(title)).error, undefined, title);
   }
 });

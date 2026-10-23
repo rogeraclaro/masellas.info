@@ -9,7 +9,7 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { parseRichText } from '../admin/lib/rich-text.js';
+import { richTextHtml } from '../admin/lib/rich-text-html.js';
 
 const SITE = 'https://masellas.info';
 
@@ -69,37 +69,8 @@ export function checkDictionaries(dicts) {
   if (problems.length) throw new Error(`dictionaries are incomplete:\n  ${problems.join('\n  ')}`);
 }
 
-// The "some words" fallback: the same parser, and the same markup as admin/lib/rich-text-dom.js.
-// No glossary here: {{term|explanation}} becomes a tooltip term, a bare {{term}} just its text.
-function inlineHtml(parts, linkClass, ids) {
-  return parts.map((part) => {
-    if (part.type === 'term') {
-      if (!part.explanation) return escapeHtml(part.label);
-      const id = `term-static-${(ids.count += 1)}`;
-      return `<button type="button" class="term" aria-describedby="${id}">${escapeHtml(part.label)}</button><span id="${id}" hidden>${escapeHtml(part.explanation)}</span>`;
-    }
-    if (part.type === 'br') return '<br>';
-    if (part.type === 'text') return escapeHtml(part.value);
-    if (part.type === 'code') return `<code>${escapeHtml(part.value)}</code>`;
-    if (part.type === 'strong' || part.type === 's') return `<${part.type}>${inlineHtml(part.parts, linkClass, ids)}</${part.type}>`;
-    const external = /^https?:/i.test(part.href) ? ' target="_blank" rel="noopener"' : '';
-    return `<a class="${linkClass}" href="${escapeHtml(part.href)}"${external}>${inlineHtml(part.parts, linkClass, ids)}</a>`;
-  }).join('');
-}
-
-export function richTextHtml(text, { paragraphClass = '', linkClass = 'wipe-link', headingTag = 'h3' } = {}) {
-  const { blocks, errors } = parseRichText(text);
-  if (errors.length) throw new Error(errors.join(' '));
-  const ids = { count: 0 };
-  const inline = (parts) => inlineHtml(parts, linkClass, ids);
-  const open = (tag) => `<${tag}${paragraphClass ? ` class="${paragraphClass}"` : ''}>`;
-  return blocks.map((block) => {
-    if (block.type === 'h') return `${open(headingTag)}${inline(block.parts)}</${headingTag}>`;
-    if (block.type === 'ul') return `${open('ul')}${block.items.map((item) => `<li>${inline(item)}</li>`).join('')}</ul>`;
-    if (block.type === 'quote') return `${open('blockquote')}<p>${inline(block.parts)}</p></blockquote>`;
-    return `${open('p')}${inline(block.parts)}</p>`;
-  }).join('\n');
-}
+// The "some words" fallback, rendered by the admin's shared renderer (also used for the project pages).
+export { richTextHtml };
 
 const cube = (text) => `<span class="cube__inner"><span class="face face--front">${text}</span><span class="face face--before" aria-hidden="true">${text}</span><span class="face face--after" aria-hidden="true">${text}</span></span>`;
 
@@ -139,7 +110,8 @@ export function sitemapXml() {
   ].join('\n');
 }
 
-export const robotsTxt = () => `User-agent: *\nAllow: /\nDisallow: /admin/\n\nSitemap: ${SITE}/sitemap.xml\n`;
+// sitemap-projects.xml (one URL per project page) is written by the admin (admin/lib/seo-pages.js).
+export const robotsTxt = () => `User-agent: *\nAllow: /\nDisallow: /admin/\n\nSitemap: ${SITE}/sitemap.xml\nSitemap: ${SITE}/sitemap-projects.xml\n`;
 
 // Values the build adds to the dictionary for one page in one language.
 function buildValues(page, lang, dict) {

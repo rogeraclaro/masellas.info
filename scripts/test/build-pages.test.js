@@ -186,8 +186,8 @@ test('sitemap.xml lists the nine pages by absolute URL, each with the same hrefl
   }
 });
 
-test('robots.txt allows everything but the admin and points at the sitemap', () => {
-  assert.equal(robotsTxt(), 'User-agent: *\nAllow: /\nDisallow: /admin/\n\nSitemap: https://masellas.info/sitemap.xml\n');
+test('robots.txt allows everything but the admin and points at both sitemaps (the projects one is the admin\'s)', () => {
+  assert.equal(robotsTxt(), 'User-agent: *\nAllow: /\nDisallow: /admin/\n\nSitemap: https://masellas.info/sitemap.xml\nSitemap: https://masellas.info/sitemap-projects.xml\n');
 });
 
 test('the projects pages have the markers the admin fills for crawlers: rows in the list, JSON-LD in the head', async () => {
@@ -252,6 +252,13 @@ test('page positions: home 0, projects -1, projects (B.C.) +1; each projects pag
   for (const { file, html, page } of pages) {
     assert.match(html, new RegExp(`<html[^>]* data-page-x="${x[page]}"`), file);
     if (page !== 'home') assert.match(html, new RegExp(`<ul class="work-list" id="projects-list"[^>]* data-collection="${page}"`), file);
+    // The project URLs are <list path><id>/; the script reads the list path and title from the page.
+    if (page !== 'home') {
+      const prefix = file.replace(/(projects|projects-ac)\/index\.html$/, '');
+      assert.match(html, new RegExp(`<ul class="work-list" id="projects-list"[^>]* data-list-path="/${prefix}${page}/"`), file);
+      const title = /<title>([^<]*)<\/title>/.exec(html)[1];
+      assert.ok(html.includes(` data-list-title="${title}"`), `${file} list title`);
+    }
   }
 });
 

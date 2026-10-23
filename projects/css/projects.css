@@ -368,7 +368,7 @@ ul {
   }
 }
 
-/* ---------- Project detail (?p=<id>) ----------
+/* ---------- Project detail (<list path><id>/) ----------
    Coral hero surface over the list. JS slides .detail and .page; without motion it simply appears. */
 .page {
   position: relative;

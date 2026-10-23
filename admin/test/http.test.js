@@ -746,7 +746,7 @@ test('saving a project rewrites the projects pages in the web root for crawlers 
     const res = await call(other, 'PUT', '/api/projects/ledger', { cookie: session, version, body: { title: 'Ledger Two' } });
     assert.equal(res.status, 200);
     const html = await readFile(path.join(site, 'projects', 'index.html'), 'utf8');
-    assert.match(html, /href="\?p=ledger" data-static><span class="work-item__title">Ledger Two</);
+    assert.match(html, /href="\/projects\/\?p=ledger" data-static><span class="work-item__title">Ledger Two</);
     assert.match(html, /"@type":"ItemList"/);
     assert.match(await readFile(path.join(site, 'llms.txt'), 'utf8'), /\[Ledger Two\]\(https:\/\/masellas\.info\/en\/projects\/\?p=ledger\)/);
   } finally {

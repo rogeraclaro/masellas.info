@@ -18,7 +18,7 @@ import { checkSlug } from './slug.js';
 // These mirror scripts/build-pages.mjs and i18n/en.json (checked by test/seo-pages.test.js): the admin is
 // deployed without them.
 export const SITE = 'https://masellas.info';
-export const DESCRIPTION = 'Resumé site of Roger Masellas, frontend developer.'; // i18n/en.json home.description
+export const DESCRIPTION = 'Roger Masellas: web projects since 1996, AI-assisted development (Claude Code) and teaching web technologies.'; // i18n/en.json home.description
 const COLLECTIONS = [
   { name: 'projects', label: 'projects (IA)' },
   { name: 'projects-ac', label: 'projects (B.C.)' },

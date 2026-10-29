@@ -121,9 +121,9 @@ test('every page has one canonical link to its own absolute URL; the home has a 
     if (page === 'home') assert.equal(descriptions[0], (await dictOf(lang))['home.description'], `${file}: home description`);
   }
   const home = (lang) => pages.find((p) => p.lang === lang && p.page === 'home').html;
-  assert.ok(home('ca').includes('<meta name="description" content="Web currículum de Roger Masellas, desenvolupador frontend.">'));
-  assert.ok(home('es').includes('<meta name="description" content="Web currículum de Roger Masellas, desarrollador frontend.">'));
-  assert.ok(home('en').includes('<meta name="description" content="Resumé site of Roger Masellas, frontend developer.">'));
+  assert.ok(home('ca').includes('<meta name="description" content="Roger Masellas: projectes web des de 1996, desenvolupament amb IA (Claude Code) i docència en tecnologies web.">'));
+  assert.ok(home('es').includes('<meta name="description" content="Roger Masellas: proyectos web desde 1996, desarrollo con IA (Claude Code) y docencia en tecnologías web.">'));
+  assert.ok(home('en').includes('<meta name="description" content="Roger Masellas: web projects since 1996, AI-assisted development (Claude Code) and teaching web technologies.">'));
 });
 
 test('the empty-collection sentence is in every language\'s page strings', async () => {
@@ -208,7 +208,7 @@ test('the home describes Roger Masellas as a schema.org Person', async () => {
       '@type': 'Person',
       name: 'Roger Masellas',
       url: 'https://masellas.info/',
-      jobTitle: 'Frontend Developer',
+      jobTitle: 'Web Developer and Teacher',
       sameAs: ['https://www.linkedin.com/in/roger-masellas/'],
     }, file);
   }

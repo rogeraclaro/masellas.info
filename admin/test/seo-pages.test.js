@@ -105,7 +105,7 @@ test('llmsText: title, description, the nine pages and the projects sitemap, the
     projects: [project('ledger', { tools: ['Claude Code'], ai: 'Made with **Claude**.' })],
     'projects-ac': [project('old', { url: '' })],
   });
-  assert.match(text, /^# Roger Masellas\n\n> Resumé site of Roger Masellas, frontend developer\.\n/);
+  assert.match(text, /^# Roger Masellas\n\n> Roger Masellas: web projects since 1996, AI-assisted development \(Claude Code\) and teaching web technologies\.\n/);
   assert.equal((text.match(/^- \[.*\]\(https:\/\/masellas\.info\/.*\)$/gm) || []).length, 10);
   assert.match(text, /^- \[.*\]\(https:\/\/masellas\.info\/sitemap-projects\.xml\)$/m);
   assert.match(text, /- \[projects \(B\.C\.\) \(es\)\]\(https:\/\/masellas\.info\/es\/projects-ac\/\)/);

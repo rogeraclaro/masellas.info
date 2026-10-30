@@ -485,7 +485,7 @@ html.detail-open {
 
 .detail__meta {
   margin: var(--space-after-title) 0 0;
-  font-family: var(--font-book);
+  font-family: var(--font-bold);
   font-size: var(--fs-body);
   line-height: var(--lh-lead);
   letter-spacing: var(--ls-text);
@@ -494,7 +494,7 @@ html.detail-open {
 .detail__lead {
   max-width: 65vw;
   margin: var(--space-after-title) 0 0;
-  font-family: var(--font-book);
+  font-family: var(--font-bold);
   font-size: var(--fs-body);
   line-height: var(--lh-lead);
   letter-spacing: var(--ls-text);
@@ -526,7 +526,7 @@ html.detail-open {
 
 .detail__body {
   max-width: 65vw;
-  font-family: var(--font-book);
+  font-family: var(--font-bold);
   font-size: var(--fs-body);
   line-height: var(--lh-body); /* same as the home's "some words" */
   letter-spacing: var(--ls-text);
@@ -538,6 +538,10 @@ html.detail-open {
 
 /* Links (.detail-link, rich-text .detail-link--inline): the shared on-coral wipe link,
    css/shared/wipe-link.css. */
+
+.detail-link {
+  font-family: var(--font-bold);
+}
 
 .detail__tools {
   display: flex;

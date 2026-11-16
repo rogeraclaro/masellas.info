@@ -198,9 +198,7 @@
   .menu-toggle:hover {
     background: var(--menu-hover);
   }
-}
 
-@media (hover: hover) and (pointer: fine) {
   .no-motion .menu__tab:hover .face--front {
     background: var(--menu-hover);
     color: var(--tab-fg);

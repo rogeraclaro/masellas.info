@@ -519,7 +519,7 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
   // Returns the visible projects, or null when the data cannot be loaded.
   async function loadProjects() {
     try {
-      const response = await fetch(`/projects/data/${collection}.${pageLang()}.json`, { cache: 'no-store' });
+      const response = await fetch(`/projects/data/${collection}.${pageLang()}.json`, { cache: 'no-cache' });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return (await response.json()).projects.filter((project) => project.visible !== false);
     } catch (err) {
@@ -578,9 +578,14 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
       });
     }
 
+    // Compared with the last filter asked for, not the pressed chip: while a filter is still animating,
+    // the pressed chip lags behind, and clicking it again must cancel a queued one.
+    let wantedFilter = '';
     filtersEl.addEventListener('click', (event) => {
       const chip = event.target.closest('.chip');
-      if (chip && chip.getAttribute('aria-pressed') !== 'true') applyFilter(chip.dataset.filter);
+      if (!chip || chip.dataset.filter === wantedFilter) return;
+      wantedFilter = chip.dataset.filter;
+      applyFilter(wantedFilter);
     });
 
     let lastWidth = window.innerWidth;

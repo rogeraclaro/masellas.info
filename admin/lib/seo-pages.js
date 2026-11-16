@@ -143,13 +143,15 @@ export function projectPage(listHtml, { collection, lang, project, next, langs, 
   const alternates = [...langs.map((code) => [code, projectUrl(collection, code, project.id)]), ...(langs.includes(DEFAULT_LANG) ? [['x-default', projectUrl(collection, DEFAULT_LANG, project.id)]] : [])];
   edit(/<link rel="alternate" hreflang="[^"]*" href="[^"]*">(?:\s*<link rel="alternate" hreflang="[^"]*" href="[^"]*">)*/,
     () => alternates.map(([code, href]) => `<link rel="alternate" hreflang="${code}" href="${href}">`).join('\n\t'));
-  const og = [
-    `<meta property="og:title" content="${title}">`,
-    ...(description ? [`<meta property="og:description" content="${description}">`] : []),
-    `<meta property="og:url" content="${url}">`,
-    ...(project.thumbs?.length ? [`<meta property="og:image" content="${escapeHtml(new URL(project.thumbs[0], SITE).href)}">`] : []),
-  ];
-  edit(markerPattern(LD), () => `${LD[0]}${[...og, ldScript({ '@context': 'https://schema.org', ...creativeWork(project, listUrl, hasPage) })].join('\n\t')}${LD[1]}`);
+  // The list page's own og:* tags become the project's; its description and image stay when the
+  // project has none.
+  const og = (property, content) => edit(new RegExp(`<meta property="og:${property}" content="[^"]*">`),
+    (tag) => (content ? `<meta property="og:${property}" content="${content}">` : tag));
+  og('title', title);
+  og('description', description);
+  og('url', url);
+  og('image', project.thumbs?.length ? escapeHtml(new URL(project.thumbs[0], SITE).href) : '');
+  edit(markerPattern(LD), () => `${LD[0]}${ldScript({ '@context': 'https://schema.org', ...creativeWork(project, listUrl, hasPage) })}${LD[1]}`);
   for (const code of LANGS) {
     const listPath = `${prefix(code)}${collection}/`;
     edit(new RegExp(`href="${literal(listPath)}" hreflang="${code}"`), (attrs) => (langs.includes(code) ? `href="${listPath}${encodeURIComponent(project.id)}/" hreflang="${code}"` : attrs));

@@ -1,6 +1,6 @@
 {
-    "name": "",
-    "short_name": "",
+    "name": "Roger Masellas",
+    "short_name": "Masellas",
     "icons": [
         {
             "src": "/icons/android-chrome-192x192.png",
@@ -8,7 +8,7 @@
             "type": "image/png"
         }
     ],
-    "theme_color": "#ffffff",
-    "background_color": "#ffffff",
+    "theme_color": "#f4624e",
+    "background_color": "#f4624e",
     "display": "standalone"
 }

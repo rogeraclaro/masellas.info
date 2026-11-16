@@ -98,6 +98,11 @@ test('the repo sources build nine pages with lang, hreflang, og:locale and the s
       assert.ok(html.includes(`<link rel="alternate" hreflang="${code}" href="https://masellas.info/${prefix}${sub}">`), `${file} hreflang ${code}`);
     }
     assert.ok(html.includes(`<meta property="og:locale" content="${locales[lang]}">`), `${file} og:locale`);
+    // Every page has its own share preview (the admin swaps these on the project pages).
+    for (const property of ['og:title', 'og:description', 'og:url', 'og:image']) {
+      assert.equal((html.match(new RegExp(`<meta property="${property}" content="[^"]+">`, 'g')) || []).length, 1, `${file} ${property}`);
+    }
+    assert.ok(html.includes(`<meta property="og:url" content="https://masellas.info/${lang === 'ca' ? '' : `${lang}/`}${sub}">`), `${file} og:url`);
     const current = [...html.matchAll(/<a [^>]*hreflang="(\w+)"[^>]*aria-current="page"/g)].map((m) => m[1]);
     assert.deepEqual(current, [lang], `${file}: switcher marks only the page language`);
     assert.doesNotMatch(html, /\{\{|\}\}/, `${file}: no placeholder left`);

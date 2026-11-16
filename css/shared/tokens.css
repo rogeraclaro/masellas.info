@@ -12,9 +12,7 @@
   --scrim: rgba(0, 0, 0, 0.6); /* detail overlay, home section shade */
   --menu-idle: rgba(255, 255, 255, 0.5);
   --menu-hover: rgba(255, 255, 255, 0.8);
-  --menu-active: rgba(0, 0, 0, 0.5);
   --tab-fg: #000;
-  --tab-fg-active: #fff;
 
   --font-book: 'agltbook', Helvetica, Arial, sans-serif;
   --font-medium: 'agltmedium', Helvetica, Arial, sans-serif;

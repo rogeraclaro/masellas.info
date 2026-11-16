@@ -19,7 +19,7 @@ export async function loadMenuTips(lang) {
   if (!tabs.length) return;
   let json;
   try {
-    const response = await fetch(menuTipUrl(lang), { cache: 'no-store' });
+    const response = await fetch(menuTipUrl(lang), { cache: 'no-cache' });
     if (!response.ok) return;
     json = await response.json();
   } catch {

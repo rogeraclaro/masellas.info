@@ -210,6 +210,12 @@ test('projectPage: the list page with the project head (title, description, cano
   assert.match(html, /<meta property="og:description" content="about ledger">/);
   assert.match(html, /<meta property="og:url" content="https:\/\/masellas\.info\/en\/projects\/ledger\/">/);
   assert.match(html, /<meta property="og:image" content="https:\/\/masellas\.info\/projects\/img\/ledger\.webp">/);
+  for (const property of ['og:title', 'og:description', 'og:url', 'og:image']) {
+    assert.equal((html.match(new RegExp(`<meta property="${property}"`, 'g')) || []).length, 1, `${property}: the list page's tag is replaced, not doubled`);
+  }
+  const bare = projectPage(await listPage([project('bare', { description: '' })]), { collection: 'projects', lang: 'en', project: project('bare', { description: '' }), next: null, langs: ['en'] });
+  assert.match(bare, /<meta property="og:image" content="https:\/\/masellas\.info\/img\/og-image\.jpg">/, 'no thumb: the site image');
+  assert.match(bare, /<meta property="og:description" content="Things I have built recently, with links\.">/, 'no description: the list page\'s');
   const ld = ldOf(html);
   assert.equal(ld['@context'], 'https://schema.org');
   assert.equal(ld['@type'], 'CreativeWork');

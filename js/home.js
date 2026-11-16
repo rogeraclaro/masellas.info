@@ -67,7 +67,7 @@ function textIntro(section, tl, at = 0) {
 // The paragraphs in the page (from i18n/<lang>.json) stay as the no-JS / failure fallback.
 async function loadSomeWords() {
   try {
-    const response = await fetch(`/projects/data/some-words.${pageLang()}.json`, { cache: 'no-store' });
+    const response = await fetch(`/projects/data/some-words.${pageLang()}.json`, { cache: 'no-cache' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const { text } = await response.json();
     if (typeof text !== 'string' || !text.trim() || text.length > RICH_TEXT_MAX) throw new Error('no usable text');
@@ -191,7 +191,8 @@ function bindWheel() {
 
 function bindInput() {
   bindWheel();
-  if (animate && window.Observer) {
+  // Not gated on `animate`: with reduced motion a swipe must still change section (instantly).
+  if (gsap && window.Observer) {
     gsap.registerPlugin(window.Observer);
     window.addEventListener('pointerdown', () => { touchExits = exits(); }, { capture: true, passive: true });
     const touch = createGestureGate(200);

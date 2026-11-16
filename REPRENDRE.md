@@ -36,5 +36,3 @@ Co-Authored-By. Abans de cada commit, git diff --cached --stat.
 
 1. Definir el terme "projects (B.C.)" al glossari de l'admin (ca/en/es)
    i comprovar el tooltip al navegador.
-2. Decidir si eliminem els tokens sense ús --menu-active i --tab-fg-active
-   (css/shared/tokens.css).

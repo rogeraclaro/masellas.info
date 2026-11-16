@@ -175,6 +175,16 @@ test('stale If-Match returns 409 with the current version', async () => {
   assert.match((await res.json()).version, /^[0-9a-f]{64}$/);
 });
 
+test('a request URL that cannot be parsed is a 400, not an unhandled rejection', async () => {
+  const res = await fetch(`${base}//`);
+  assert.equal(res.status, 400);
+});
+
+test('a project id that is not valid percent-encoding is a 404', async () => {
+  const res = await call(base, 'PUT', '/api/projects/%E0%A4%A', { cookie, version: 'any', body: { visible: false } });
+  assert.equal(res.status, 404);
+});
+
 test('missing If-Match returns 428', async () => {
   const res = await call(base, 'PUT', '/api/projects/ledger', { cookie, body: { visible: false } });
   assert.equal(res.status, 428);

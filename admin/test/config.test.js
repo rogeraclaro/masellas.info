@@ -31,6 +31,10 @@ test('loadConfig reads overrides', () => {
   assert.equal(config.publicUrl, 'http://localhost:8765/projects/');
 });
 
+test('loadConfig rejects a PORT that is not a port number', () => {
+  for (const PORT of ['abc', '0', '70000', '80.5']) assert.throws(() => loadConfig({ ...good, PORT }), /PORT/, PORT);
+});
+
 test('loadConfig derives the some-words files from DATA_FILE / PUBLIC_FILE (no new required vars)', () => {
   const config = loadConfig(good);
   assert.equal(config.someWordsFile, '/srv/some-words.json');

@@ -318,7 +318,12 @@ export function createApp({
     }
     const match = item.exec(pathname);
     if (!match || (method !== 'PUT' && method !== 'DELETE')) return false;
-    const id = decodeURIComponent(match[1]);
+    let id;
+    try {
+      id = decodeURIComponent(match[1]);
+    } catch {
+      throw new HttpError(404, { error: 'project not found' }); // not valid percent-encoding
+    }
     if (method === 'DELETE') {
       await mutate(req, res, 200, (data) => {
         data.projects.splice(findIndex(data.projects, id), 1);
@@ -429,7 +434,12 @@ export function createApp({
 
   return http.createServer(async (req, res) => {
     const started = process.hrtime.bigint();
-    const { pathname } = new URL(req.url, 'http://localhost');
+    let pathname;
+    try {
+      ({ pathname } = new URL(req.url, 'http://localhost'));
+    } catch {
+      return sendJson(res, 400, { error: 'bad request' }); // e.g. "//": not a URL
+    }
     res.on('finish', () => {
       const ms = Number(process.hrtime.bigint() - started) / 1e6;
       log(`${req.method} ${pathname} ${res.statusCode} ${ms.toFixed(1)}ms`);

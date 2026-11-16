@@ -31,8 +31,10 @@ export function loadConfig(env) {
   const cookiePath = env.COOKIE_PATH || '/';
   const derived = someWordsPaths({ dataFile: env.DATA_FILE, publicFile: env.PUBLIC_FILE });
   if (!/^\/[A-Za-z0-9/_-]*$/.test(cookiePath)) throw new Error('COOKIE_PATH must be a plain path starting with /');
+  const port = Number(env.PORT || 8787);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be a port number (1-65535)');
   return {
-    port: Number(env.PORT || 8787),
+    port,
     host: env.HOST || '127.0.0.1',
     dataFile: env.DATA_FILE,
     publicFile: env.PUBLIC_FILE,

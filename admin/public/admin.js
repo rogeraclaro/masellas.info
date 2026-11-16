@@ -79,6 +79,8 @@ import { hasChanges } from './ui-state.js';
     applyCollection();
     loginView.hidden = true;
     appView.hidden = false;
+    // Logging in again on "some words": its text was dropped at logout and no tab click will reload it.
+    if (!$('view-words').hidden) loadWords().catch((err) => wordsFailed(err));
     $('new-project').focus();
   }
 
@@ -697,7 +699,15 @@ import { hasChanges } from './ui-state.js';
       setFormStatus(savedStatus(data));
     } catch (err) {
       if (err.status === 400 && err.body.errors) showErrors(err.body.errors);
-      else await handleError(err, (message) => { $('form-error').textContent = message; }, collection);
+      else {
+        await handleError(err, (message) => { $('form-error').textContent = message; }, collection);
+        // Saved privately although the public file failed (handleError reloaded the list): keep editing
+        // what was saved, so saving again updates it instead of creating it twice.
+        if (err.body?.version) {
+          const savedId = wasEditing ? body.id || wasEditing : collection.projects.find((p) => !before.has(p.id))?.id;
+          if (collection.projects.some((p) => p.id === savedId)) editingId = savedId;
+        }
+      }
     }
   });
 

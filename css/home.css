@@ -156,8 +156,10 @@ ul {
   margin-top: var(--space-after-title);
 }
 
+/* Charcoal like the title: bone on coral is 2.4:1, charcoal 4.9:1 (WCAG AA). */
 .section--coral .home-tagline {
   margin-bottom: var(--space-after-title);
+  color: var(--charcoal);
 }
 
 /* ---------- Some words ---------- */

@@ -148,10 +148,11 @@ function fakeClaude(reply = (text) => text, { status = 200, stopReason = 'end_tu
   const calls = [];
   const fetch = async (url, init) => {
     const body = JSON.parse(init.body);
-    calls.push({ url, init, body });
+    const source = /<text>\n([\s\S]*)\n<\/text>$/.exec(body.messages[0].content)?.[1]; // the text the request wraps
+    calls.push({ url, init, body, source });
     const json = error
       ? { type: 'error', error }
-      : { content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: reply(body.messages[0].content, body) }], stop_reason: stopReason };
+      : { content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: reply(source, body) }], stop_reason: stopReason };
     return { ok: status >= 200 && status < 300, status, json: async () => json };
   };
   return { fetch, calls };
@@ -172,7 +173,9 @@ test('translateText with an API key calls the Messages API and reads the text bl
   assert.match(body.system, /into English/);
   assert.match(body.system, /XQ\d*/, 'the rich prompt explains the markup tokens');
   assert.deepEqual(body.messages.map((m) => m.role), ['user']);
-  assert.match(body.messages[0].content, /^una \[XQ0X API pròpia\] amb XQ1X$/, 'markup is still protected');
+  assert.match(body.messages[0].content, /^Translate this text from Catalan into English\./, 'the request is in the user turn');
+  assert.equal(calls[0].source, 'una [XQ0X API pròpia] amb XQ1X', 'markup is still protected');
+  assert.equal(body.thinking, undefined, 'thinking stays on: without it long texts came back untranslated');
   assert.ok(init.signal, 'calls can time out');
 });
 

@@ -303,6 +303,45 @@ ul {
   margin-top: var(--space-1);
 }
 
+/* The project's screenshot on the coral face (rows with thumbs): between the title and the info,
+   bleeding to the top and bottom edges of the row. Wide screens with a mouse only (the roll is
+   hover-only); everywhere else the small thumbs on the front face stay. */
+.work-item__shot {
+  display: none;
+}
+
+@media (min-width: 1200px) and (hover: hover) and (pointer: fine) {
+  .work-item--shot .face--before .work-item__title,
+  .work-item--shot .face--after .work-item__title {
+    grid-column: 1 / span 4;
+  }
+
+  .work-item__shot {
+    grid-column: 5 / span 3;
+    align-self: stretch;
+    display: block;
+    margin-block: calc(-1 * var(--row-pad));
+  }
+
+  .work-item__shot img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+  }
+
+  .work-item--shot .work-item__info {
+    grid-column: 8 / span 5;
+  }
+
+  /* The coral face shows the screenshot, so the front face drops the small thumbs (only while the
+     roll runs: with reduced motion there is no coral face). */
+  html:not(.no-motion) .face--front .work-item__thumbs {
+    display: none;
+  }
+}
+
 /* ---------- Footer ---------- */
 .page-footer {
   padding: var(--space-section) var(--column-pad) var(--space-6);

@@ -86,11 +86,23 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
       meta.append(strip);
     }
 
+    // The coral faces also show the first thumb, large (css: .work-item__shot, wide screens with a mouse).
+    if (thumbs.length) link.classList.add('work-item--shot');
     buildCube(link, [el('span', 'work-item__title', project.title), meta], () => {
       const info = el('span', 'work-item__info');
       info.append(el('span', 'work-item__desc', project.description));
       if (url) info.append(el('span', 'work-item__domain', url.hostname));
-      return [el('span', 'work-item__title', project.title), info];
+      const nodes = [el('span', 'work-item__title', project.title)];
+      if (thumbs.length) {
+        const shot = el('span', 'work-item__shot');
+        const img = el('img');
+        img.src = thumbs[0];
+        img.alt = '';
+        img.loading = 'lazy';
+        shot.append(img);
+        nodes.push(shot);
+      }
+      return [...nodes, info];
     });
 
     const li = el('li');

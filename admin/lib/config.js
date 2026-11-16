@@ -49,5 +49,6 @@ export function loadConfig(env) {
     cookiePath,
     trustProxy: env.TRUST_PROXY === 'true',
     publicUrl: env.PUBLIC_URL || 'https://masellas.info/projects/',
+    anthropicApiKey: (env.ANTHROPIC_API_KEY || '').trim(), // optional: "translate from ca" uses Claude when set
   };
 }

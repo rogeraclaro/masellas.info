@@ -17,14 +17,16 @@ It keeps two files:
 
 Every translated field (category, description, "how I used AI" / "how it was made", "some words", a glossary explanation) has a "translate from ca" button at the end of its `ca / en / es` strip. It sends the ca text to `POST /api/translate` and fills en and es in the form; nothing is saved until you press save, so review both first. If en or es already has text, the first press asks "overwrite en / es?" (a second press within 5 s goes ahead). The button is disabled while ca is empty. Warnings show under the field, e.g. "es: check the bold: its end was lost." or a translation over the field's limit; if one language fails, the other is still filled.
 
-Engines (Softcatalà, the ones behind https://www.softcatala.org/traductor/; no key):
+With `ANTHROPIC_API_KEY` set, both languages are translated by Claude (`claude-haiku-5-5`, `POST https://api.anthropic.com/v1/messages`, no SDK: the admin has no dependencies). It reads the text as a whole, so acronyms, product names and technical terms stay as written. A wrong key, a busy API, a refusal or a cut-short answer is reported under the field like any other failure.
+
+Without a key, the engines are Softcatalà's (the ones behind https://www.softcatala.org/traductor/; no key). They translate word by word and mangle acronyms and names ("R.U.C." -> "R.Uno.C.", "API" -> "APIO"):
 
 - ca -> en: neural, `POST https://api.softcatala.org/v2/nmt/translate/` (`langpair=cat|eng`).
 - ca -> es: rule-based (Apertium), `POST https://api.softcatala.org/traductor/v1/translate` (`langpair=cat|spa`, `markUnknown=no`); the neural engine has no ca -> es. Spanish comes out literal: read it before saving.
 
-Markup protection (rich-text fields, `lib/translate.js`): `{{term}}` / `{{term|explanation}}` (the explanation stays in ca: give it its own en / es text if needed), `` `code` ``, backslash escapes and the line prefixes `## `, `- `, `> ` travel as tokens like `XQ3X` and come back unchanged; bold, strikethrough and link labels travel as `[XQ4X text]`, so the text is translated and the markers (and the link url) are put back around it. Both engines leave those tokens and square brackets alone. The result is checked with the rich-text parser; anything lost or broken becomes a warning, not an error. Plain fields are sent as they are.
+Markup protection (rich-text fields, `lib/translate.js`): `{{term}}` / `{{term|explanation}}` (the explanation stays in ca: give it its own en / es text if needed), `` `code` ``, backslash escapes and the line prefixes `## `, `- `, `> ` travel as tokens like `XQ3X` and come back unchanged; bold, strikethrough and link labels travel as `[XQ4X text]`, so the text is translated and the markers (and the link url) are put back around it. The Softcatalà engines leave those tokens and square brackets alone; Claude is told to in its prompt (`claudePrompt`). The result is checked with the rich-text parser; anything lost or broken becomes a warning, not an error. Plain fields are sent as they are.
 
-Limitations: the endpoints are undocumented and third-party (they can change or disappear; then the button reports the error and the rest of the admin is unaffected); machine translation needs review (articles before a `{{term}}` may not agree, e.g. "an {{PWA}}"). Each call times out after 20 s; the admin allows 30 translations per minute per client. To use another engine, change `ENGINES` / `callEngine` in `lib/translate.js`; the protection, the API and the UI stay the same.
+Limitations: the Softcatalà endpoints are undocumented and third-party (they can change or disappear; then the button reports the error and the rest of the admin is unaffected); machine translation needs review (articles before a `{{term}}` may not agree, e.g. "an {{PWA}}"). Each call times out after 20 s; the admin allows 30 translations per minute per client. To use another engine, change `ENGINES` / `callEngine` (or `CLAUDE` / `callClaude`) in `lib/translate.js`; the protection, the API and the UI stay the same.
 
 ## Projects (B.C.)
 
@@ -96,6 +98,7 @@ Environment variables only. `admin/.env` is read at boot if it exists; real envi
 | `HOST` | no | `127.0.0.1` | |
 | `COOKIE_SECURE` | no | `true` | `false` only for local http |
 | `PUBLIC_URL` | no | `https://masellas.info/projects/` | target of the "view site" link |
+| `ANTHROPIC_API_KEY` | no | | with a key, "translate from ca" uses Claude; empty: the keyless Softcatalà engines |
 | `COOKIE_PATH` | no | `/` | session cookie path; `/admin/` in production |
 | `TRUST_PROXY` | no | `false` | `true` only behind nginx: the login rate limit then keys on `X-Real-IP` (fallback: first `X-Forwarded-For` entry). When `false` those headers are ignored, because clients can forge them |
 

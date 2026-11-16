@@ -138,7 +138,7 @@ export function createApp({
   projectsAcFile = projectsAcPaths({ dataFile, publicFile }).projectsAcFile,
   projectsAcPublicFile = projectsAcPaths({ dataFile, publicFile }).projectsAcPublicFile,
   menuPublicFile = menuPaths({ publicFile }).menuPublicFile,
-  translateFetch = globalThis.fetch, translateLimit = { max: 30, windowMs: 60 * 1000 },
+  translateFetch = globalThis.fetch, translateLimit = { max: 30, windowMs: 60 * 1000 }, anthropicApiKey = '',
 }) {
   // Older files (plain strings) are read as { ca, en, es } and stored that way on the next write.
   const store = createStore(dataFile, { migrate: migrateProjects });
@@ -361,7 +361,7 @@ export function createApp({
       if (errors.length) throw new HttpError(400, { error: `fix the ca text first: ${errors.join(' ')}` });
     }
     translateLimiter.fail(ip);
-    const result = await translateAll(text.trim(), { kind, max, fetch: translateFetch });
+    const result = await translateAll(text.trim(), { kind, max, fetch: translateFetch, apiKey: anthropicApiKey });
     const failed = Object.values(result).every((item) => item.error);
     sendJson(res, failed ? 502 : 200, failed ? { error: `could not translate: ${result.en.error}`, ...result } : result);
   }

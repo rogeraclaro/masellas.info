@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { protect, restore, translateText, translateAll, ENGINES } from '../lib/translate.js';
+import { protect, restore, translateText, translateAll, ENGINES, CLAUDE } from '../lib/translate.js';
 import { parseRichText } from '../lib/rich-text.js';
 
 // A fetch double: answers every engine call with `answer(q, url)` (default: the text unchanged).
@@ -139,4 +139,63 @@ test('translateAll: both languages in parallel; one failure keeps the other', as
   assert.deepEqual(result.en, { text: 'EN hola', warnings: [] });
   assert.match(result.es.error, /HTTP 500/);
   assert.equal(result.es.text, undefined);
+});
+
+/* ---------- Claude (used when an API key is configured) ---------- */
+
+// A Messages API double: answers with `reply(userText, body)` as the text block.
+function fakeClaude(reply = (text) => text, { status = 200, stopReason = 'end_turn', error } = {}) {
+  const calls = [];
+  const fetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    calls.push({ url, init, body });
+    const json = error
+      ? { type: 'error', error }
+      : { content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: reply(body.messages[0].content, body) }], stop_reason: stopReason };
+    return { ok: status >= 200 && status < 300, status, json: async () => json };
+  };
+  return { fetch, calls };
+}
+
+test('translateText with an API key calls the Messages API and reads the text blocks', async () => {
+  const { fetch, calls } = fakeClaude((text) => text.replace('una', 'an').replace('pròpia', 'of its own'));
+  const result = await translateText('una **API pròpia** amb {{PWA}}', 'en', { kind: 'rich', fetch, apiKey: 'sk-test' });
+  assert.deepEqual(result, { text: 'an **API of its own** amb {{PWA}}', warnings: [] });
+  assert.equal(calls.length, 1);
+  const [{ url, init, body }] = calls;
+  assert.equal(url, CLAUDE.url);
+  assert.equal(init.method, 'POST');
+  assert.equal(init.headers['x-api-key'], 'sk-test');
+  assert.equal(init.headers['anthropic-version'], CLAUDE.version);
+  assert.equal(init.headers['content-type'], 'application/json');
+  assert.equal(body.model, 'claude-haiku-5-5');
+  assert.match(body.system, /into English/);
+  assert.match(body.system, /XQ\d*/, 'the rich prompt explains the markup tokens');
+  assert.deepEqual(body.messages.map((m) => m.role), ['user']);
+  assert.match(body.messages[0].content, /^una \[XQ0X API pròpia\] amb XQ1X$/, 'markup is still protected');
+  assert.ok(init.signal, 'calls can time out');
+});
+
+test('translateText with an API key: es goes to Claude too, and plain text gets no token instructions', async () => {
+  const { fetch, calls } = fakeClaude(() => '  hola  ');
+  assert.deepEqual(await translateText('hola', 'es', { fetch, apiKey: 'sk-test' }), { text: 'hola', warnings: [] });
+  assert.match(calls[0].body.system, /into Spanish/);
+  assert.doesNotMatch(calls[0].body.system, /XQ/);
+});
+
+test('translateText with an API key maps refusals, truncation, bad keys and other failures to clear errors', async () => {
+  const fails = (double, pattern) => assert.rejects(translateText('hola', 'en', { fetch: double.fetch, apiKey: 'sk-test' }), pattern);
+  await fails(fakeClaude(undefined, { stopReason: 'refusal' }), /declined/);
+  await fails(fakeClaude(undefined, { stopReason: 'max_tokens' }), /cut short/);
+  await fails(fakeClaude(undefined, { status: 401, error: { type: 'authentication_error', message: 'invalid x-api-key' } }), /ANTHROPIC_API_KEY/);
+  await fails(fakeClaude(undefined, { status: 429, error: { type: 'rate_limit_error', message: 'slow down' } }), /busy/);
+  await fails(fakeClaude(undefined, { status: 500, error: { type: 'api_error', message: 'boom' } }), /HTTP 500/);
+  await fails(fakeClaude(() => '   '), /unexpected answer/);
+  await fails({ fetch: async () => { throw new TypeError('fetch failed'); } }, /could not reach/);
+});
+
+test('translateText without an API key keeps using the keyless engines', async () => {
+  const { fetch, calls } = fakeFetch();
+  await translateText('hola', 'en', { fetch, apiKey: '' });
+  assert.equal(calls[0].url, ENGINES.en.url);
 });

@@ -24,15 +24,16 @@ Co-Authored-By. Abans de cada commit, git diff --cached --stat.
 
 ## Pendent (per a mi)
 
-1. Google Search Console: donar d'alta https://masellas.info/sitemap.xml
-   i https://masellas.info/sitemap-projects.xml (i demanar la indexació
-   d'algunes pàgines de projecte).
-2. Opcional: esborrar del servidor /.atl/.skill-registry.cache.json
-   (publicat per error; només conté un hash).
-3. Provar al navegador una pàgina de projecte (p. ex. /projects/fenya/):
+1. Google Search Console (propietat de domini verificada i sitemaps
+   enviats el 2026-11-16): opcional, demanar la indexació d'algunes
+   pàgines de projecte i, d'aquí a uns dies, revisar la cobertura.
+2. Provar al navegador una pàgina de projecte (p. ex. /projects/fenya/):
    animacions, "projecte següent", tancar, canvi d'idioma i enrere.
+3. Admin: Sangre de Toro (text en/es) i descripció de Veepee (punt final,
+   "launches") encara no són els de textos-admin.md; glossari: "és Claude
+   Code" (ca), "WordPress" (ACF es), "custom post types" (ACF en); any
+   d'InDret "des de 2000" surt igual a /en/ i /es/.
 
-## Pendent de la sessió del 2026-10-20 (comprova si encara cal)
-
-1. Definir el terme "projects (B.C.)" al glossari de l'admin (ca/en/es)
-   i comprovar el tooltip al navegador.
+Fet el 2026-11-16: nginx retorna 404 per a qualsevol fitxer o carpeta que
+comenci per punt (/.atl/, temporals de l'admin), des de l'editor de vhost de
+CloudPanel (còpies a /root/vhost-backups/).

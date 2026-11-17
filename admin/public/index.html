@@ -30,6 +30,7 @@
 			<button type="button" class="btn view-tab" data-view="projects-ac" aria-pressed="false">projects (B.C.)</button>
 			<button type="button" class="btn view-tab" data-view="words" aria-pressed="false">some words</button>
 			<button type="button" class="btn view-tab" data-view="glossary" aria-pressed="false">glossary</button>
+			<button type="button" class="btn view-tab" data-view="pitches" aria-pressed="false">for…</button>
 		</div>
 		<nav class="bar__nav" aria-label="Admin">
 			<a id="view-site" class="btn" href="https://masellas.info/projects/" target="_blank" rel="noopener">view site</a>
@@ -191,6 +192,55 @@
 			<thead><tr><th scope="col">term</th><th scope="col">explanation (ca)</th><th scope="col">en</th><th scope="col">es</th><th scope="col"><span class="sr-only">actions</span></th></tr></thead>
 			<tbody id="glossary-rows"></tbody>
 		</table>
+	</main>
+
+	<main class="content" id="view-pitches" hidden>
+		<h2 class="heading heading--small">for…</h2>
+		<p class="hint">a private page for one company or recruiter, at masellas.info/per-a/&lt;id&gt;/: your intro and the projects you choose, in one language. it is not on google or in the sitemap, and the end of the address is random, so only whoever has the link sees it. it updates when the projects change.</p>
+		<div class="toolbar">
+			<button id="new-pitch" type="button" class="btn btn--primary">new page</button>
+			<p id="pitch-status" class="status" role="status" aria-live="polite"></p>
+		</div>
+
+		<section id="pitch-editor" class="editor" hidden aria-labelledby="pitch-editor-title">
+			<h3 id="pitch-editor-title" class="heading heading--small">new page</h3>
+			<form id="pitch-form" class="form" novalidate>
+				<p id="pitch-form-error" class="field-error" aria-live="assertive"></p>
+				<div class="field field--half">
+					<label for="f-company">company</label>
+					<input id="f-company" name="company" maxlength="60" required autocomplete="off" aria-describedby="e-company">
+					<p id="e-company" class="field-error"></p>
+				</div>
+				<div class="field field--half">
+					<label for="f-pitch-lang">language</label>
+					<select id="f-pitch-lang" name="lang">
+						<option value="ca">català</option>
+						<option value="en">English</option>
+						<option value="es">español</option>
+					</select>
+				</div>
+				<div class="field">
+					<label for="f-intro">intro</label>
+					<textarea id="f-intro" name="intro" rows="4" maxlength="1000" class="rich-input" aria-describedby="intro-hint e-intro"></textarea>
+					<p id="intro-hint" class="hint">optional, under the heading. same format as "some words": **bold**, [links](https://…). up to 1000 characters.</p>
+					<p id="e-intro" class="field-error"></p>
+				</div>
+				<fieldset class="field" aria-describedby="projects-hint e-projects">
+					<legend>projects</legend>
+					<p id="projects-hint" class="hint">tick them below; they show in the order of this list (move them with ↑ ↓). hidden projects are not offered.</p>
+					<ol id="pitch-chosen" class="pitch-chosen"></ol>
+					<div id="pitch-options" class="pitch-options"></div>
+					<p id="e-projects" class="field-error"></p>
+				</fieldset>
+				<div class="form__actions">
+					<button type="submit" class="btn btn--primary">save</button>
+					<button id="pitch-cancel" type="button" class="btn">back to list</button>
+					<p id="pitch-form-status" class="status" role="status" aria-live="polite"></p>
+				</div>
+			</form>
+		</section>
+
+		<ul id="pitch-rows" class="list" aria-label="Pages for companies"></ul>
 	</main>
 </div>
 

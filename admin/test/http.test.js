@@ -763,3 +763,24 @@ test('saving a project rewrites the projects pages in the web root for crawlers 
     app.close();
   }
 });
+
+test('pitches: an empty list at first, then a saved pitch gets an unguessable id; validation and If-Match apply', async () => {
+  let res = await call(base, 'GET', '/api/pitches', { cookie });
+  assert.equal(res.status, 200);
+  let json = await res.json();
+  assert.deepEqual(json.pitches, []);
+  const pitch = { company: 'Acme', lang: 'en', intro: 'Hello **Acme**.', projects: ['projects/ledger'] };
+  res = await call(base, 'PUT', '/api/pitches', { cookie, body: { pitches: [pitch] } });
+  assert.equal(res.status, 428, 'If-Match required');
+  res = await call(base, 'PUT', '/api/pitches', { cookie, version: json.version, body: { pitches: [{ ...pitch, lang: 'fr' }] } });
+  assert.equal(res.status, 400);
+  assert.ok((await res.json()).errors['pitches.0.lang']);
+  res = await call(base, 'PUT', '/api/pitches', { cookie, version: json.version, body: { pitches: [pitch] } });
+  assert.equal(res.status, 200);
+  json = await res.json();
+  assert.match(json.pitches[0].id, /^acme-[a-z0-9]{6}$/);
+  assert.equal(json.pitches[0].intro, 'Hello **Acme**.');
+  res = await call(base, 'GET', '/api/pitches', { cookie });
+  assert.deepEqual((await res.json()).pitches, json.pitches, 'stored as returned');
+  assert.equal((await call(base, 'GET', '/api/pitches')).status, 401, 'needs a session');
+});

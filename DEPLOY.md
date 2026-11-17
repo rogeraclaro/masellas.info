@@ -24,12 +24,14 @@ Server layout:
   llms.txt                                             projects in en for AI crawlers, rebuilt by the admin
   sitemap-projects.xml                                 every project page with its alternates, rebuilt by the admin
   projects/<id>/, projects-ac/<id>/ (+ en/, es/)       one index.html per public project, rebuilt by the admin
+  per-a/<id>/                                          one private (noindex) page per company, rebuilt by the admin
 /home/rogermasellas/masellas-admin/app/                admin code (deployed)
   .env                                                 config + secrets (never deployed)
 /home/rogermasellas/masellas-admin/data/projects.json  private list, hidden projects included
 /home/rogermasellas/masellas-admin/data/projects-ac.json private projects (B.C.) list (created empty on first boot)
 /home/rogermasellas/masellas-admin/data/some-words.json  private copy of the "some words" text
 /home/rogermasellas/masellas-admin/data/glossary.json    glossary for {{term}} and menu tooltips (created at first boot with the "projects (B.C.)" menu term, pending)
+/home/rogermasellas/masellas-admin/data/pitches.json     private pages for companies ("for…" tab; created on first use)
 ```
 
 ## Languages

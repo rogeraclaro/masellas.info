@@ -93,7 +93,7 @@ body {
 label, legend { display: block; margin-bottom: 6px; padding: 0; color: var(--bone-60); }
 .field--check label { margin: 0; color: var(--bone); }
 
-input, textarea {
+input, textarea, select {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--hairline);
@@ -105,7 +105,9 @@ input, textarea {
 }
 input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--coral); }
 .thumb + label + .thumb, .thumb ~ .thumb { margin-top: 8px; }
-input:focus-visible, textarea:focus-visible { outline: 2px solid var(--coral); outline-offset: -1px; }
+select { appearance: none; cursor: pointer; }
+select option { color: var(--charcoal); }
+input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--coral); outline-offset: -1px; }
 [aria-invalid="true"] { border-color: var(--coral); }
 textarea { resize: vertical; }
 .field-error { margin: 4px 0 0; color: var(--coral); font-family: var(--font-book); }
@@ -129,6 +131,7 @@ textarea { resize: vertical; }
 .row__title { display: block; font-family: var(--font-bold); font-size: 1.5rem; letter-spacing: -0.02em; overflow-wrap: anywhere; }
 .row__meta { display: block; color: var(--bone-60); font-family: var(--font-book); }
 .row__state--hidden { color: var(--coral); }
+.row__gaps { display: block; color: var(--coral); font-family: var(--font-book); font-size: 0.875rem; }
 .row__actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .empty { padding: 20px 0; color: var(--bone-60); }
 
@@ -267,3 +270,12 @@ textarea { resize: vertical; }
 .lang-translate[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 .translate-note:empty { display: none; }
 .translate-note--warn { color: var(--coral); }
+
+/* "for…": pages for companies (lib/pitches.js) */
+.row__link { display: inline-block; margin-top: 4px; color: var(--coral); font-family: var(--font-book); font-size: 0.875rem; overflow-wrap: anywhere; }
+.pitch-chosen { margin: 8px 0 16px; padding-left: 1.5em; font-family: var(--font-book); }
+.pitch-chosen__item { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 0; }
+.pitch-chosen__item span { flex: 1 1 200px; }
+.pitch-options { display: flex; flex-wrap: wrap; gap: 8px 48px; }
+.pitch-options__label { margin: 0 0 6px; color: var(--bone-60); font-family: var(--font-book); }
+.pitch-option { display: flex; align-items: center; gap: 8px; margin: 4px 0; color: var(--bone); font-family: var(--font-book); }

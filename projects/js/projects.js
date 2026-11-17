@@ -253,6 +253,9 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
   const content = detail.querySelector('.detail__content');
   const detailTitle = document.getElementById('detail-title');
   const nextLink = detail.querySelector('.detail__next a');
+  // A recruiter page mixes both collections: each project carries its own heading for this section.
+  const aiHeading = document.getElementById('detail-ai-heading');
+  const aiHeadingDefault = aiHeading.textContent;
   // A project page (the admin's copy for crawlers) has the project's title: closing restores the list's.
   const pageTitle = list.dataset.listTitle || document.title;
   const SLIDE = { duration: 1.4, ease: 'expo.inOut' };
@@ -270,7 +273,9 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
   let detailLenis = null;
   let closeBtn = null;
 
-  const detailHref = (id) => projectHref(listPath, id);
+  // A recruiter page (/per-a/<id>/, admin/lib/pitches.js) has no page per project: its links use ?p=<id>.
+  const queryLinks = list.dataset.detailLinks === 'query';
+  const detailHref = (id) => (queryLinks ? `${listPath}?p=${encodeURIComponent(id)}` : projectHref(listPath, id));
   const idFromUrl = () => projectIdFrom(listPath, window.location);
   const listUrl = () => listPath;
   const reveals = () => content.querySelectorAll('[data-reveal]:not([hidden])');
@@ -312,6 +317,7 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
 
     const ai = typeof project.ai === 'string' ? project.ai.trim() : '';
     const aiSection = detail.querySelector('.detail__ai');
+    aiHeading.textContent = project.aiHeading || aiHeadingDefault;
     aiSection.hidden = !ai;
     aiSection.querySelector('.detail__body').replaceChildren(...(ai ? aiBlocks(ai) : []));
 
@@ -528,9 +534,12 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
 
   /* ---------- Data + intro ---------- */
 
-  // Returns the visible projects, or null when the data cannot be loaded.
+  // Returns the visible projects, or null when the data cannot be loaded. A recruiter page carries its
+  // own list (<script id="projects-data">) instead of naming a collection.
   async function loadProjects() {
     try {
+      const inline = document.getElementById('projects-data');
+      if (inline) return JSON.parse(inline.textContent).projects.filter((project) => project.visible !== false);
       const response = await fetch(`/projects/data/${collection}.${pageLang()}.json`, { cache: 'no-cache' });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return (await response.json()).projects.filter((project) => project.visible !== false);
@@ -542,6 +551,8 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
   function intro() {
     if (!animate) return;
     const tl = titleIntro(titleEl, gsap.timeline());
+    const pageIntro = document.querySelector('.page-intro'); // recruiter pages only
+    if (pageIntro) tl.fromTo(pageIntro, { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 1.2, ease: 'power2.out' }, 0.2);
     tl.fromTo(countEl, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4, ease: ALPHA }, 0.15);
     if (filtersEl.children.length) tl.fromTo(filtersEl.children, { autoAlpha: 0 }, { autoAlpha: 1, duration: 1.2, ease: 'power2.out', stagger: STAGGER }, 0.3);
     tl.add(() => show(), 0.2);

@@ -47,5 +47,8 @@
   "js.next": "projecte següent: {title}",
   "js.detail_title": "{title} — Projectes (IA) — Roger Masellas",
   "js.load_error": "No s'han pogut carregar els projectes. Torna-ho a provar d'aquí a un minut.",
-  "js.empty": "Encara no hi ha cap projecte."
+  "js.empty": "Encara no hi ha cap projecte.",
+  "js.pitch_heading": "Per a {company}",
+  "js.pitch_title": "Per a {company} — Roger Masellas",
+  "js.pitch_detail_title": "{title} — Roger Masellas"
 }

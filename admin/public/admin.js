@@ -5,7 +5,7 @@ import { renderRichText } from './rich-text-dom.js';
 import { formattingHelp } from './rich-text-help.js';
 import { slugify } from './slug.js';
 import { bindTermTooltips } from './term-tooltip.js';
-import { hasChanges } from './ui-state.js';
+import { hasChanges, untranslated, translationGaps } from './ui-state.js';
 
 (() => {
   'use strict';
@@ -81,6 +81,7 @@ import { hasChanges } from './ui-state.js';
     appView.hidden = false;
     // Logging in again on "some words": its text was dropped at logout and no tab click will reload it.
     if (!$('view-words').hidden) loadWords().catch((err) => wordsFailed(err));
+    if (!$('view-pitches').hidden) loadPitches().catch((err) => pitchesFailed(err));
     $('new-project').focus();
   }
 
@@ -130,9 +131,10 @@ import { hasChanges } from './ui-state.js';
   /* ---------- Per-language fields ----------
      index.html marks the ca control with data-langs; this adds an en and an es copy (one shown
      at a time) and a ca / en / es tab strip that also tells which languages are empty.
-     translate: 'rich' | 'plain' adds a "translate from ca" button that fills en and es (see translator()). */
+     translate: 'rich' | 'plain' adds a "translate from ca" button that fills en and es (see translator()).
+     flagSame: also mark en / es when they are a copy of the ca text (untranslated, ui-state.js). */
 
-  function langField(base, { onChange = () => {}, translate = null } = {}) {
+  function langField(base, { onChange = () => {}, translate = null, flagSame = false } = {}) {
     const name = base.id.replace(/^f-/, '');
     const label = document.querySelector(`label[for="${base.id}"]`);
     const required = base.required;
@@ -179,6 +181,7 @@ import { hasChanges } from './ui-state.js';
 
     let current = 'ca';
     const isEmpty = (lang) => !inputs[lang].value.trim();
+    const isSame = (lang) => flagSame && lang !== 'ca' && untranslated(inputs.ca.value, inputs[lang].value);
     // Bumped by set(): a translation that answers after the form was refilled is dropped.
     let generation = 0;
     const translateButton = translate
@@ -187,15 +190,19 @@ import { hasChanges } from './ui-state.js';
 
     function refresh() {
       for (const lang of LANGS) {
-        const note = lang === 'ca' && required ? 'required' : isEmpty(lang) ? 'empty' : '';
+        const note = lang === 'ca' && required ? 'required' : isEmpty(lang) ? 'empty' : isSame(lang) ? 'same as ca' : '';
         tabs[lang].replaceChildren(document.createTextNode(lang));
         if (note) tabs[lang].append(' ', el('span', 'lang-tab__note', note));
         tabs[lang].setAttribute('aria-pressed', String(lang === current));
-        const states = [lang === 'ca' && required ? 'required' : '', isEmpty(lang) ? 'empty' : ''].filter(Boolean);
+        const states = [lang === 'ca' && required ? 'required' : '', isEmpty(lang) ? 'empty' : '', isSame(lang) ? 'same as ca' : ''].filter(Boolean);
         tabs[lang].setAttribute('aria-label', [lang, ...states].join(', '));
       }
       const fallback = LANGS.filter((lang) => lang !== 'ca' && isEmpty(lang));
-      statusEl.textContent = fallback.length && !isEmpty('ca') ? `${fallback.join(', ')} empty: the site shows the ca text there.` : '';
+      const same = LANGS.filter(isSame);
+      statusEl.textContent = [
+        fallback.length && !isEmpty('ca') ? `${fallback.join(', ')} empty: the site shows the ca text there.` : '',
+        same.length ? `${same.join(', ')} same as ca: not translated yet.` : '',
+      ].filter(Boolean).join(' ');
       translateButton?.refresh();
     }
 
@@ -375,7 +382,8 @@ import { hasChanges } from './ui-state.js';
 
   const langFields = {};
   for (const name of ['category', 'description', 'ai']) {
-    langFields[name] = langField($(`f-${name}`), { onChange: () => updateCount(), translate: name === 'ai' ? 'rich' : 'plain' });
+    // Categories are short labels that are often the same in every language ("web app"): no "same as ca".
+    langFields[name] = langField($(`f-${name}`), { onChange: () => updateCount(), translate: name === 'ai' ? 'rich' : 'plain', flagSame: name !== 'category' });
   }
 
   /* ---------- List ---------- */
@@ -388,6 +396,15 @@ import { hasChanges } from './ui-state.js';
     return btn;
   }
 
+  // "en: category, how I used AI · es: description (= ca)": what each language still lacks ('' if nothing).
+  function gapsText(gaps) {
+    const label = (field) => (field === 'ai' ? active.aiLabel : field);
+    return LANGS.filter((lang) => lang !== 'ca').map((lang) => {
+      const fields = gaps.filter((gap) => gap.lang === lang).map((gap) => `${label(gap.field)}${gap.kind === 'same' ? ' (= ca)' : ''}`);
+      return fields.length ? `${lang}: ${fields.join(', ')}` : '';
+    }).filter(Boolean).join(' · ');
+  }
+
   function renderRow(project, index) {
     const row = el('li', 'row');
     row.dataset.id = project.id;
@@ -398,6 +415,8 @@ import { hasChanges } from './ui-state.js';
     const visible = project.visible !== false;
     meta.append(el('span', visible ? 'row__state' : 'row__state row__state--hidden', visible ? 'visible' : 'hidden'));
     info.append(el('span', 'row__title', project.title), meta);
+    const gaps = gapsText(translationGaps(project));
+    if (gaps) info.append(el('span', 'row__gaps', `to translate: ${gaps}`));
 
     const actions = el('div', 'row__actions');
     const up = button('up', 'up', `move ${project.title} up`);
@@ -760,7 +779,9 @@ import { hasChanges } from './ui-state.js';
     $('view-projects').hidden = !collection;
     $('view-words').hidden = name !== 'words';
     $('view-glossary').hidden = name !== 'glossary';
+    $('view-pitches').hidden = name !== 'pitches';
     if (name === 'words' && wordsVersion === null) loadWords().catch((err) => wordsFailed(err));
+    if (name === 'pitches' && pitchesVersion === null) loadPitches().catch((err) => pitchesFailed(err));
   }
 
   for (const tab of document.querySelectorAll('.view-tab')) {
@@ -769,7 +790,7 @@ import { hasChanges } from './ui-state.js';
 
   /* ---------- Some words ---------- */
 
-  const words = langField($('f-words'), { onChange: () => renderWordsPreview(), translate: 'rich' });
+  const words = langField($('f-words'), { onChange: () => renderWordsPreview(), translate: 'rich', flagSame: true });
   let wordsVersion = null;
   let wordsTimer = 0;
 
@@ -1079,6 +1100,246 @@ import { hasChanges } from './ui-state.js';
 
   /* ---------- Session ---------- */
 
+  /* ---------- "for…": pages for companies (lib/pitches.js) ----------
+     The API takes the whole list (like the glossary); a new page gets its id from the server.
+     Projects are referenced as "<collection>/<id>", in page order. */
+
+  let pitches = [];
+  let pitchesVersion = null;
+  let editingPitch = null; // index in pitches, null = new
+  let chosen = [];
+  let savedPitch = null;
+  let pitchReturnFocus = null;
+  let pitchTimer = 0;
+  const PITCH_COLLECTIONS = [['projects', 'projects (IA)'], ['projects-ac', 'projects (B.C.)']];
+  const pitchUrl = (id) => `https://masellas.info/per-a/${id}/`;
+
+  function refTitle(ref) {
+    const [name, id] = ref.split('/');
+    return COLLECTIONS[name]?.projects.find((project) => project.id === id)?.title ?? `${id} (gone)`;
+  }
+
+  function setPitchStatus(text, target = 'pitch-status') {
+    clearTimeout(pitchTimer);
+    $(target).textContent = text;
+    if (['saved', 'deleted', 'link copied'].includes(text)) pitchTimer = setTimeout(() => { $(target).textContent = ''; }, 3000);
+  }
+
+  function pitchesFailed(err) {
+    if (err.status !== 401) setPitchStatus(err.status ? `could not load: ${err.message}.` : 'could not reach the server. try again.');
+  }
+
+  function renderPitches() {
+    const rows = pitches.map((pitch, index) => {
+      const row = el('li', 'row');
+      row.dataset.index = String(index);
+      const info = el('div', 'row__info');
+      const link = el('a', 'row__link', pitchUrl(pitch.id));
+      link.href = pitchUrl(pitch.id);
+      link.target = '_blank';
+      link.rel = 'noopener';
+      info.append(el('span', 'row__title', pitch.company), el('span', 'row__meta', `${pitch.lang} · ${pitch.projects.map(refTitle).join(', ')}`), link);
+      const actions = el('div', 'row__actions');
+      actions.append(button('copy link', 'copy', `copy the link for ${pitch.company}`), button('edit', 'edit', `edit ${pitch.company}`), button('delete', 'delete', `delete ${pitch.company}`));
+      row.append(info, actions);
+      return row;
+    });
+    if (!rows.length) rows.push(el('li', 'empty', 'no pages yet.'));
+    $('pitch-rows').replaceChildren(...rows);
+  }
+
+  // The project titles come from both collections, so both are loaded first.
+  async function loadPitches() {
+    await Promise.all(PITCH_COLLECTIONS.map(([name]) => (COLLECTIONS[name].loaded ? null : loadProjects(COLLECTIONS[name]))));
+    const data = await api('GET', 'api/pitches', undefined, { track: false });
+    pitches = data.pitches;
+    pitchesVersion = data.version;
+    renderPitches();
+  }
+
+  function renderChoices(focus = null) {
+    const items = chosen.map((ref, index) => {
+      const item = el('li', 'pitch-chosen__item');
+      const up = button('↑', 'up', `move ${refTitle(ref)} up`);
+      const down = button('↓', 'down', `move ${refTitle(ref)} down`);
+      up.disabled = index === 0;
+      down.disabled = index === chosen.length - 1;
+      for (const btn of [up, down]) btn.dataset.ref = ref;
+      item.append(el('span', '', refTitle(ref)), up, down);
+      return item;
+    });
+    if (!items.length) items.push(el('li', 'hint', 'none yet: tick them below.'));
+    $('pitch-chosen').replaceChildren(...items);
+    $('pitch-options').replaceChildren(...PITCH_COLLECTIONS.map(([name, label]) => {
+      const group = el('div', 'pitch-options__group');
+      group.append(el('p', 'pitch-options__label', label));
+      for (const project of COLLECTIONS[name].projects.filter((p) => p.visible !== false)) {
+        const option = el('label', 'pitch-option');
+        const box = el('input');
+        box.type = 'checkbox';
+        box.value = `${name}/${project.id}`;
+        box.checked = chosen.includes(box.value);
+        option.append(box, project.title);
+        group.append(option);
+      }
+      return group;
+    }));
+    if (focus) {
+      const btn = $('pitch-chosen').querySelector(`[data-ref="${CSS.escape(focus.ref)}"][data-action="${focus.action}"]`);
+      (btn && !btn.disabled ? btn : $('pitch-chosen').querySelector(`[data-ref="${CSS.escape(focus.ref)}"]:not(:disabled)`))?.focus();
+    }
+  }
+
+  $('pitch-options').addEventListener('change', (event) => {
+    const box = event.target.closest('input[type="checkbox"]');
+    if (!box) return;
+    chosen = box.checked ? [...chosen, box.value] : chosen.filter((ref) => ref !== box.value);
+    renderChoices();
+    $('pitch-options').querySelector(`input[value="${CSS.escape(box.value)}"]`)?.focus();
+  });
+
+  $('pitch-chosen').addEventListener('click', (event) => {
+    const btn = event.target.closest('button[data-ref]');
+    if (!btn) return;
+    const from = chosen.indexOf(btn.dataset.ref);
+    const to = from + (btn.dataset.action === 'up' ? -1 : 1);
+    if (from < 0 || to < 0 || to >= chosen.length) return;
+    chosen.splice(to, 0, chosen.splice(from, 1)[0]);
+    renderChoices({ ref: btn.dataset.ref, action: btn.dataset.action });
+  });
+
+  const pitchValues = () => ({ company: $('f-company').value, lang: $('f-pitch-lang').value, intro: $('f-intro').value, projects: chosen.slice() });
+
+  function clearPitchErrors() {
+    for (const id of ['pitch-form-error', 'e-company', 'e-intro', 'e-projects']) $(id).textContent = '';
+    $('pitch-form').querySelectorAll('[aria-invalid]').forEach((input) => input.removeAttribute('aria-invalid'));
+  }
+
+  function fillPitchForm(pitch) {
+    $('pitch-editor-title').textContent = pitch ? `edit ${pitch.company}` : 'new page';
+    $('f-company').value = pitch ? pitch.company : '';
+    $('f-pitch-lang').value = pitch ? pitch.lang : 'ca';
+    $('f-intro').value = pitch ? pitch.intro : '';
+    chosen = pitch ? pitch.projects.slice() : [];
+    renderChoices();
+    setPitchStatus(pitch ? pitchUrl(pitch.id) : '', 'pitch-form-status');
+    savedPitch = pitchValues();
+  }
+
+  function openPitchForm(index, trigger) {
+    editingPitch = index;
+    pitchReturnFocus = trigger;
+    clearPitchErrors();
+    pitchLeave.disarm();
+    fillPitchForm(index === null ? null : pitches[index]);
+    $('pitch-editor').hidden = false;
+    $('f-company').focus();
+  }
+
+  function closePitchForm() {
+    $('pitch-editor').hidden = true;
+    const row = editingPitch === null ? null : $('pitch-rows').querySelector(`[data-index="${editingPitch}"]`);
+    const target = row?.querySelector('[data-action="edit"]') || pitchReturnFocus;
+    editingPitch = null;
+    savedPitch = null;
+    (target && target.isConnected ? target : $('new-pitch')).focus();
+  }
+
+  const pitchLeave = leaveGuard($('pitch-cancel'), { dirty: () => hasChanges(savedPitch, pitchValues()), leave: closePitchForm });
+
+  // Returns true when saved. Field errors come back keyed pitches.<index>.<field>.
+  async function savePitches(list, { onFieldError = null } = {}) {
+    try {
+      const data = await api('PUT', 'api/pitches', { pitches: list }, { ifMatch: pitchesVersion, track: false });
+      pitches = data.pitches;
+      pitchesVersion = data.version;
+      renderPitches();
+      return true;
+    } catch (err) {
+      if (err.status === 401) return false;
+      if (err.status === 409) {
+        await loadPitches().catch(() => {});
+        setPitchStatus('the pages changed elsewhere. the list has been reloaded, check it and try again.');
+      } else if (err.status === 400 && err.body.errors) {
+        const messages = Object.entries(err.body.errors);
+        if (onFieldError) onFieldError(messages);
+        else setPitchStatus(messages.map(([, message]) => message).join(' '));
+      } else if (err.body && err.body.version) {
+        await loadPitches().catch(() => {}); // saved privately, pages pending
+        setPitchStatus(err.message);
+      } else {
+        setPitchStatus(err.status ? `could not save: ${err.message}.` : 'could not reach the server. try again.');
+      }
+      return false;
+    }
+  }
+
+  $('pitch-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    clearPitchErrors();
+    const index = editingPitch === null ? pitches.length : editingPitch;
+    const list = pitches.slice();
+    list[index] = { ...(pitches[index] ?? {}), ...pitchValues() };
+    const saved = await savePitches(list, {
+      onFieldError: (messages) => {
+        let first = null;
+        for (const [key, message] of messages) {
+          const match = /^pitches\.(\d+)\.(\w+)$/.exec(key);
+          const mine = match && Number(match[1]) === index;
+          const target = mine && $(`e-${match[2] === 'projects' ? 'projects' : match[2] === 'intro' ? 'intro' : 'company'}`) || $('pitch-form-error');
+          target.textContent = target.textContent ? `${target.textContent} ${message}` : message;
+          if (mine && !first) {
+            first = { company: $('f-company'), intro: $('f-intro'), projects: $('pitch-options').querySelector('input') }[match[2]] ?? null;
+            first?.setAttribute('aria-invalid', 'true');
+          }
+        }
+        (first || $('pitch-form-error')).focus();
+      },
+    });
+    if (!saved) return;
+    editingPitch = index;
+    fillPitchForm(pitches[index]);
+    $('pitch-editor-title').textContent = `edit ${pitches[index].company}`;
+    setPitchStatus(`saved: ${pitchUrl(pitches[index].id)}`, 'pitch-form-status');
+  });
+
+  $('new-pitch').addEventListener('click', (event) => openPitchForm(null, event.currentTarget));
+
+  $('pitch-rows').addEventListener('click', async (event) => {
+    const btn = event.target.closest('button[data-action]');
+    if (!btn) return;
+    const index = Number(btn.closest('.row').dataset.index);
+    const pitch = pitches[index];
+    if (btn.dataset.action === 'edit') openPitchForm(index, btn);
+    else if (btn.dataset.action === 'copy') {
+      try {
+        await navigator.clipboard.writeText(pitchUrl(pitch.id));
+        setPitchStatus('link copied');
+      } catch {
+        setPitchStatus(`copy it by hand: ${pitchUrl(pitch.id)}`);
+      }
+    } else if (btn.dataset.action === 'delete' && !btn.dataset.confirm) {
+      btn.dataset.confirm = '1';
+      btn.textContent = 'confirm delete';
+      btn.classList.add('btn--danger');
+    } else if (btn.dataset.action === 'delete') {
+      if (await savePitches(pitches.filter((item, i) => i !== index))) {
+        if (editingPitch !== null) { $('pitch-editor').hidden = true; editingPitch = null; }
+        $('new-pitch').focus();
+        setPitchStatus('deleted');
+      }
+    }
+  });
+
+  $('pitch-rows').addEventListener('focusout', (event) => {
+    const btn = event.target.closest('button[data-action="delete"]');
+    if (btn?.dataset.confirm) {
+      delete btn.dataset.confirm;
+      btn.textContent = 'delete';
+      btn.classList.remove('btn--danger');
+    }
+  });
+
   $('login-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     try {
@@ -1095,6 +1356,7 @@ import { hasChanges } from './ui-state.js';
     for (const collection of Object.values(COLLECTIONS)) Object.assign(collection, { projects: [], version: null, loaded: false });
     wordsVersion = null;
     glossaryVersion = null;
+    pitchesVersion = null;
     showLogin();
   });
 

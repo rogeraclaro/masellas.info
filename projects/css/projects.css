@@ -115,6 +115,28 @@ ul {
   margin: 0;
 }
 
+/* A recruiter page's intro under its heading (admin/lib/pitches.js): running text, rich-text format. */
+.page-intro {
+  max-width: 48rem;
+  margin-top: var(--space-after-title);
+  font-family: var(--font-book);
+  font-size: var(--fs-lead);
+  line-height: var(--lh-body);
+  letter-spacing: var(--ls-text);
+}
+
+.page-intro p {
+  margin: 0 0 var(--rich-gap);
+}
+
+.page-intro > :last-child {
+  margin-bottom: 0;
+}
+
+.js .page-intro {
+  visibility: hidden;
+}
+
 /* The chips' padding hangs outside the column, so the first and last labels sit on its edges. */
 .filters {
   display: flex;

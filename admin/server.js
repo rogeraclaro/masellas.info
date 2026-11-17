@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createStore, ConflictError } from './lib/store.js';
+import { createStore, ConflictError, writeAtomic } from './lib/store.js';
 import { verifyPassword, signSession, verifySession, createRateLimiter } from './lib/auth.js';
 import { validateProject, validateSomeWords, validateGlossary, uniqueSlug, isPermutation, slugOwner } from './lib/validation.js';
 import { glossaryPath, prepareGlossary, missingTerms, termUsage, withPendingTerms } from './lib/glossary.js';
@@ -17,6 +17,7 @@ import {
   menuPaths, writeMenuPublic,
 } from './lib/publish.js';
 import { writeSeoFiles } from './lib/seo-pages.js';
+import { pitchesPath, validatePitches, writePitchPages } from './lib/pitches.js';
 import { migrateProjects, migrateSomeWords } from './lib/languages.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -139,6 +140,7 @@ export function createApp({
   projectsAcPublicFile = projectsAcPaths({ dataFile, publicFile }).projectsAcPublicFile,
   menuPublicFile = menuPaths({ publicFile }).menuPublicFile,
   translateFetch = globalThis.fetch, translateLimit = { max: 30, windowMs: 60 * 1000 }, anthropicApiKey = '',
+  pitchesFile = pitchesPath(dataFile),
 }) {
   // Older files (plain strings) are read as { ca, en, es } and stored that way on the next write.
   const store = createStore(dataFile, { migrate: migrateProjects });
@@ -152,6 +154,13 @@ export function createApp({
   });
   const readGlossary = () => readOrEmpty(glossaryStore, { terms: [] });
   const readProjectsAc = () => readOrEmpty(acStore, { projects: [] });
+  // Recruiter pages (lib/pitches.js): private list next to DATA_FILE, created empty on first use.
+  const pitchStore = createStore(pitchesFile);
+  const ensurePitches = async () => {
+    if (!existsSync(pitchesFile)) await writeAtomic(pitchesFile, `${JSON.stringify({ pitches: [] }, null, 2)}\n`, 0o600);
+  };
+  // They show projects, so every projects or glossary publish rewrites them too.
+  const writePitches = async () => writePitchPages({ publicFile, pitches: (await readOrEmpty(pitchStore, { pitches: [] })).pitches, log });
   const limiter = createRateLimiter({ max: 5, windowMs: 15 * 60 * 1000 });
   // Translations per client and minute, to go easy on the third-party translator. Every call is
   // recorded as a "failure" of this limiter, so the window counts calls.
@@ -201,6 +210,7 @@ export function createApp({
       mutate: resource(store, async (data) => {
         await writePublic(publicFile, data, await readGlossary());
         await writeSeoFiles({ publicFile, log });
+        await writePitches();
       }, projectsShape),
     },
     {
@@ -208,6 +218,7 @@ export function createApp({
       mutate: resource(acStore, async (data) => {
         await writeProjectsAcPublic(projectsAcPublicFile, data, await readGlossary());
         await writeSeoFiles({ publicFile, log });
+        await writePitches();
       }, projectsShape),
     },
   ].map((collection) => ({ ...collection, item: new RegExp(`^${collection.path}/([^/]+)$`) }));
@@ -219,7 +230,9 @@ export function createApp({
     await writeProjectsAcPublic(projectsAcPublicFile, projectsAc, glossary);
     await writeMenuPublic(menuPublicFile, glossary);
     await writeSeoFiles({ publicFile, log });
+    await writePitches();
   }, (data) => ({ terms: data.terms }));
+  const mutatePitches = resource(pitchStore, (data) => writePitchPages({ publicFile, pitches: data.pitches, log }), (data) => ({ pitches: data.pitches }));
 
   // {{term}}s (without their own explanation) the glossary lacks are added to it on save, so they must
   // be valid glossary terms (no { or }, see validateGlossary). value: { ca, en, es } or undefined.
@@ -429,6 +442,17 @@ export function createApp({
         return { terms: value.terms };
       });
     }
+    if (method === 'GET' && pathname === '/api/pitches') {
+      await ensurePitches();
+      const { data, version } = await pitchStore.read();
+      return sendJson(res, 200, { pitches: data.pitches, version });
+    }
+    if (method === 'PUT' && pathname === '/api/pitches') {
+      const { value, errors } = validatePitches(body);
+      if (Object.keys(errors).length) throw invalid(errors);
+      await ensurePitches();
+      return mutatePitches(req, res, 200, () => ({ pitches: value.pitches }));
+    }
     throw new HttpError(404, { error: 'not found' });
   }
 
@@ -484,6 +508,9 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const { created: acCreated } = await prepareProjectsAc({ ...config, glossary });
     if (acCreated) console.log(`admin: created an empty projects (B.C.) list (${config.projectsAcFile})`);
     await writeSeoFiles({ publicFile: config.publicFile }); // logs and skips on any problem
+    const pitchesFile = pitchesPath(config.dataFile);
+    const pitches = existsSync(pitchesFile) ? JSON.parse(readFileSync(pitchesFile, 'utf8')).pitches : [];
+    await writePitchPages({ publicFile: config.publicFile, pitches }); // likewise
   } catch (err) {
     console.error(`admin: ${err.message}`);
     process.exit(1);

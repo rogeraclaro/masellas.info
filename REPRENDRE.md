@@ -34,6 +34,12 @@ Co-Authored-By. Abans de cada commit, git diff --cached --stat.
    Code" (ca), "WordPress" (ACF es), "custom post types" (ACF en); any
    d'InDret "des de 2000" surt igual a /en/ i /es/.
 
+4. Xat "pregunta'm" (2026-11-17): comprovar la resposta graciosa del temps
+   quan estigui desada a l'admin (pestanya "ask me"), i fer la funcionalitat
+   nova: un àudio associat a una resposta graciosa ("mañana sol y buen
+   tiempo") que soni alhora que surt la resposta, penjat des de l'admin.
+   Pendent de Roger: penjar el document de vida laboral a la mateixa pestanya.
+
 Fet el 2026-11-16: nginx retorna 404 per a qualsevol fitxer o carpeta que
 comenci per punt (/.atl/, temporals de l'admin), des de l'editor de vhost de
 CloudPanel (còpies a /root/vhost-backups/).

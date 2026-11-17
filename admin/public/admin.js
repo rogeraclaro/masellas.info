@@ -82,6 +82,7 @@ import { hasChanges, untranslated, translationGaps } from './ui-state.js';
     // Logging in again on "some words": its text was dropped at logout and no tab click will reload it.
     if (!$('view-words').hidden) loadWords().catch((err) => wordsFailed(err));
     if (!$('view-pitches').hidden) loadPitches().catch((err) => pitchesFailed(err));
+    if (!$('view-notes').hidden) loadNotes().catch(() => {});
     $('new-project').focus();
   }
 
@@ -780,6 +781,8 @@ import { hasChanges, untranslated, translationGaps } from './ui-state.js';
     $('view-words').hidden = name !== 'words';
     $('view-glossary').hidden = name !== 'glossary';
     $('view-pitches').hidden = name !== 'pitches';
+    $('view-notes').hidden = name !== 'notes';
+    if (name === 'notes' && notesVersion === null) loadNotes().catch((err) => setNotesStatus(err.status ? `could not load: ${err.message}.` : 'could not reach the server. try again.'));
     if (name === 'words' && wordsVersion === null) loadWords().catch((err) => wordsFailed(err));
     if (name === 'pitches' && pitchesVersion === null) loadPitches().catch((err) => pitchesFailed(err));
   }
@@ -1340,6 +1343,62 @@ import { hasChanges, untranslated, translationGaps } from './ui-state.js';
     }
   });
 
+  /* ---------- "ask me": private notes (lib/ask.js) ---------- */
+
+  let notesVersion = null;
+  let notesTimer = 0;
+  const NOTES_MAX = 30000;
+  const notesCount = () => { $('notes-count').textContent = `${$('f-notes').value.length} / ${NOTES_MAX}`; };
+
+  function setNotesStatus(text) {
+    clearTimeout(notesTimer);
+    $('notes-status').textContent = text;
+    if (text === 'saved' || text.startsWith('loaded')) notesTimer = setTimeout(() => { $('notes-status').textContent = ''; }, 4000);
+  }
+
+  async function loadNotes() {
+    const data = await api('GET', 'api/ask-notes', undefined, { track: false });
+    $('f-notes').value = data.text;
+    $('f-fun').value = data.fun ?? '';
+    notesVersion = data.version;
+    notesCount();
+  }
+
+  $('f-notes').addEventListener('input', notesCount);
+
+  // A text file replaces the notes in the form (nothing is saved until "save").
+  $('f-notes-file').addEventListener('change', async (event) => {
+    const [file] = event.target.files;
+    event.target.value = '';
+    if (!file) return;
+    if (file.size > NOTES_MAX * 4) return setNotesStatus('that file is too big for the notes.');
+    const text = await file.text();
+    if (text.includes('\u0000')) return setNotesStatus('that is not a text file: save it as .txt or .md first.');
+    $('f-notes').value = text.slice(0, NOTES_MAX);
+    notesCount();
+    setNotesStatus(`loaded ${file.name}${text.length > NOTES_MAX ? ` (cut to ${NOTES_MAX} characters)` : ''}: check it and save.`);
+  });
+
+  $('notes-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    $('e-notes').textContent = '';
+    try {
+      const data = await api('PUT', 'api/ask-notes', { text: $('f-notes').value, fun: $('f-fun').value }, { ifMatch: notesVersion, track: false });
+      notesVersion = data.version;
+      $('f-notes').value = data.text;
+      $('f-fun').value = data.fun;
+      notesCount();
+      setNotesStatus('saved');
+    } catch (err) {
+      if (err.status === 401) return;
+      if (err.status === 409) {
+        await loadNotes().catch(() => {});
+        setNotesStatus('the notes changed elsewhere. they have been reloaded: check them and save again.');
+      } else if (err.status === 400 && err.body.errors) $('e-notes').textContent = Object.values(err.body.errors).join(' ');
+      else setNotesStatus(err.status ? `could not save: ${err.message}.` : 'could not reach the server. try again.');
+    }
+  });
+
   $('login-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     try {
@@ -1357,6 +1416,7 @@ import { hasChanges, untranslated, translationGaps } from './ui-state.js';
     wordsVersion = null;
     glossaryVersion = null;
     pitchesVersion = null;
+    notesVersion = null;
     showLogin();
   });
 

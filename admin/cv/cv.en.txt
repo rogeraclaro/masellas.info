@@ -1,0 +1,165 @@
+Roger Masellas Roca
+Web developer and teacher: web projects since 1996, front-end layout, WordPress and AI-assisted development (Claude Code)
+roger@lamosca.com | +34 627 595 835 | Sant Feliu de Codines (Barcelona, Spain) | linkedin.com/in/roger-masellas | github.com/rogeraclaro
+| masellas.info
+
+I have been building and coordinating web projects since 1996: 22 years as a founding partner of the Lamosca studio,
+leading its internet area for clients such as TV3, Sónar, CCCB, Mercat de les Flors and Barcelona City Council, and from
+2018 to 2025 as a frontend developer at A!CLARO (custom WordPress, around 200 landing pages for Veepee and Privalia,
+the online shops of Laie, Sagrada Família and MNAC). Today I build complete solutions with Claude Code, such as the
+advanced search for the legal journal Indret and the GrausFP search engine. I have taught HTML5, CSS3 and content
+management systems in a web design master’s programme and I am qualified to teach in vocational training (FP).
+
+Skills
+Web project coordination:
+
+Front-end layout:
+WordPress:
+AI-assisted development:
+JavaScript and frameworks:
+Tools:
+
+from brief to production together with the client; coordinating internal and external
+teams (up to 4 developers across Spain and Nicaragua), technical validation and
+delivery oversight.
+HTML5, CSS3 (Flexbox, Grid), Sass, responsive and mobile-first design; pixel-perfect
+implementation from Figma, Adobe XD and Sketch; email newsletters (Mailchimp).
+custom themes, templates and PHP plugins, Elementor; hosting, email and domain
+management (cdmon, dynahosting).
+Claude Code as a daily tool, AI agents and MCPs; REST/JSON API integration,
+scraping and PDF data extraction.
+JavaScript, jQuery, React and Vue.js (layout and integration level), Bootstrap, PHP,
+MySQL.
+Git, GitHub, GitLab, Figma, Adobe XD, Photoshop, Illustrator, Premiere.
+
+Experience
+Freelance web developer
+Main client: Indret, legal journal
+
+2025-Present
+Remote
+
+• Indret’s website, which I built and have maintained since its beginnings (first through Lamosca, now freelance).
+• Advanced search in WordPress (JavaScript and PHP, built with Claude Code) over some 2,200 articles: free text, section,
+author, organisation, keywords, dates and issue number, with near-instant results. First version built solo in about a week,
+then refined with the editorial board.
+• Follow-up commissions: a feasibility study for a RAG over the full article archive and a tool that automatically re-formats
+submitted articles that lack the required formatting.
+
+Personal AI projects
+Built with Claude Code
+
+2025-Present
+masellas.info
+
+• GrausFP: a search engine that unifies scattered official information on Spanish vocational training using REST/JSON
+APIs, scraping and data extraction from 584 PDF annexes, with automatic updates, user accounts and alerts.
+• Persona(s) de interés: restored the original look of a Google Maps map with custom CSS styling that had broken after
+changes in Google’s code.
+• Fenya, a job search engine that works from users’ CVs (beta), and AI Bookmarks, a thematic link repository with a
+Chrome extension and a mobile app.
+
+A!CLARO (Design & Solutions Inthe Network, S.L.)
+Frontend Developer
+
+2018-2025
+Barcelona
+
+• Custom WordPress themes, templates and PHP plugins, with development accelerated through Claude Code, AI agents
+and MCPs; sites built with Elementor; hosting, email and domain management.
+• Around 200 offer-launch landing pages for Veepee and Privalia in six countries, built from Figma designs at a pace of 15
+to 25 a month: first with jQuery and Bootstrap, later with Veepee’s Vue.js component system and content served by its
+API.
+• Front-end layout of the Laie online shop in React (JSX and Sass) from scratch, from Adobe XD designs, later adapted
+for Sagrada Família and MNAC, in coordination with the back-end and checkout developers.
+• Led a team of up to 4 developers across Spain and Nicaragua: task allocation across two time zones, technical validation
+and oversight of final delivery to the client.
+• Email newsletters for several clients with Mailchimp.
+
+Lamosca sccl
+Founding Partner, Project Lead / CTO
+
+1996-2018
+Barcelona
+
+• Led the multimedia area and later the internet area of an 8-person design and multimedia studio: end-to-end projects
+with the client, from design to production, coordinating external teams when needed.
+• Modules of TV3’s first corporate portal and CCRTV websites, corporate portal and intranet of the Agència Catalana de
+Notícies, the Sónar website (2001-2008), the Mercat de les Flors corporate and ticketing portal, interactive pieces for
+Barcelona City Council.
+• Email newsletter layout (Sónar, Ciudades Patrimonio, the monthly internal newsletter for Barcelona City Council staff)
+and hosting, email and domain management.
+• Other clients: CCCB, Festival Grec, Filmoteca de Catalunya, TMB, Òmnium Cultural, Rockdelux, FAD, Editorial Barcino,
+Fundació Bofill.
+• Technologies: HTML5, CSS3, JavaScript, jQuery, Angular, WordPress, PHP, MySQL.
+
+Escola Superior de Disseny Seeway
+Lecturer
+
+2014-2017
+Barcelona
+
+• Taught “HTML5, CSS3 and Content Management Systems” in the Master’s in Web Design, UX, UI and Prototyping and
+in the University Diploma in Graphic and Digital Design.
+
+Escola Universitària Elisava
+Seminar Lecturer
+
+2010-2015
+Barcelona
+
+• Seminars on Communication and the Internet.
+
+Promsite, CDmon hosting sponsorship programme
+
+2013-Present
+
+Jury member, web project evaluation
+
+Universitat de Barcelona, Faculty of Medicine
+Programmer and Designer
+
+1994-1996
+Barcelona
+
+• Programmed and designed the interactive CD “El Cráneo” within the EU pilot project “Metode - TEAM”.
+
+Universitat de Barcelona, Central IT Services
+User Training and Support
+
+1990-1994
+Barcelona
+
+Education
+Merin’s
+
+2026
+
+Official teaching qualification for Vocational Training (FP), grades A, B and C
+
+Pimec
+
+2026
+
+AI Tools for Career Guidance
+
+IT Academy
+Developer Program, Frontend specialization
+
+Universitat de Barcelona
+Degree in Philosophy and Educational Sciences (not completed, 3 subjects pending)
+
+Certification
+TypeScript Essential Training
+
+Languages
+Catalan (native), Spanish (native), English (fluent), French (fluent).
+
+References
+Available on request.
+
+2018
+Barcelona
+1987-1992
+Barcelona
+

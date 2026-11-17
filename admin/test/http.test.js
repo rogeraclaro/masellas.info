@@ -828,3 +828,31 @@ test('ask: public, same-site only, answers through the model and enforces both c
     off.app.close();
   }
 });
+
+test('ask notes: private text behind the session, versioned, and fed to the chat with the résumé', async () => {
+  let res = await call(base, 'GET', '/api/ask-notes', { cookie });
+  assert.equal(res.status, 200);
+  let json = await res.json();
+  assert.equal(json.text, '');
+  res = await call(base, 'PUT', '/api/ask-notes', { cookie, version: json.version, body: { text: '  Ran a team of four at Lamosca.  ' } });
+  assert.equal(res.status, 200);
+  json = await res.json();
+  assert.equal(json.text, 'Ran a team of four at Lamosca.');
+  assert.equal((await call(base, 'GET', '/api/ask-notes')).status, 401, 'needs a session');
+  assert.equal((await call(base, 'PUT', '/api/ask-notes', { cookie, version: json.version, body: { text: 1 } })).status, 400);
+
+  const systems = [];
+  const askFetch = async (url, init) => {
+    systems.push(JSON.parse(init.body).system[0].text);
+    return { ok: true, status: 200, json: async () => ({ content: [{ type: 'text', text: 'See [the CV](https://masellas.info/pdf/roger_masellas_roca_cv_en.pdf) or [this](https://evil.example).' }] }) };
+  };
+  const { app, base: askBase } = await boot({ anthropicApiKey: 'sk-test', askFetch });
+  try {
+    res = await call(askBase, 'POST', '/api/ask', { body: { lang: 'en', messages: [{ role: 'user', content: 'Teams?' }] }, headers: { origin: askBase } });
+    assert.deepEqual(await res.json(), { answer: 'See [the CV](https://masellas.info/pdf/roger_masellas_roca_cv_en.pdf) or this.' });
+    assert.match(systems[0], /Ran a team of four at Lamosca\./);
+    assert.match(systems[0], /# Résumé/, 'the committed résumé text (admin/cv)');
+  } finally {
+    app.close();
+  }
+});

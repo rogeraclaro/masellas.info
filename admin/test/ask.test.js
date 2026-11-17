@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateAsk, contextText, systemPrompt, askClaude, createDailyCounter, AskError, ASK } from '../lib/ask.js';
+import { validateAsk, contextText, systemPrompt, askClaude, createDailyCounter, AskError, ASK, allowedLinks, filterLinks, validateNotes, funAnswers } from '../lib/ask.js';
 
 const q = (content) => ({ role: 'user', content });
 const a = (content) => ({ role: 'assistant', content });
@@ -27,12 +27,12 @@ test('validateAsk rejects bad languages, roles, lengths and endings', () => {
 test('the prompt holds the site text as plain text and the rules, in the page language', () => {
   const context = contextText({
     words: 'Faig webs des de **1996**.',
-    projects: [{ title: 'GrausFP', category: 'cercador', year: 2026, url: 'https://grausfp.es', description: 'Un cercador.', tools: ['Claude Code'], ai: 'Fet amb {{IA|intel·ligència artificial}}.' }],
-    projectsAc: [{ title: 'InDret', category: 'website', year: '2000-', description: 'Una revista.', tools: [], ai: '' }],
+    projects: [{ id: 'grausfp', title: 'GrausFP', category: 'cercador', year: 2026, url: 'https://grausfp.es', description: 'Un cercador.', tools: ['Claude Code'], ai: 'Fet amb {{IA|intel·ligència artificial}}.' }],
+    projectsAc: [{ id: 'indret', title: 'InDret', category: 'website', year: '2000-', description: 'Una revista.', tools: [], ai: '' }],
   });
   assert.match(context, /Faig webs des de 1996\./);
-  assert.match(context, /## GrausFP \(cercador, 2026\)\nLink: https:\/\/grausfp\.es\nUn cercador\.\nTools: Claude Code\nFet amb IA\./);
-  assert.match(context, /# Projects made before AI\n\n## InDret \(website, 2000-\)\nUna revista\./);
+  assert.match(context, /## GrausFP \(cercador, 2026\)\nPage on masellas\.info: https:\/\/masellas\.info\/projects\/grausfp\/\nLive site: https:\/\/grausfp\.es\nUn cercador\.\nTools: Claude Code\nFet amb IA\./);
+  assert.match(context, /# Projects made before AI\n\n## InDret \(website, 2000-\)\nPage on masellas\.info: https:\/\/masellas\.info\/projects-ac\/indret\/\nUna revista\./);
   const prompt = systemPrompt('es', context);
   assert.match(prompt, /answer in Spanish/);
   assert.match(prompt, /roger@lamosca\.com/);
@@ -86,4 +86,44 @@ test('the daily counter allows `max` questions per UTC day, then waits for the n
   assert.equal(daily.take(day('2026-11-17T11:00:00Z')), true);
   assert.equal(daily.take(day('2026-11-17T23:59:00Z')), false);
   assert.equal(daily.take(day('2026-11-18T00:01:00Z')), true);
+});
+
+test('the context links every project to its page and site, and adds the résumé and the private notes', () => {
+  const context = contextText({
+    lang: 'en',
+    projects: [{ id: 'grausfp', title: 'GrausFP', category: 'search engine', year: 2026, url: 'https://grausfp.es', description: '', tools: [], ai: '' }],
+    projectsAc: [{ id: 'indret', title: 'InDret', category: 'website', year: '2000-', description: '', tools: [], ai: '' }],
+    cv: 'Roger Masellas Roca\nWeb developer\n',
+    notes: '  Led a team of four in 2019.  ',
+  });
+  assert.match(context, /Page on masellas\.info: https:\/\/masellas\.info\/en\/projects\/grausfp\/\nLive site: https:\/\/grausfp\.es/);
+  assert.match(context, /https:\/\/masellas\.info\/en\/projects-ac\/indret\//);
+  assert.match(context, /# Résumé\n\nPDF: https:\/\/masellas\.info\/pdf\/roger_masellas_roca_cv_en\.pdf\n\nRoger Masellas Roca\nWeb developer/);
+  assert.match(context, /Roger's own notes\)\n\nLed a team of four in 2019\.$/);
+  assert.doesNotMatch(contextText({ lang: 'ca' }), /Résumé|own notes/, 'no empty sections');
+});
+
+test('answers keep only links to addresses in the material', () => {
+  const allowed = allowedLinks('Page on masellas.info: https://masellas.info/projects/grausfp/\nLive site: https://grausfp.es.');
+  assert.ok(allowed.has('https://grausfp.es'), 'trailing punctuation is not part of the url');
+  const answer = 'See [GrausFP](https://masellas.info/projects/grausfp/), [the site](https://grausfp.es), [evil](https://evil.example/x) and [mail](mailto:roger@lamosca.com).';
+  assert.equal(filterLinks(answer, allowed), 'See [GrausFP](https://masellas.info/projects/grausfp/), [the site](https://grausfp.es), evil and [mail](mailto:roger@lamosca.com).');
+});
+
+test('validateNotes takes plain text up to the limit', () => {
+  assert.deepEqual(validateNotes({ text: '  hello  ' }).value, { text: 'hello', fun: '' });
+  assert.ok(validateNotes({ text: 3 }).error);
+  assert.ok(validateNotes({ text: 'x'.repeat(30001) }).error);
+});
+
+test('fun answers: "question | answer" lines, in the prompt with the rule to use them word for word', () => {
+  assert.deepEqual(funAnswers('Quin temps farà demà? | Evidentment, mañana sol y buen tiempo!!\nno bar here\n | empty question\nA | b | c'), [
+    { question: 'Quin temps farà demà?', answer: 'Evidentment, mañana sol y buen tiempo!!' },
+    { question: 'A', answer: 'b | c' },
+  ]);
+  const context = contextText({ fun: 'Temps demà? | Sol!' });
+  assert.match(context, /# Fun answers\n\n- Question: Temps demà\?\n  Answer: Sol!/);
+  assert.match(systemPrompt('en', context), /Fun answers[\s\S]*word for word/);
+  assert.deepEqual(validateNotes({ text: 'a', fun: ' x | y ' }).value, { text: 'a', fun: 'x | y' });
+  assert.deepEqual(validateNotes({ text: 'a' }).value, { text: 'a', fun: '' }, 'fun is optional');
 });

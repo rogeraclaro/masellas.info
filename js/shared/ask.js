@@ -6,6 +6,26 @@ import { el } from './dom.js';
 const ENDPOINT = '/admin/api/ask';
 const MAX_QUESTION = 500; // as admin/lib/ask.js
 const KEEP = 10; // earlier messages sent along with a question (the server takes up to 12 in all)
+const LINK = /\[([^\]\n]+)\]\(((?:https:\/\/|mailto:)[^)\s]+)\)/g;
+
+// Answer text into the paragraph: [label](url) becomes a link (the server keeps only the site's own
+// addresses); everything else stays text. textContent and href only, never innerHTML.
+function fill(paragraph, text) {
+  paragraph.replaceChildren();
+  let last = 0;
+  for (const match of text.matchAll(LINK)) {
+    paragraph.append(text.slice(last, match.index));
+    const link = el('a', 'ask__link', match[1]);
+    link.href = match[2];
+    if (match[2].startsWith('https:')) {
+      link.target = '_blank';
+      link.rel = 'noopener';
+    }
+    paragraph.append(link);
+    last = match.index + match[0].length;
+  }
+  paragraph.append(text.slice(last));
+}
 
 export function bindAsk({ t, lang }) {
   if (!document.body.hasAttribute('data-ask')) return;
@@ -54,7 +74,10 @@ export function bindAsk({ t, lang }) {
 
   function say(role, text) {
     const item = el('li', `ask__msg ask__msg--${role}`);
-    item.append(el('span', 'ask__who', role === 'user' ? t('ask_you') : t('ask_bot')), el('p', 'ask__text', text));
+    const paragraph = el('p', 'ask__text');
+    if (role === 'user') paragraph.textContent = text; // the visitor's own words are never links
+    else fill(paragraph, text);
+    item.append(el('span', 'ask__who', role === 'user' ? t('ask_you') : t('ask_bot')), paragraph);
     log.append(item);
     log.scrollTop = log.scrollHeight;
     return item;
@@ -83,7 +106,7 @@ export function bindAsk({ t, lang }) {
       /* network: the generic message */
     }
     pending.classList.remove('ask__msg--pending');
-    pending.querySelector('.ask__text').textContent = answer ?? t(`ask_${code}`);
+    fill(pending.querySelector('.ask__text'), answer ?? t(`ask_${code}`));
     if (answer) history = [...messages, { role: 'assistant', content: answer }]; // a failed question is not kept
     log.scrollTop = log.scrollHeight;
     busy = false;

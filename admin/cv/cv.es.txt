@@ -1,0 +1,168 @@
+Roger Masellas Roca
+Desarrollador web y docente: proyectos web desde 1996, maquetación, WordPress y desarrollo con IA (Claude Code)
+roger@lamosca.com | 627 595 835 | Sant Feliu de Codines (Barcelona) | linkedin.com/in/roger-masellas | github.com/rogeraclaro |
+masellas.info
+
+Desarrollo y coordino proyectos web desde 1996: 22 años como socio fundador del estudio Lamosca, dirigiendo su área
+de internet para clientes como TV3, Sónar, el CCCB, el Mercat de les Flors o el Ajuntament de Barcelona, y de 2018 a 2025
+como desarrollador frontend en A!CLARO (WordPress a medida, unas 200 landing pages para Veepee y Privalia, tiendas
+online de Laie, Sagrada Família y MNAC). Hoy desarrollo con Claude Code soluciones completas, como la búsqueda
+avanzada de la revista jurídica Indret o el buscador GrausFP. He enseñado HTML5, CSS3 y gestores de contenidos en un
+máster de diseño web y tengo la habilitación docente para Formación Profesional.
+
+Habilidades
+Coordinación de proyectos
+web:
+Maquetación web:
+WordPress:
+Desarrollo con IA:
+JavaScript y frameworks:
+Herramientas:
+
+del encargo a la puesta en producción junto al cliente; coordinación de equipos
+internos y externos (hasta 4 desarrolladores entre España y Nicaragua), validación
+técnica y supervisión de la entrega.
+HTML5, CSS3 (Flexbox, Grid), Sass, diseño responsive y mobile-first; maquetación
+pixel perfect a partir de Figma, Adobe XD y Sketch; newsletters (Mailchimp).
+temas, plantillas y plugins en PHP a medida, Elementor; gestión de alojamientos,
+correo y dominios (cdmon, dynahosting).
+Claude Code como herramienta diaria, agentes de IA y MCPs; integración de APIs
+REST/JSON, scraping y extracción de datos de PDF.
+JavaScript, jQuery, React y Vue.js (nivel de maquetación e integración), Bootstrap,
+PHP, MySQL.
+Git, GitHub, GitLab, Figma, Adobe XD, Photoshop, Illustrator, Premiere.
+
+Experiencia
+Desarrollador web freelance
+Cliente principal: Indret, revista jurídica
+
+2025-Actualidad
+Remoto
+
+• Web de Indret, que construí y mantengo desde sus inicios (primero desde Lamosca, ahora como freelance).
+• Búsqueda avanzada en WordPress (JavaScript y PHP, desarrollada con Claude Code) sobre unos 2.200 artículos: texto
+libre, sección, autor, organización, palabras clave, fechas y número, con resultados casi instantáneos. Primera versión
+en solitario en aproximadamente una semana, evolucionada con el consejo editorial.
+• Encargos posteriores: estudio de viabilidad de un RAG sobre el archivo completo de artículos y una herramienta para
+remaquetar automáticamente los artículos recibidos sin el formato requerido.
+
+Proyectos propios con IA
+Desarrollados con Claude Code
+
+2025-Actualidad
+masellas.info
+
+• GrausFP: buscador que unifica la información oficial dispersa de la Formación Profesional a partir de APIs REST/JSON,
+scraping y la extracción de 584 anexos en PDF, con actualización automática, cuentas de usuario y alertas.
+• Persona(s) de interés: recuperación del aspecto original de un mapa de Google Maps con estilos CSS personalizados,
+que había dejado de funcionar por cambios en el código de Google.
+• Fenya, buscador de empleo a partir de los CVs de los usuarios (beta), y AI Bookmarks, repositorio temático de enlaces
+con extensión de Chrome y app móvil.
+
+A!CLARO (Design & Solutions Inthe Network, S.L.)
+Desarrollador Frontend
+
+2018-2025
+Barcelona
+
+• Temas y plantillas de WordPress a medida y plugins en PHP, con desarrollo acelerado mediante Claude Code, agentes
+de IA y MCPs; webs con Elementor y gestión de alojamientos, correo y dominios.
+• Unas 200 landing pages de lanzamiento de ofertas para Veepee y Privalia en seis países, a partir de diseños en Figma
+y a un ritmo de 15 a 25 al mes: primero con jQuery y Bootstrap, después con el sistema de componentes Vue.js de
+Veepee y contenidos servidos por su API.
+• Maquetación frontend desde cero de la tienda online de Laie en React (JSX y Sass) a partir de diseños de Adobe XD,
+adaptada después para Sagrada Família y MNAC, en coordinación con los desarrolladores de back-end y checkout.
+• Coordinación de un equipo de hasta 4 desarrolladores entre España y Nicaragua: reparto de tareas en dos franjas
+horarias, validación técnica y supervisión de la entrega final al cliente.
+• Newsletters para varios clientes con Mailchimp.
+
+Lamosca sccl
+
+1996-2018
+Barcelona
+
+Socio fundador, Jefe de proyecto / CTO
+
+• Dirección del área multimedia y después del área de internet de un estudio de diseño y multimedia de 8 personas:
+proyectos completos con el cliente, del diseño a la producción, coordinando equipos externos cuando hacía falta.
+• Módulos del primer portal corporativo de TV3 y webs de CCRTV, portal corporativo e intranet de la Agència Catalana de
+Notícies, web de Sónar (2001-2008), portal corporativo y de venta de entradas del Mercat de les Flors, interactivos para
+el Ajuntament de Barcelona.
+• Maquetación de newsletters (Sónar, Ciudades Patrimonio, boletín interno mensual del personal del Ajuntament de
+Barcelona) y gestión de alojamientos, correo y dominios.
+• Otros clientes: CCCB, Festival Grec, Filmoteca de Catalunya, TMB, Òmnium Cultural, Rockdelux, FAD, Editorial Barcino,
+Fundació Bofill.
+• Tecnologías: HTML5, CSS3, JavaScript, jQuery, Angular, WordPress, PHP, MySQL.
+
+Escola Superior de Disseny Seeway
+
+2014-2017
+Barcelona
+
+Profesor
+
+• Asignatura “HTML5, CSS3 y gestores de contenidos” en el Máster en Diseño Web, UX, UI y Prototipado y en el Diploma
+Universitario en Diseño Gráfico y Digital.
+
+Escola Universitària Elisava
+
+2010-2015
+Barcelona
+
+Profesor de seminarios
+
+• Seminarios de Comunicación e Internet.
+
+Promsite, programa de patrocinio de CDmon
+
+2013-Actualidad
+
+Miembro del jurado, evaluación de proyectos web
+
+Universitat de Barcelona, Facultad de Medicina
+Programador y diseñador
+
+1994-1996
+Barcelona
+
+• Programación y diseño del CD interactivo “El Cráneo” dentro del proyecto piloto europeo “Metode - TEAM”.
+
+Universitat de Barcelona, Servicios Informáticos
+Formación y soporte a usuarios
+
+1990-1994
+Barcelona
+
+Formación
+Merin’s
+
+2026
+
+Habilitación docente para Formación Profesional (grados A, B y C)
+
+Pimec
+
+2026
+
+Herramientas de IA para la orientación laboral
+
+IT Academy
+Developer Program, especialización Frontend
+
+Universitat de Barcelona
+Licenciatura en Filosofía y Ciencias de la Educación (no finalizada, 3 asignaturas pendientes)
+
+Certificación
+TypeScript Essential Training
+
+Idiomas
+Catalán (nativo), castellano (nativo), inglés (fluido), francés (fluido).
+
+Referencias
+Disponibles a solicitud.
+
+2018
+Barcelona
+1987-1992
+Barcelona
+

@@ -113,6 +113,18 @@
   overflow-wrap: anywhere;
 }
 
+.ask__link {
+  color: var(--charcoal);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.ask__link:hover {
+  background: var(--charcoal);
+  color: var(--bone);
+  text-decoration: none;
+}
+
 .ask__msg--pending .ask__text {
   color: rgba(39, 37, 37, 0.7);
 }

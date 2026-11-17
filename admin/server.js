@@ -18,7 +18,7 @@ import {
 } from './lib/publish.js';
 import { writeSeoFiles } from './lib/seo-pages.js';
 import { pitchesPath, validatePitches, writePitchPages } from './lib/pitches.js';
-import { validateAsk, readContext, systemPrompt, askClaude, createDailyCounter, AskError } from './lib/ask.js';
+import { validateAsk, readContext, systemPrompt, askClaude, createDailyCounter, AskError, askNotesPath, validateNotes, allowedLinks, filterLinks } from './lib/ask.js';
 import { migrateProjects, migrateSomeWords } from './lib/languages.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -143,6 +143,7 @@ export function createApp({
   translateFetch = globalThis.fetch, translateLimit = { max: 30, windowMs: 60 * 1000 }, anthropicApiKey = '',
   pitchesFile = pitchesPath(dataFile),
   askFetch = globalThis.fetch, askDailyMax = 300, askLimit = { max: 20, windowMs: 60 * 60 * 1000 },
+  askNotesFile = askNotesPath(dataFile), cvDir = path.join(HERE, 'cv'),
 }) {
   // Older files (plain strings) are read as { ca, en, es } and stored that way on the next write.
   const store = createStore(dataFile, { migrate: migrateProjects });
@@ -170,6 +171,12 @@ export function createApp({
   // "Ask me" (lib/ask.js) is public, so it spends against two caps: per client and hour, and per day.
   const askLimiter = createRateLimiter(askLimit);
   const askDaily = createDailyCounter(askDailyMax);
+  // "Ask me" notes: private (never published), created empty on first use, read on every question.
+  const notesStore = createStore(askNotesFile);
+  const ensureNotes = async () => {
+    if (!existsSync(askNotesFile)) await writeAtomic(askNotesFile, `${JSON.stringify({ text: '', fun: '' }, null, 2)}\n`, 0o600);
+  };
+  const mutateNotes = resource(notesStore, async () => {}, (data) => ({ text: data.text, fun: data.fun ?? '' }));
   const cookieAttrs = `HttpOnly; SameSite=Strict; Path=${cookiePath}${cookieSecure ? '; Secure' : ''}`;
   // A private file plus its public copies: mutations run under If-Match, then republish.
   // Public writes (of every resource: the glossary republishes the others) run one at a time, in
@@ -375,8 +382,9 @@ export function createApp({
     if (!askDaily.take()) throw new HttpError(429, { error: 'no more questions today', code: 'daily' });
     askLimiter.fail(ip); // every question counts
     try {
-      const answer = await askClaude({ apiKey: anthropicApiKey, system: systemPrompt(value.lang, await readContext(publicFile, value.lang)), messages: value.messages, fetch: askFetch });
-      return sendJson(res, 200, { answer });
+      const context = await readContext(publicFile, value.lang, { cvDir, notesFile: askNotesFile });
+      const answer = await askClaude({ apiKey: anthropicApiKey, system: systemPrompt(value.lang, context), messages: value.messages, fetch: askFetch });
+      return sendJson(res, 200, { answer: filterLinks(answer, allowedLinks(context)) });
     } catch (err) {
       if (!(err instanceof AskError)) throw err;
       console.error(`admin: ask: ${err.message}`);
@@ -470,6 +478,17 @@ export function createApp({
         }
         return { terms: value.terms };
       });
+    }
+    if (method === 'GET' && pathname === '/api/ask-notes') {
+      await ensureNotes();
+      const { data, version } = await notesStore.read();
+      return sendJson(res, 200, { text: data.text, fun: data.fun ?? '', version });
+    }
+    if (method === 'PUT' && pathname === '/api/ask-notes') {
+      const { value, error } = validateNotes(body);
+      if (error) throw invalid({ text: error });
+      await ensureNotes();
+      return mutateNotes(req, res, 200, () => value);
     }
     if (method === 'GET' && pathname === '/api/pitches') {
       await ensurePitches();

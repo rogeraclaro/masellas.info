@@ -31,6 +31,7 @@
 			<button type="button" class="btn view-tab" data-view="words" aria-pressed="false">some words</button>
 			<button type="button" class="btn view-tab" data-view="glossary" aria-pressed="false">glossary</button>
 			<button type="button" class="btn view-tab" data-view="pitches" aria-pressed="false">for…</button>
+			<button type="button" class="btn view-tab" data-view="notes" aria-pressed="false">ask me</button>
 		</div>
 		<nav class="bar__nav" aria-label="Admin">
 			<a id="view-site" class="btn" href="https://masellas.info/projects/" target="_blank" rel="noopener">view site</a>
@@ -192,6 +193,30 @@
 			<thead><tr><th scope="col">term</th><th scope="col">explanation (ca)</th><th scope="col">en</th><th scope="col">es</th><th scope="col"><span class="sr-only">actions</span></th></tr></thead>
 			<tbody id="glossary-rows"></tbody>
 		</table>
+	</main>
+
+	<main class="content" id="view-notes" hidden>
+		<h2 class="heading heading--small">ask me: private notes</h2>
+		<p class="hint">extra information about your working life for the "ask me" chat, besides the site, the projects and the résumé (the text of the PDFs). it is never published as a page, but the chat uses it to answer, so a visitor can learn anything written here by asking: write only what you are happy to share. plain text, any language, up to 30000 characters.</p>
+		<form id="notes-form" class="form" novalidate>
+			<div class="field">
+				<label for="f-notes">notes</label>
+				<textarea id="f-notes" name="notes" rows="18" maxlength="30000" class="rich-input" aria-describedby="notes-count e-notes"></textarea>
+				<p id="notes-count" class="hint">0 / 30000</p>
+				<p id="e-notes" class="field-error"></p>
+			</div>
+			<div class="field">
+				<label for="f-fun">fun answers</label>
+				<textarea id="f-fun" name="fun" rows="6" maxlength="5000" class="rich-input" aria-describedby="fun-hint"></textarea>
+				<p id="fun-hint" class="hint">one per line, as question | answer, e.g. "Quin temps farà demà? | Evidentment, mañana sol y buen tiempo!!". the chat recognises the question in any wording or language and replies with your answer word for word.</p>
+			</div>
+			<div class="form__actions">
+				<button type="submit" class="btn btn--primary">save</button>
+				<label class="btn" for="f-notes-file">load a .txt or .md file</label>
+				<input id="f-notes-file" type="file" accept=".txt,.md,text/plain,text/markdown" class="sr-only">
+				<p id="notes-status" class="status" role="status" aria-live="polite"></p>
+			</div>
+		</form>
 	</main>
 
 	<main class="content" id="view-pitches" hidden>

@@ -50,5 +50,18 @@
   "js.empty": "Todavía no hay ningún proyecto.",
   "js.pitch_heading": "Para {company}",
   "js.pitch_title": "Para {company} — Roger Masellas",
-  "js.pitch_detail_title": "{title} — Roger Masellas"
+  "js.pitch_detail_title": "{title} — Roger Masellas",
+  "js.ask_open": "pregúntame",
+  "js.ask_title": "Pregunta sobre el trabajo de Roger",
+  "js.ask_intro": "Responde una IA (Claude) a partir de lo que hay en esta web. Puede equivocarse. Las conversaciones no se guardan.",
+  "js.ask_placeholder": "¿Qué quieres saber?",
+  "js.ask_send": "enviar",
+  "js.ask_close": "cerrar",
+  "js.ask_thinking": "pensando…",
+  "js.ask_you": "Tú",
+  "js.ask_bot": "IA",
+  "js.ask_error": "Ahora no puedo responder. Vuelve a probar dentro de un rato, o escribe a roger@lamosca.com.",
+  "js.ask_rate": "Has hecho muchas preguntas seguidas. Espera un poco, o escribe a roger@lamosca.com.",
+  "js.ask_daily": "Por hoy ya no puedo responder más preguntas. Vuelve mañana, o escribe a roger@lamosca.com.",
+  "js.ask_declined": "Eso no lo puedo responder. Pregunta sobre el trabajo de Roger, o escríbele a roger@lamosca.com."
 }

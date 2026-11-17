@@ -32,6 +32,8 @@ export function loadConfig(env) {
   const derived = someWordsPaths({ dataFile: env.DATA_FILE, publicFile: env.PUBLIC_FILE });
   if (!/^\/[A-Za-z0-9/_-]*$/.test(cookiePath)) throw new Error('COOKIE_PATH must be a plain path starting with /');
   const port = Number(env.PORT || 8787);
+  const askDailyMax = Number(env.ASK_DAILY_MAX || 300);
+  if (!Number.isInteger(askDailyMax) || askDailyMax < 0) throw new Error('ASK_DAILY_MAX must be a whole number (0 turns "ask me" off)');
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be a port number (1-65535)');
   return {
     port,
@@ -49,6 +51,7 @@ export function loadConfig(env) {
     cookiePath,
     trustProxy: env.TRUST_PROXY === 'true',
     publicUrl: env.PUBLIC_URL || 'https://masellas.info/projects/',
+    askDailyMax,
     anthropicApiKey: (env.ANTHROPIC_API_KEY || '').trim(), // optional: "translate from ca" uses Claude when set
   };
 }

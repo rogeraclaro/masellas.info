@@ -18,6 +18,7 @@ import {
 } from './lib/publish.js';
 import { writeSeoFiles } from './lib/seo-pages.js';
 import { pitchesPath, validatePitches, writePitchPages } from './lib/pitches.js';
+import { validateAsk, readContext, systemPrompt, askClaude, createDailyCounter, AskError } from './lib/ask.js';
 import { migrateProjects, migrateSomeWords } from './lib/languages.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -141,6 +142,7 @@ export function createApp({
   menuPublicFile = menuPaths({ publicFile }).menuPublicFile,
   translateFetch = globalThis.fetch, translateLimit = { max: 30, windowMs: 60 * 1000 }, anthropicApiKey = '',
   pitchesFile = pitchesPath(dataFile),
+  askFetch = globalThis.fetch, askDailyMax = 300, askLimit = { max: 20, windowMs: 60 * 60 * 1000 },
 }) {
   // Older files (plain strings) are read as { ca, en, es } and stored that way on the next write.
   const store = createStore(dataFile, { migrate: migrateProjects });
@@ -165,6 +167,9 @@ export function createApp({
   // Translations per client and minute, to go easy on the third-party translator. Every call is
   // recorded as a "failure" of this limiter, so the window counts calls.
   const translateLimiter = createRateLimiter(translateLimit);
+  // "Ask me" (lib/ask.js) is public, so it spends against two caps: per client and hour, and per day.
+  const askLimiter = createRateLimiter(askLimit);
+  const askDaily = createDailyCounter(askDailyMax);
   const cookieAttrs = `HttpOnly; SameSite=Strict; Path=${cookiePath}${cookieSecure ? '; Secure' : ''}`;
   // A private file plus its public copies: mutations run under If-Match, then republish.
   // Public writes (of every resource: the glossary republishes the others) run one at a time, in
@@ -357,6 +362,28 @@ export function createApp({
     return true;
   }
 
+  // Public: { lang, messages } -> { answer }. Errors carry a code the page explains: rate (this client,
+  // this hour), daily (everyone, today), unavailable / busy / declined / failed (the model). Only the
+  // same site may call it (an Origin is required); nothing is logged but the status line.
+  async function ask(req, res, body) {
+    if (!req.headers.origin) throw new HttpError(403, { error: 'cross-origin request rejected' });
+    if (!anthropicApiKey) throw new HttpError(503, { error: 'not available', code: 'unavailable' });
+    const ip = clientIp(req);
+    if (askLimiter.isBlocked(ip)) throw new HttpError(429, { error: 'too many questions', code: 'rate' });
+    const { value, error } = validateAsk(body);
+    if (error) throw new HttpError(400, { error });
+    if (!askDaily.take()) throw new HttpError(429, { error: 'no more questions today', code: 'daily' });
+    askLimiter.fail(ip); // every question counts
+    try {
+      const answer = await askClaude({ apiKey: anthropicApiKey, system: systemPrompt(value.lang, await readContext(publicFile, value.lang)), messages: value.messages, fetch: askFetch });
+      return sendJson(res, 200, { answer });
+    } catch (err) {
+      if (!(err instanceof AskError)) throw err;
+      console.error(`admin: ask: ${err.message}`);
+      throw new HttpError(err.code === 'busy' ? 503 : 502, { error: 'no answer', code: err.code });
+    }
+  }
+
   // { text, kind: 'rich' | 'plain', max? } (ca) -> { en: { text, warnings } | { error }, es: … }. Changes
   // nothing, so no If-Match; the form fills en / es and the user saves as usual.
   async function translate(req, res, body) {
@@ -399,6 +426,8 @@ export function createApp({
     if (method === 'POST' && pathname === '/api/logout') {
       return sendJson(res, 200, { ok: true }, { 'Set-Cookie': `${COOKIE}=; Max-Age=0; ${cookieAttrs}` });
     }
+
+    if (method === 'POST' && pathname === '/api/ask') return ask(req, res, body);
 
     const loggedIn = verifySession(getCookie(req, COOKIE), sessionSecret);
     if (method === 'GET' && pathname === '/api/session') return sendJson(res, 200, { loggedIn });

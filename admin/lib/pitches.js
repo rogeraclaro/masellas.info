@@ -112,6 +112,7 @@ export function pitchPage(listHtml, { pitch, projects, aiHeadings }) {
   edit(/<meta property="og:url" content="[^"]*">/, () => `<meta property="og:url" content="${url}">`);
   edit(/<meta property="og:image" content="[^"]*">/, (tag) => (image ? `<meta property="og:image" content="${escapeHtml(new URL(image, SITE).href)}">` : tag));
   edit(/\s*<nav class="lang-nav"[\s\S]*?<\/nav>/, () => '');
+  edit(/<body>/, () => '<body data-ask>'); // "ask me" (js/shared/ask.js)
   edit(/(<h1 class="page-title" data-split>)[^<]*(<\/h1>)/, (whole, open, close) => `${open}${escapeHtml(heading)}${close}`
     + (pitch.intro ? `\n\t\t<div class="page-intro rich-text">${richTextHtml(pitch.intro)}</div>` : ''));
   edit(/(<ul class="work-list" id="projects-list"[^>]*?) data-collection="[^"]*" data-list-path="[^"]*" data-list-title="[^"]*">/,

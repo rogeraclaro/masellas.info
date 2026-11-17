@@ -784,3 +784,47 @@ test('pitches: an empty list at first, then a saved pitch gets an unguessable id
   assert.deepEqual((await res.json()).pitches, json.pitches, 'stored as returned');
   assert.equal((await call(base, 'GET', '/api/pitches')).status, 401, 'needs a session');
 });
+
+test('ask: public, same-site only, answers through the model and enforces both caps', async () => {
+  const calls = [];
+  const askFetch = async (url, init) => {
+    calls.push(JSON.parse(init.body));
+    return { ok: true, status: 200, json: async () => ({ content: [{ type: 'text', text: 'Roger builds websites.' }], stop_reason: 'end_turn' }) };
+  };
+  const { app, base: askBase } = await boot({ anthropicApiKey: 'sk-test', askFetch, askDailyMax: 3, askLimit: { max: 2, windowMs: 60_000 } });
+  const ask = (body, headers = { origin: askBase }) => call(askBase, 'POST', '/api/ask', { body, headers });
+  const question = { lang: 'en', messages: [{ role: 'user', content: 'What does Roger do?' }] };
+  try {
+    assert.equal((await ask(question, {})).status, 403, 'no Origin');
+    let res = await ask(question);
+    assert.equal(res.status, 200, 'no session needed');
+    assert.deepEqual(await res.json(), { answer: 'Roger builds websites.' });
+    assert.match(calls[0].system[0].text, /answer in English/);
+    assert.equal((await ask({ lang: 'xx', messages: [] })).status, 400);
+    res = await ask(question);
+    assert.equal(res.status, 200);
+    res = await ask(question);
+    assert.equal(res.status, 429);
+    assert.equal((await res.json()).code, 'rate', 'two per client and window');
+  } finally {
+    app.close();
+  }
+  const daily = await boot({ anthropicApiKey: 'sk-test', askFetch, askDailyMax: 1 });
+  try {
+    const one = (ip) => call(daily.base, 'POST', '/api/ask', { body: question, headers: { origin: daily.base, 'x-real-ip': ip } });
+    assert.equal((await one('1.1.1.1')).status, 200);
+    const res = await one('2.2.2.2');
+    assert.equal(res.status, 429);
+    assert.equal((await res.json()).code, 'daily');
+  } finally {
+    daily.app.close();
+  }
+  const off = await boot({ anthropicApiKey: '' });
+  try {
+    const res = await call(off.base, 'POST', '/api/ask', { body: question, headers: { origin: off.base } });
+    assert.equal(res.status, 503);
+    assert.equal((await res.json()).code, 'unavailable');
+  } finally {
+    off.app.close();
+  }
+});

@@ -5,7 +5,8 @@ import { splitTitle, titleIntro, hideTitle } from './shared/split-title.js';
 import { measureCube, bindCube } from './shared/cube.js';
 import { pageReady } from './shared/page-ready.js';
 import { step, jump, indexFromHash, createGestureGate, canLeave } from './home/sections.js';
-import { pageLang } from './shared/i18n.js';
+import { pageLang, loadStrings } from './shared/i18n.js';
+import { bindAsk } from './shared/ask.js';
 import { bindLangLinks } from './shared/lang-links.js';
 import { bindSiteMenu } from './shared/site-menu.js';
 import { loadMenuTips } from './shared/menu-tips.js';
@@ -170,6 +171,7 @@ let touchExits = null;
 function touchHandler(gate, delta) {
   return (self) => {
     if (self.event && self.event.pointerType === 'mouse') return; // keep mouse text selection
+    if (self.event?.target?.closest?.('[data-own-scroll]')) return; // the "ask me" panel scrolls itself
     if (!gate.accept(performance.now()) || animating || menu.isOpen()) return;
     stepBy(delta, undefined, touchExits || exits());
   };
@@ -183,6 +185,7 @@ function bindWheel() {
   const gate = createGestureGate(200);
   window.addEventListener('wheel', (event) => {
     if (event.ctrlKey) return; // pinch zoom
+    if (event.target.closest?.('[data-own-scroll]')) return; // the "ask me" panel scrolls itself
     if (!gate.accept(performance.now()) || animating || menu.isOpen()) return;
     if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return; // sideways
     if (stepBy(Math.sign(event.deltaY))) event.preventDefault();
@@ -248,6 +251,7 @@ async function init() {
   bindLangLinks(document.querySelector('.lang-nav'));
   bindTermTooltips({ gsap: animate ? gsap : null, ease: alpha });
   loadMenuTips(pageLang());
+  bindAsk({ t: loadStrings(), lang: pageLang() });
 
   // Never blocks "the point"; a deep link to "some words" waits briefly (max 1.5 s) for its text.
   const wordsReady = wordsSection

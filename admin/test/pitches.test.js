@@ -60,6 +60,7 @@ test('pitchPage: the list page of the language, private, with the heading, the i
   assert.ok(html.startsWith(PITCH_PAGE_MARK));
   assert.match(html, /<title>For Acme — Roger Masellas<\/title>/);
   assert.match(html, /<meta name="robots" content="noindex, nofollow">/);
+  assert.match(html, /<body data-ask>/, '"ask me" on');
   assert.match(html, /<link rel="canonical" href="https:\/\/masellas\.info\/per-a\/acme-k3x9q2\/">/);
   assert.doesNotMatch(html, /hreflang=/, 'one language: no alternates and no language switcher');
   assert.doesNotMatch(html, /class="lang-nav"/);

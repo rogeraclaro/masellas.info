@@ -13,6 +13,10 @@ It keeps two files:
 - `DATA_FILE` — the private, full list (hidden projects included, with `visible`). Lives outside the web root. The API reads, writes and versions only this file.
 - `PUBLIC_FILE` — `projects/data/projects.json` in the web root. Rebuilt from `DATA_FILE` after every change and at boot, together with one file per language next to it: `projects.ca.json`, `projects.en.json`, `projects.es.json` (what `/projects/`, `/en/projects/`, `/es/projects/` fetch). Visible projects only, in order, without the `visible` field, translated fields flattened to plain text for that language (empty -> ca). `projects.json` itself is the ca version. Never edit them by hand; the next change overwrites them.
 
+### "Ask me" (public chat)
+
+The home and the pages for companies have an "ask me" tab (bottom right, `js/shared/ask.js`, on pages whose `<body>` has `data-ask`). It posts the conversation to `POST /api/ask` (public, no session; an `Origin` is required, so only the site's own pages call it), and `lib/ask.js` asks Claude Haiku (`claude-haiku-5-5`, `ANTHROPIC_API_KEY`) to answer from what the site publishes in that language: "some words" and both project lists, read from the public files next to `PUBLIC_FILE`. The system prompt keeps it to Roger's work, in the page's language, at most about 120 words, and to say so (with the email) when the site does not answer the question; the site text is sent as a cached prompt. Caps: 20 questions per client and hour, `ASK_DAILY_MAX` (default 300; 0 turns it off) per day for everyone together, 500 characters per question, 12 messages per conversation. Nothing is stored or logged but the request line; the counters are in memory (a restart resets them). Without a key the tab answers that it is not available. Set a monthly spend limit on the key's workspace in the Anthropic Console as the hard ceiling.
+
 ### Pages for companies ("for…")
 
 The "for…" tab makes private pages for one company or recruiter: `/per-a/<id>/` with "For <company>" as the heading, an optional intro (rich text, up to 1000 characters) and the projects you pick from both collections, in your order, in one language. The id is the company as a slug plus six random characters (`acme-k3x9q2`), so a page cannot be guessed. Each page is that language's projects list page (`lib/pitches.js`, `pitchPage`): `noindex, nofollow`, no hreflang and no language switcher, in no sitemap; the projects travel inside the page (`<script id="projects-data">`, with each project's own "how I used AI" / "how it was made" heading), and the detail opens with `?p=<id>` links (there is no page per project under `/per-a/`). The private list is `pitches.json` next to `DATA_FILE` (created empty on first use; `GET` / `PUT /api/pitches`, whole list, `If-Match`). The pages are rewritten after every pitches, projects or glossary save and at boot; a project that is hidden or gone is left out (and logged). Like the project pages, the admin only writes or deletes `/per-a/<id>/index.html` where the directory is free or holds a page it marked; pages of deleted pitches are removed. The headings come from the `js.pitch_*` keys in `i18n/<lang>.json`.
@@ -106,7 +110,8 @@ Environment variables only. `admin/.env` is read at boot if it exists; real envi
 | `HOST` | no | `127.0.0.1` | |
 | `COOKIE_SECURE` | no | `true` | `false` only for local http |
 | `PUBLIC_URL` | no | `https://masellas.info/projects/` | target of the "view site" link |
-| `ANTHROPIC_API_KEY` | no | | with a key, "translate from ca" uses Claude; empty: the keyless Softcatalà engines |
+| `ANTHROPIC_API_KEY` | no | | with a key, "translate from ca" uses Claude and "ask me" answers; empty: the keyless Softcatalà engines, and no "ask me" |
+| `ASK_DAILY_MAX` | no | `300` | "ask me" questions per day for everyone together; `0` turns it off |
 | `COOKIE_PATH` | no | `/` | session cookie path; `/admin/` in production |
 | `TRUST_PROXY` | no | `false` | `true` only behind nginx: the login rate limit then keys on `X-Real-IP` (fallback: first `X-Forwarded-For` entry). When `false` those headers are ignored, because clients can forge them |
 

@@ -39,7 +39,7 @@
 	<script defer src="/js/vendor/gsap-3.12.5/Observer.min.js"></script>
 	<script defer src="/js/home.min.js"></script>
 </head>
-<body>
+<body data-ask>
 
 <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-menu" aria-label="{{nav.menu_open}}" data-label-open="{{nav.menu_open}}" data-label-close="{{nav.menu_close}}"><span class="menu-toggle__icon" aria-hidden="true"></span></button>
 
@@ -74,5 +74,7 @@
 	</section>
 	<div class="section-shade" aria-hidden="true"></div>
 </main>
+
+<script type="application/json" id="i18n">{{{i18n_json}}}</script>
 </body>
 </html>

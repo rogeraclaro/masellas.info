@@ -10,6 +10,7 @@ import { bindLangLinks } from '../../js/shared/lang-links.js';
 import { projectHref, projectIdFrom } from '../../js/shared/project-url.js';
 import { bindSiteMenu } from '../../js/shared/site-menu.js';
 import { loadMenuTips } from '../../js/shared/menu-tips.js';
+import { bindAsk } from '../../js/shared/ask.js';
 // "how I used AI" uses the same rich-text format as the home's "some words" (validated by the admin).
 import { parseRichText } from '../../admin/lib/rich-text.js';
 import { renderRichText } from '../../admin/lib/rich-text-dom.js';
@@ -564,6 +565,7 @@ import { bindTermTooltips } from '../../admin/lib/term-tooltip.js';
     bindLangLinks(document.querySelector('.lang-nav'), { listPath });
     bindTermTooltips({ gsap: animate ? gsap : null, ease: ALPHA });
     loadMenuTips(pageLang());
+    bindAsk({ t, lang: pageLang() }); // recruiter pages only (<body data-ask>)
     titleEl.tabIndex = -1; // focus target when a deep-linked detail closes
     const [projects] = await Promise.all([loadProjects(), document.fonts ? document.fonts.ready : null]);
     // The rows already in the list are the admin's copy for crawlers (admin/lib/seo-pages.js), not built

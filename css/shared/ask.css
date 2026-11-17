@@ -1,0 +1,141 @@
+/* "Ask me" (js/shared/ask.js): a tab in the bottom-right corner and a small bone panel above it. */
+
+.ask-toggle {
+  position: fixed;
+  right: var(--chrome-inset);
+  bottom: var(--chrome-inset);
+  z-index: 80; /* over the project detail (60) and the menus (70), under the term tooltip (90) */
+  padding: 1px var(--space-2);
+  border: 0;
+  border-radius: 0;
+  background: var(--menu-idle);
+  color: var(--tab-fg);
+  font-family: var(--font-medium);
+  font-size: var(--fs-tab);
+  line-height: var(--lh-tab);
+  cursor: pointer;
+}
+
+.ask-toggle:hover,
+.ask-toggle[aria-expanded="true"] {
+  background: var(--menu-hover);
+}
+
+.ask-toggle:focus-visible,
+.ask button:focus-visible,
+.ask__input:focus-visible {
+  outline: 2px solid var(--coral);
+  outline-offset: 2px;
+}
+
+.ask {
+  position: fixed;
+  right: var(--chrome-inset);
+  bottom: calc(var(--chrome-inset) * 2 + var(--tab-h));
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  width: min(26rem, calc(100vw - 2 * var(--chrome-inset)));
+  max-height: min(34rem, calc(100vh - var(--tab-h) - 6 * var(--chrome-inset)));
+  background: var(--bone);
+  color: var(--charcoal);
+  font-family: var(--font-book);
+  font-size: 1rem;
+  line-height: var(--lh-small);
+  text-align: left;
+  letter-spacing: var(--ls-text);
+}
+
+.ask[hidden] {
+  display: none;
+}
+
+.ask__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--hairline-on-coral);
+}
+
+.ask__title {
+  margin: 0;
+  font-family: var(--font-bold);
+  font-weight: normal;
+  font-size: 1.125rem;
+  line-height: 1.2;
+}
+
+.ask__close,
+.ask__send {
+  padding: 1px var(--space-2);
+  border: 1px solid var(--charcoal);
+  border-radius: 0;
+  background: none;
+  color: var(--charcoal);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ask__send:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ask__log {
+  flex: 1 1 auto;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+
+.ask__intro {
+  color: rgba(39, 37, 37, 0.7);
+  font-size: 0.875rem;
+}
+
+.ask__msg {
+  margin-top: var(--space-3);
+}
+
+.ask__who {
+  display: block;
+  font-family: var(--font-bold);
+  font-size: 0.875rem;
+}
+
+.ask__text {
+  margin: 2px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ask__msg--pending .ask__text {
+  color: rgba(39, 37, 37, 0.7);
+}
+
+.ask__form {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--hairline-on-coral);
+}
+
+.ask__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--charcoal);
+  border-radius: 0;
+  background: transparent;
+  color: var(--charcoal);
+  font: inherit;
+  resize: none;
+}
+
+.ask__send {
+  align-self: flex-end;
+}

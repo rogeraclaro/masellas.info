@@ -63,5 +63,6 @@
   "js.ask_error": "Ahora no puedo responder. Vuelve a probar dentro de un rato, o escribe a roger@lamosca.com.",
   "js.ask_rate": "Has hecho muchas preguntas seguidas. Espera un poco, o escribe a roger@lamosca.com.",
   "js.ask_daily": "Por hoy ya no puedo responder más preguntas. Vuelve mañana, o escribe a roger@lamosca.com.",
-  "js.ask_declined": "Eso no lo puedo responder. Pregunta sobre el trabajo de Roger, o escríbele a roger@lamosca.com."
+  "js.ask_declined": "Eso no lo puedo responder. Pregunta sobre el trabajo de Roger, o escríbele a roger@lamosca.com.",
+  "js.ask_play": "▶ escucha"
 }

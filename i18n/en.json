@@ -63,5 +63,6 @@
   "js.ask_error": "I can't answer right now. Try again in a while, or write to roger@lamosca.com.",
   "js.ask_rate": "That's a lot of questions in a row. Wait a little, or write to roger@lamosca.com.",
   "js.ask_daily": "I can't answer any more questions today. Come back tomorrow, or write to roger@lamosca.com.",
-  "js.ask_declined": "I can't answer that. Ask about Roger's work, or write to him at roger@lamosca.com."
+  "js.ask_declined": "I can't answer that. Ask about Roger's work, or write to him at roger@lamosca.com.",
+  "js.ask_play": "▶ listen"
 }

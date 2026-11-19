@@ -151,3 +151,7 @@
 .ask__send {
   align-self: flex-end;
 }
+
+.ask__play {
+  margin-top: var(--space-1);
+}

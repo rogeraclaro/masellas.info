@@ -63,5 +63,6 @@
   "js.ask_error": "Ara no puc respondre. Torna-ho a provar d'aquí a una estona, o escriu a roger@lamosca.com.",
   "js.ask_rate": "Has fet moltes preguntes seguides. Espera una mica, o escriu a roger@lamosca.com.",
   "js.ask_daily": "Per avui ja no puc respondre més preguntes. Torna demà, o escriu a roger@lamosca.com.",
-  "js.ask_declined": "Això no ho puc respondre. Pregunta sobre la feina de Roger, o escriu-li a roger@lamosca.com."
+  "js.ask_declined": "Això no ho puc respondre. Pregunta sobre la feina de Roger, o escriu-li a roger@lamosca.com.",
+  "js.ask_play": "▶ escolta"
 }

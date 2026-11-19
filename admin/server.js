@@ -1,8 +1,9 @@
 // Projects admin: JSON API + static admin UI. Node 22 built-ins only.
 import http from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, mkdir, unlink } from 'node:fs/promises';
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createStore, ConflictError, writeAtomic } from './lib/store.js';
 import { verifyPassword, signSession, verifySession, createRateLimiter } from './lib/auth.js';
@@ -18,7 +19,9 @@ import {
 } from './lib/publish.js';
 import { writeSeoFiles } from './lib/seo-pages.js';
 import { pitchesPath, validatePitches, writePitchPages } from './lib/pitches.js';
-import { validateAsk, readContext, systemPrompt, askClaude, createDailyCounter, AskError, askNotesPath, validateNotes, allowedLinks, filterLinks } from './lib/ask.js';
+import { validateAsk, readContext, systemPrompt, askClaude, createDailyCounter, AskError, askNotesPath, validateNotes, allowedLinks, filterLinks,
+  funAnswers, validateAudio, answerAudio, askAudioDir, AUDIO_MAX, AUDIO_URL,
+} from './lib/ask.js';
 import { migrateProjects, migrateSomeWords } from './lib/languages.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -47,6 +50,8 @@ const SECURITY_HEADERS = {
 const COOKIE = 'admin_session';
 const SESSION_TTL = 12 * 60 * 60 * 1000;
 const MAX_BODY = 64 * 1024;
+// POST /api/ask-audio: the audio as base64 (4/3 of its size) plus the answer.
+const AUDIO_BODY = Math.ceil(AUDIO_MAX / 3) * 4 + MAX_BODY;
 // The longest translated field ("how I used AI", lib/validation.js).
 const TRANSLATE_MAX = 5000;
 
@@ -63,12 +68,12 @@ function sendJson(res, status, body, headers = {}) {
   res.end(JSON.stringify(body));
 }
 
-async function readJson(req) {
+async function readJson(req, max = MAX_BODY) {
   let size = 0;
   const chunks = [];
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > MAX_BODY) throw new HttpError(413, { error: 'request body too large' });
+    if (size > max) throw new HttpError(413, { error: 'request body too large' });
     chunks.push(chunk);
   }
   if (!size) return {};
@@ -143,7 +148,7 @@ export function createApp({
   translateFetch = globalThis.fetch, translateLimit = { max: 30, windowMs: 60 * 1000 }, anthropicApiKey = '',
   pitchesFile = pitchesPath(dataFile),
   askFetch = globalThis.fetch, askDailyMax = 300, askLimit = { max: 20, windowMs: 60 * 60 * 1000 },
-  askNotesFile = askNotesPath(dataFile), cvDir = path.join(HERE, 'cv'),
+  askNotesFile = askNotesPath(dataFile), cvDir = path.join(HERE, 'cv'), audioDir = askAudioDir(publicFile),
 }) {
   // Older files (plain strings) are read as { ca, en, es } and stored that way on the next write.
   const store = createStore(dataFile, { migrate: migrateProjects });
@@ -176,7 +181,18 @@ export function createApp({
   const ensureNotes = async () => {
     if (!existsSync(askNotesFile)) await writeAtomic(askNotesFile, `${JSON.stringify({ text: '', fun: '' }, null, 2)}\n`, 0o600);
   };
-  const mutateNotes = resource(notesStore, async () => {}, (data) => ({ text: data.text, fun: data.fun ?? '' }));
+  // answers: the fun answers an audio can belong to; audio: { [answer]: public URL }.
+  const mutateNotes = resource(notesStore, async () => {}, (data) => ({
+    text: data.text,
+    fun: data.fun ?? '',
+    answers: funAnswers(data.fun).map((item) => item.answer),
+    audio: Object.fromEntries(Object.entries(data.audio ?? {}).map(([answer, file]) => [answer, AUDIO_URL + file])),
+  }));
+  // An audio file goes once no answer uses it (the same file may serve two answers).
+  const dropAudio = async (file, data) => {
+    if (!file || Object.values(data.audio ?? {}).includes(file)) return;
+    await unlink(path.join(audioDir, file)).catch((err) => console.error(`admin: ask audio: ${err.message}`));
+  };
   const cookieAttrs = `HttpOnly; SameSite=Strict; Path=${cookiePath}${cookieSecure ? '; Secure' : ''}`;
   // A private file plus its public copies: mutations run under If-Match, then republish.
   // Public writes (of every resource: the glossary republishes the others) run one at a time, in
@@ -384,7 +400,9 @@ export function createApp({
     try {
       const context = await readContext(publicFile, value.lang, { cvDir, notesFile: askNotesFile });
       const answer = await askClaude({ apiKey: anthropicApiKey, system: systemPrompt(value.lang, context), messages: value.messages, fetch: askFetch });
-      return sendJson(res, 200, { answer: filterLinks(answer, allowedLinks(context)) });
+      const notes = await readOrEmpty(notesStore, {});
+      const audio = answerAudio(answer, notes.fun, notes.audio);
+      return sendJson(res, 200, { answer: filterLinks(answer, allowedLinks(context)), ...(audio && { audio }) });
     } catch (err) {
       if (!(err instanceof AskError)) throw err;
       console.error(`admin: ask: ${err.message}`);
@@ -416,7 +434,7 @@ export function createApp({
 
   async function api(req, res, pathname) {
     const { method } = req;
-    const body = method === 'GET' ? null : (checkCsrf(req), await readJson(req));
+    const body = method === 'GET' ? null : (checkCsrf(req), await readJson(req, pathname === '/api/ask-audio' ? AUDIO_BODY : MAX_BODY));
 
     if (method === 'POST' && pathname === '/api/login') {
       const ip = clientIp(req);
@@ -488,7 +506,40 @@ export function createApp({
       const { value, error } = validateNotes(body);
       if (error) throw invalid({ text: error });
       await ensureNotes();
-      return mutateNotes(req, res, 200, () => value);
+      return mutateNotes(req, res, 200, (current) => ({ ...value, audio: current.audio ?? {} }));
+    }
+    // { answer, data: base64 }: the audio of one of the saved fun answers (replacing its previous one).
+    if (method === 'POST' && pathname === '/api/ask-audio') {
+      const { value, error } = validateAudio(body);
+      if (error) throw invalid({ audio: error });
+      await ensureNotes();
+      const file = `${createHash('sha256').update(value.bytes).digest('hex').slice(0, 16)}.${value.ext}`;
+      let previous;
+      let saved;
+      await mutateNotes(req, res, 200, async (current) => {
+        if (!funAnswers(current.fun).some((item) => item.answer === value.answer)) throw invalid({ audio: 'save that fun answer first' });
+        await mkdir(audioDir, { recursive: true });
+        await writeAtomic(path.join(audioDir, file), value.bytes);
+        previous = current.audio?.[value.answer];
+        saved = { ...current, audio: { ...current.audio, [value.answer]: file } };
+        return saved;
+      });
+      if (previous !== file) await dropAudio(previous, saved);
+      return;
+    }
+    if (method === 'DELETE' && pathname === '/api/ask-audio') {
+      if (typeof body.answer !== 'string') throw invalid({ audio: 'answer is required' });
+      let removed;
+      let saved;
+      await mutateNotes(req, res, 200, (current) => {
+        const audio = { ...current.audio };
+        removed = audio[body.answer];
+        delete audio[body.answer];
+        saved = { ...current, audio };
+        return saved;
+      });
+      await dropAudio(removed, saved);
+      return;
     }
     if (method === 'GET' && pathname === '/api/pitches') {
       await ensurePitches();

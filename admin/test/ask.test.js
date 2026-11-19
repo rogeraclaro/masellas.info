@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateAsk, contextText, systemPrompt, askClaude, createDailyCounter, AskError, ASK, allowedLinks, filterLinks, validateNotes, funAnswers } from '../lib/ask.js';
+import { validateAsk, contextText, systemPrompt, askClaude, createDailyCounter, AskError, ASK, allowedLinks, filterLinks, validateNotes, funAnswers, audioExtension, validateAudio, answerAudio, AUDIO_MAX } from '../lib/ask.js';
 
 const q = (content) => ({ role: 'user', content });
 const a = (content) => ({ role: 'assistant', content });
@@ -126,4 +126,43 @@ test('fun answers: "question | answer" lines, in the prompt with the rule to use
   assert.match(systemPrompt('en', context), /Fun answers[\s\S]*word for word/);
   assert.deepEqual(validateNotes({ text: 'a', fun: ' x | y ' }).value, { text: 'a', fun: 'x | y' });
   assert.deepEqual(validateNotes({ text: 'a' }).value, { text: 'a', fun: '' }, 'fun is optional');
+});
+
+test('audioExtension reads the format from the first bytes, not the name', () => {
+  const bytes = (head) => Buffer.concat([Buffer.from(head, 'latin1'), Buffer.alloc(16)]);
+  assert.equal(audioExtension(bytes('ID3\u0004')), 'mp3');
+  assert.equal(audioExtension(Buffer.from([0xff, 0xfb, 0x90, 0x64, ...Buffer.alloc(12)])), 'mp3');
+  assert.equal(audioExtension(bytes('\u0000\u0000\u0000 ftypM4A ')), 'm4a');
+  assert.equal(audioExtension(bytes('OggS')), 'ogg');
+  assert.equal(audioExtension(bytes('RIFF\u0000\u0000\u0000\u0000WAVE')), 'wav');
+  assert.equal(audioExtension(Buffer.from([0x1a, 0x45, 0xdf, 0xa3, ...Buffer.alloc(12)])), 'webm');
+  assert.equal(audioExtension(bytes('<html>')), null);
+  assert.equal(audioExtension(Buffer.from('ID3')), null, 'too short');
+});
+
+test('validateAudio takes { answer, data } with base64 audio up to AUDIO_MAX', () => {
+  const mp3 = Buffer.concat([Buffer.from('ID3'), Buffer.alloc(20)]);
+  const { value } = validateAudio({ answer: ' Sol! ', data: mp3.toString('base64') });
+  assert.equal(value.answer, 'Sol!');
+  assert.equal(value.ext, 'mp3');
+  assert.deepEqual(value.bytes, mp3);
+  for (const body of [
+    null,
+    { answer: '', data: mp3.toString('base64') },
+    { answer: 'a', data: 'not base64!' },
+    { answer: 'a', data: Buffer.from('<html></html> plain text').toString('base64') },
+    { answer: 'a', data: Buffer.concat([Buffer.from('ID3'), Buffer.alloc(AUDIO_MAX)]).toString('base64') },
+  ]) assert.ok(validateAudio(body).error, JSON.stringify(body)?.slice(0, 40));
+});
+
+test('answerAudio finds the audio of the fun answer the model repeated', () => {
+  const fun = 'Quin temps farà demà? | Evidentment, mañana sol y buen tiempo!!\nA | b';
+  const audio = { 'Evidentment, mañana sol y buen tiempo!!': 'abc.mp3', gone: 'old.mp3' };
+  const url = '/projects/data/ask-audio/abc.mp3';
+  assert.equal(answerAudio('Evidentment, mañana sol y buen tiempo!!', fun, audio), url);
+  assert.equal(answerAudio(' "Evidentment,  mañana sol y buen tiempo!!" ', fun, audio), url, 'quotes and spacing');
+  assert.equal(answerAudio('b', fun, audio), null, 'no audio for that answer');
+  assert.equal(answerAudio('gone', fun, audio), null, 'not a current fun answer');
+  assert.equal(answerAudio('Roger builds websites.', fun, audio), null);
+  assert.equal(answerAudio('x', '', undefined), null);
 });

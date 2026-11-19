@@ -856,3 +856,50 @@ test('ask notes: private text behind the session, versioned, and fed to the chat
     app.close();
   }
 });
+
+test('ask audio: uploaded for a fun answer, public by content hash, sent with that answer, removable', async () => {
+  const audioDir = path.join(path.dirname(publicFile), 'ask-audio');
+  let json = await (await call(base, 'GET', '/api/ask-notes', { cookie })).json();
+  let res = await call(base, 'PUT', '/api/ask-notes', { cookie, version: json.version, body: { text: json.text, fun: 'Temps demà? | Sol y buen tiempo!!\nA | b' } });
+  json = await res.json();
+  assert.deepEqual(json.answers, ['Sol y buen tiempo!!', 'b']);
+  assert.deepEqual(json.audio, {});
+
+  // Bigger than the 64 KB JSON limit of every other route.
+  const mp3 = Buffer.concat([Buffer.from('ID3'), Buffer.alloc(100 * 1024, 7)]);
+  const upload = (body, version = json.version, who = cookie) => call(base, 'POST', '/api/ask-audio', { cookie: who ?? undefined, version, body });
+  assert.equal((await upload({ answer: 'Sol y buen tiempo!!', data: mp3.toString('base64') }, json.version, null)).status, 401);
+  assert.equal((await upload({ answer: 'not a fun answer', data: mp3.toString('base64') })).status, 400);
+  assert.equal((await upload({ answer: 'b', data: Buffer.from('plain text, not audio').toString('base64') })).status, 400);
+  res = await upload({ answer: 'Sol y buen tiempo!!', data: mp3.toString('base64') });
+  assert.equal(res.status, 200);
+  json = await res.json();
+  const url = json.audio['Sol y buen tiempo!!'];
+  assert.match(url, /^\/projects\/data\/ask-audio\/[0-9a-f]{16}\.mp3$/);
+  assert.deepEqual(await readFile(path.join(audioDir, path.basename(url))), mp3);
+  assert.equal((await upload({ answer: 'b', data: mp3.toString('base64') }, '"stale"')).status, 409);
+
+  // Saving the notes keeps the audio.
+  json = await (await call(base, 'PUT', '/api/ask-notes', { cookie, version: json.version, body: { text: 'Notes.', fun: json.fun } })).json();
+  assert.equal(json.audio['Sol y buen tiempo!!'], url);
+
+  const askFetch = async (u, init) => {
+    const question = JSON.parse(init.body).messages.at(-1).content;
+    const text = question === 'Weather?' ? 'Sol y buen tiempo!!' : 'Roger builds websites.';
+    return { ok: true, status: 200, json: async () => ({ content: [{ type: 'text', text }] }) };
+  };
+  const { app, base: askBase } = await boot({ anthropicApiKey: 'sk-test', askFetch });
+  try {
+    const ask = (content) => call(askBase, 'POST', '/api/ask', { body: { lang: 'en', messages: [{ role: 'user', content }] }, headers: { origin: askBase } });
+    assert.deepEqual(await (await ask('Weather?')).json(), { answer: 'Sol y buen tiempo!!', audio: url });
+    assert.deepEqual(await (await ask('Work?')).json(), { answer: 'Roger builds websites.' });
+  } finally {
+    app.close();
+  }
+
+  res = await call(base, 'DELETE', '/api/ask-audio', { cookie, version: json.version, body: { answer: 'Sol y buen tiempo!!' } });
+  assert.equal(res.status, 200);
+  json = await res.json();
+  assert.deepEqual(json.audio, {});
+  assert.deepEqual(await readdir(audioDir), [], 'the file is removed with its last use');
+});

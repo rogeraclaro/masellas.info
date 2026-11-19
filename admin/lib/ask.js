@@ -72,6 +72,47 @@ export function funAnswers(text) {
     .filter(({ question, answer }) => question && answer);
 }
 
+// Audio for a fun answer: uploaded in the admin, public under AUDIO_URL (ask-audio/ next to
+// PUBLIC_FILE, named by its content hash), mapped in ask-notes.json as audio: { [answer]: file }.
+export const AUDIO_MAX = 1024 * 1024;
+export const AUDIO_URL = '/projects/data/ask-audio/';
+export const askAudioDir = (publicFile) => path.join(path.dirname(publicFile), 'ask-audio');
+
+// The format from the first bytes; the file name and the declared type are not trusted.
+export function audioExtension(bytes) {
+  if (bytes.length < 12) return null;
+  const ascii = (from, to) => bytes.subarray(from, to).toString('latin1');
+  if (ascii(0, 3) === 'ID3' || (bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0)) return 'mp3';
+  if (ascii(4, 8) === 'ftyp') return 'm4a';
+  if (ascii(0, 4) === 'OggS') return 'ogg';
+  if (ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WAVE') return 'wav';
+  if (bytes.readUInt32BE(0) === 0x1a45dfa3) return 'webm';
+  return null;
+}
+
+// { answer, data: base64 } -> { answer, bytes, ext }.
+export function validateAudio(body) {
+  const { answer, data } = body ?? {};
+  if (typeof answer !== 'string' || !answer.trim()) return { error: 'answer is required' };
+  if (typeof data !== 'string' || !/^[A-Za-z0-9+/]+={0,2}$/.test(data)) return { error: 'data must be base64' };
+  const bytes = Buffer.from(data, 'base64');
+  if (bytes.length > AUDIO_MAX) return { error: `the audio must be ${AUDIO_MAX / 1024 / 1024} MB or smaller` };
+  const ext = audioExtension(bytes);
+  if (!ext) return { error: 'that is not an mp3, m4a, ogg, wav or webm file' };
+  return { value: { answer: answer.trim(), bytes, ext } };
+}
+
+// The model is told to repeat a fun answer word for word; it may still add quotes or spacing.
+const sameAnswer = (text) => text.trim().replace(/^["'«“]+|["'»”]+$/g, '').replace(/\s+/g, ' ');
+
+// The public URL of the audio of the fun answer `answer` repeats, or null.
+export function answerAudio(answer, fun, audio = {}) {
+  const said = sameAnswer(answer);
+  const match = funAnswers(fun).find((item) => sameAnswer(item.answer) === said);
+  const file = match && audio?.[match.answer];
+  return file ? AUDIO_URL + file : null;
+}
+
 export function systemPrompt(lang, context) {
   return [
     `You answer questions about Roger Masellas, a web developer and teacher, on his portfolio site masellas.info. Visitors are mostly recruiters and companies. Always answer in ${NAMES[lang]}, whatever language the question is in.`,

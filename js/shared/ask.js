@@ -6,7 +6,20 @@ import { el } from './dom.js';
 const ENDPOINT = '/admin/api/ask';
 const MAX_QUESTION = 500; // as admin/lib/ask.js
 const KEEP = 10; // earlier messages sent along with a question (the server takes up to 12 in all)
+const AUDIO = '/projects/data/ask-audio/'; // a fun answer's audio (admin/lib/ask.js)
 const LINK = /\[([^\]\n]+)\]\(((?:https:\/\/|mailto:)[^)\s]+)\)/g;
+
+// Plays a fun answer's audio as the answer appears. When the browser refuses to play on its own
+// (e.g. Safari on a phone), a play button next to the answer does it.
+function playAudio(item, src, t) {
+  const audio = new Audio(src);
+  audio.play().catch(() => {
+    const button = el('button', 'ask__play', t('ask_play'));
+    button.type = 'button';
+    button.addEventListener('click', () => audio.play().catch(() => {}));
+    item.append(button);
+  });
+}
 
 // Answer text into the paragraph: [label](url) becomes a link (the server keeps only the site's own
 // addresses); everything else stays text. textContent and href only, never innerHTML.
@@ -91,6 +104,7 @@ export function bindAsk({ t, lang }) {
     pending.classList.add('ask__msg--pending');
     const messages = [...history.slice(-KEEP), { role: 'user', content: question }];
     let answer = null;
+    let audio = null;
     let code = 'error';
     try {
       const res = await fetch(ENDPOINT, {
@@ -101,12 +115,14 @@ export function bindAsk({ t, lang }) {
       });
       const json = await res.json().catch(() => ({}));
       if (res.ok && typeof json.answer === 'string') answer = json.answer;
+      if (answer && typeof json.audio === 'string' && json.audio.startsWith(AUDIO)) audio = json.audio;
       else if (['rate', 'daily', 'declined'].includes(json.code)) code = json.code;
     } catch {
       /* network: the generic message */
     }
     pending.classList.remove('ask__msg--pending');
     fill(pending.querySelector('.ask__text'), answer ?? t(`ask_${code}`));
+    if (audio) playAudio(pending, audio, t);
     if (answer) history = [...messages, { role: 'assistant', content: answer }]; // a failed question is not kept
     log.scrollTop = log.scrollHeight;
     busy = false;

@@ -20,6 +20,7 @@ Server layout:
   projects/data/some-words.<lang>.json                 home "some words" text per language, rebuilt by the admin
   projects/data/menu.<lang>.json                       menu tab tooltips per language (from the glossary), rebuilt by the admin (no legacy copy)
   projects/data/projects.json, some-words.json         legacy copies (= ca), see admin/README.md
+  projects/data/ask-audio/<hash>.<ext>                 audio of the "ask me" fun answers, uploaded in the admin
   robots.txt, sitemap.xml                              from the repo (scripts/build-pages.mjs)
   llms.txt                                             projects in en for AI crawlers, rebuilt by the admin
   sitemap-projects.xml                                 every project page with its alternates, rebuilt by the admin
@@ -156,7 +157,17 @@ location ^~ /admin/ {
   proxy_set_header X-Forwarded-Proto $scheme;
   client_max_body_size 64k;
 }
+location = /admin/api/ask-audio {
+  proxy_pass http://127.0.0.1:8787/api/ask-audio;
+  proxy_set_header Host $host;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+  client_max_body_size 2m;
+}
 ```
+
+The second block lets the "ask me" tab upload a fun answer's audio (up to 1 MB, sent as base64); every other admin route keeps the 64k limit.
 
 `^~` stops the static-assets regex from catching `/admin/*.js` and `/admin/*.css`. Also make sure dotfiles are denied, because the admin writes `.projects.json.tmp-*` for a moment while it updates the file. CloudPanel usually already has `location ~ /\. { deny all; }`; add it if it does not.
 

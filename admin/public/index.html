@@ -210,6 +210,12 @@
 				<textarea id="f-fun" name="fun" rows="6" maxlength="5000" class="rich-input" aria-describedby="fun-hint"></textarea>
 				<p id="fun-hint" class="hint">one per line, as question | answer, e.g. "Quin temps farà demà? | Evidentment, mañana sol y buen tiempo!!". the chat recognises the question in any wording or language and replies with your answer word for word.</p>
 			</div>
+			<fieldset class="field">
+				<legend>audio for fun answers</legend>
+				<p class="hint">an mp3, m4a, ogg, wav or webm file (up to 1 MB) that plays when the chat gives that answer. it is public: anyone with its address can play it. save the fun answers first; the list shows the saved ones.</p>
+				<ul id="fun-audio" class="fun-audio"></ul>
+				<p id="fun-audio-status" class="status" role="status" aria-live="polite"></p>
+			</fieldset>
 			<div class="form__actions">
 				<button type="submit" class="btn btn--primary">save</button>
 				<label class="btn" for="f-notes-file">load a .txt or .md file</label>

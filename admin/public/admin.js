@@ -1362,6 +1362,73 @@ import { hasChanges, untranslated, translationGaps } from './ui-state.js';
     $('f-fun').value = data.fun ?? '';
     notesVersion = data.version;
     notesCount();
+    renderFunAudio(data);
+  }
+
+  // One row per saved fun answer (data.answers), plus any audio whose answer is gone: play, add or
+  // replace, remove. Each change is saved at once (POST / DELETE api/ask-audio, If-Match on the notes).
+  const AUDIO_MAX = 1024 * 1024;
+  function renderFunAudio({ answers = [], audio = {} }) {
+    const rows = [...answers, ...Object.keys(audio).filter((answer) => !answers.includes(answer))].map((answer, index) => {
+      const row = el('li', 'fun-audio__row');
+      row.append(el('span', 'fun-audio__answer', answers.includes(answer) ? answer : `${answer} (no longer a fun answer)`));
+      if (audio[answer]) {
+        const player = el('audio');
+        player.controls = true;
+        player.preload = 'none';
+        player.src = audio[answer];
+        const remove = el('button', 'btn', 'remove audio');
+        remove.type = 'button';
+        remove.addEventListener('click', () => changeAudio('DELETE', { answer }));
+        row.append(player, remove);
+      }
+      if (answers.includes(answer)) {
+        const input = el('input', 'sr-only');
+        input.type = 'file';
+        input.accept = 'audio/mpeg,audio/mp4,audio/x-m4a,audio/ogg,audio/wav,audio/webm,.mp3,.m4a,.ogg,.wav,.webm';
+        input.id = `fun-audio-${index}`;
+        const label = el('label', 'btn', audio[answer] ? 'replace audio' : 'add audio');
+        label.htmlFor = input.id;
+        input.addEventListener('change', async () => {
+          const [file] = input.files;
+          input.value = '';
+          if (!file) return;
+          if (file.size > AUDIO_MAX) return setAudioStatus('that file is over 1 MB.');
+          const data = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
+          });
+          changeAudio('POST', { answer, data });
+        });
+        row.append(label, input);
+      }
+      return row;
+    });
+    $('fun-audio').replaceChildren(...(rows.length ? rows : [el('li', 'hint', 'no saved fun answers yet.')]));
+  }
+
+  function setAudioStatus(text) {
+    $('fun-audio-status').textContent = text;
+  }
+
+  async function changeAudio(method, body) {
+    setAudioStatus(method === 'POST' ? 'uploading…' : 'removing…');
+    try {
+      const data = await api(method, 'api/ask-audio', body, { ifMatch: notesVersion, track: false });
+      notesVersion = data.version;
+      renderFunAudio(data);
+      setAudioStatus(method === 'POST' ? 'audio saved' : 'audio removed');
+    } catch (err) {
+      if (err.status === 401) return;
+      if (err.status === 409) {
+        await loadNotes().catch(() => {});
+        setAudioStatus('the notes changed elsewhere. they have been reloaded: try again.');
+      } else if (err.status === 400 && err.body.errors) setAudioStatus(Object.values(err.body.errors).join(' '));
+      else if (err.status === 413) setAudioStatus('that file is too big.');
+      else setAudioStatus(err.status ? `could not save the audio: ${err.message}.` : 'could not reach the server. try again.');
+    }
   }
 
   $('f-notes').addEventListener('input', notesCount);
@@ -1388,6 +1455,7 @@ import { hasChanges, untranslated, translationGaps } from './ui-state.js';
       $('f-notes').value = data.text;
       $('f-fun').value = data.fun;
       notesCount();
+      renderFunAudio(data);
       setNotesStatus('saved');
     } catch (err) {
       if (err.status === 401) return;

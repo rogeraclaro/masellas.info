@@ -431,7 +431,8 @@ ul {
 }
 
 /* ---------- Project detail (<list path><id>/) ----------
-   Coral hero surface over the list. JS slides .detail and .page; without motion it simply appears. */
+   Charcoal surface with white text over the list. JS slides .detail and .page; without motion it
+   simply appears. */
 .page {
   position: relative;
 }
@@ -455,11 +456,11 @@ html.detail-open {
   inset: 0;
   z-index: 60; /* under the fixed menu (70), which stays visible and usable */
   overflow: hidden;
-  background: var(--coral);
-  color: var(--charcoal);
+  background: var(--charcoal);
+  color: var(--white);
 }
 
-/* Solid coral band behind the fixed controls (menu / language tabs and close, or burger and
+/* Solid charcoal band behind the fixed controls (menu / language tabs and close, or burger and
    close on phones), so the text scrolls under it instead of under the tabs. */
 .detail::before {
   content: "";
@@ -469,7 +470,7 @@ html.detail-open {
   right: 0;
   z-index: 1;
   height: var(--detail-band);
-  background: var(--coral);
+  background: var(--charcoal);
   pointer-events: none;
 }
 
@@ -492,7 +493,7 @@ html.detail-open {
   padding: var(--space-top) var(--gutter) var(--space-section);
 }
 
-/* "close" is a standard tab (.menu__tab, css/shared/menu.css), above the coral band.
+/* "close" is a standard tab (.menu__tab, css/shared/menu.css), above the charcoal band.
    Phones: top-right corner, across from the burger toggle. */
 .detail__close {
   position: absolute;
@@ -518,7 +519,7 @@ html.detail-open {
 
 .detail__close:focus-visible,
 .detail a:focus-visible {
-  outline: 2px solid var(--charcoal);
+  outline: 2px solid var(--white);
   outline-offset: 2px;
 }
 
@@ -538,7 +539,7 @@ html.detail-open {
 
 .detail__title {
   margin: var(--space-after-title) 0 0;
-  color: var(--charcoal);
+  color: var(--white);
 }
 
 .detail__title .page-title__chars {
@@ -598,7 +599,7 @@ html.detail-open {
   margin: 0 0 var(--rich-gap);
 }
 
-/* Links (.detail-link, rich-text .detail-link--inline): the shared on-coral wipe link,
+/* Links (.detail-link, rich-text .detail-link--inline): the shared on-dark wipe link,
    css/shared/wipe-link.css. */
 
 .detail-link {
@@ -614,7 +615,7 @@ html.detail-open {
 
 .detail__tools li {
   padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--charcoal);
+  border: 1px solid var(--white);
   font-family: var(--font-book);
   font-size: var(--fs-small);
   line-height: var(--lh-small);
@@ -632,7 +633,7 @@ html.detail-open {
 .detail__next {
   margin-top: 2rem;
   padding-top: 1rem;
-  border-top: 1px solid var(--hairline-on-coral);
+  border-top: 1px solid var(--hairline-on-dark);
 }
 
 /* Big heading link (next project): h2, no underline, wide wipe. */

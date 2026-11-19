@@ -879,6 +879,11 @@ test('ask audio: uploaded for a fun answer, public by content hash, sent with th
   assert.deepEqual(await readFile(path.join(audioDir, path.basename(url))), mp3);
   assert.equal((await upload({ answer: 'b', data: mp3.toString('base64') }, '"stale"')).status, 409);
 
+  // Loading the tab lists the saved answers and their audio too.
+  const loaded = await (await call(base, 'GET', '/api/ask-notes', { cookie })).json();
+  assert.deepEqual(loaded.answers, ['Sol y buen tiempo!!', 'b']);
+  assert.equal(loaded.audio['Sol y buen tiempo!!'], url);
+
   // Saving the notes keeps the audio.
   json = await (await call(base, 'PUT', '/api/ask-notes', { cookie, version: json.version, body: { text: 'Notes.', fun: json.fun } })).json();
   assert.equal(json.audio['Sol y buen tiempo!!'], url);

@@ -182,12 +182,13 @@ export function createApp({
     if (!existsSync(askNotesFile)) await writeAtomic(askNotesFile, `${JSON.stringify({ text: '', fun: '' }, null, 2)}\n`, 0o600);
   };
   // answers: the fun answers an audio can belong to; audio: { [answer]: public URL }.
-  const mutateNotes = resource(notesStore, async () => {}, (data) => ({
+  const notesShape = (data) => ({
     text: data.text,
     fun: data.fun ?? '',
     answers: funAnswers(data.fun).map((item) => item.answer),
     audio: Object.fromEntries(Object.entries(data.audio ?? {}).map(([answer, file]) => [answer, AUDIO_URL + file])),
-  }));
+  });
+  const mutateNotes = resource(notesStore, async () => {}, notesShape);
   // An audio file goes once no answer uses it (the same file may serve two answers).
   const dropAudio = async (file, data) => {
     if (!file || Object.values(data.audio ?? {}).includes(file)) return;
@@ -500,7 +501,7 @@ export function createApp({
     if (method === 'GET' && pathname === '/api/ask-notes') {
       await ensureNotes();
       const { data, version } = await notesStore.read();
-      return sendJson(res, 200, { text: data.text, fun: data.fun ?? '', version });
+      return sendJson(res, 200, { ...notesShape(data), version });
     }
     if (method === 'PUT' && pathname === '/api/ask-notes') {
       const { value, error } = validateNotes(body);

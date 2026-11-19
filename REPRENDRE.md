@@ -25,8 +25,14 @@ Co-Authored-By. Abans de cada commit, git diff --cached --stat.
 ## Pendent (per a mi)
 
 1. Google Search Console (propietat de domini verificada i sitemaps
-   enviats el 2026-11-16): opcional, demanar la indexació d'algunes
-   pàgines de projecte i, d'aquí a uns dies, revisar la cobertura.
+   enviats el 2026-11-16). Revisat el 2026-11-19: totes les pàgines de
+   projecte estan indexades; les 6 pàgines de llista (/projects/ i
+   /projects-ac/ en ca/en/es) no, perquè Google les va rastrejar entre el
+   19 i el 23/10, quan encara tenien noindex. Sol·licitada la indexació
+   de les 6 i "Validate fix" al motiu noindex el 2026-11-19. Pendent:
+   d'aquí a 1-2 setmanes comprovar que s'han indexat. La resta de no
+   indexades són d'altres subdominis (grausfp, poi, fenya) o esperades
+   (?p=, http/www, /landings/ amb noindex).
 2. Provar al navegador una pàgina de projecte (p. ex. /projects/fenya/):
    animacions, "projecte següent", tancar, canvi d'idioma i enrere.
 3. Admin: Sangre de Toro (text en/es) i descripció de Veepee (punt final,
